@@ -1,0 +1,50 @@
+name: Agent task
+description: A scoped Atelia Kit task for a coding agent.
+title: "[Agent Task]: "
+labels: ["type: agent-task", "agent: ready", "needs: triage"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+    validations:
+      required: true
+  - type: textarea
+    id: required_reading
+    attributes:
+      label: Required reading before implementation
+      value: |
+        - [ ] `README.md`
+        - [ ] `Package.swift`
+        - [ ] Related Mac/iOS or protocol issues
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: self_review
+    attributes:
+      label: Required self-review before PR
+      value: |
+        - [ ] The diff is scoped to this issue.
+        - [ ] Shared API boundaries are intentional.
+        - [ ] I avoided app-specific UI assumptions.
+        - [ ] I ran or documented `swift test`.
+        - [ ] I listed follow-up work or confirmed none is needed.
+    validations:
+      required: true
+
