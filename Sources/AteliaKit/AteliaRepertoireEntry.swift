@@ -67,6 +67,7 @@ public struct AteliaRepertoireEntry: Sendable, Codable, Equatable, Identifiable 
             case unavailable
         }
 
+        /// Decodes an availability payload from the stable `state` and `reason` keys.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             switch try container.decode(State.self, forKey: .state) {
@@ -77,6 +78,7 @@ public struct AteliaRepertoireEntry: Sendable, Codable, Equatable, Identifiable 
             }
         }
 
+        /// Encodes an availability payload using the stable `state` and `reason` keys.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             switch self {
