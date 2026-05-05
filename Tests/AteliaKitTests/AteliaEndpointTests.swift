@@ -189,8 +189,8 @@ private actor StatusOnlyClient: AteliaClient {
     #expect(repertoire.isEmpty)
 
     let status = try await client.status(for: session)
-    #expect(status.phase == .starting)
-    #expect(status.message == nil)
+    #expect(status.phase == .unknown)
+    #expect(status.message == "Protocol transport is not implemented yet.")
 }
 
 @Test func defaultStatusDerivesFromHealthSnapshot() async throws {

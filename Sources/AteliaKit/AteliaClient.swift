@@ -63,4 +63,10 @@ public actor LocalAteliaClient: AteliaClient {
         return []
     }
 
+    /// Returns the legacy local status placeholder for compatibility with older clients.
+    public func status(for session: AteliaSession) async throws -> SecretaryStatus {
+        _ = session
+        return SecretaryStatus(phase: .unknown, message: "Protocol transport is not implemented yet.")
+    }
+
 }
