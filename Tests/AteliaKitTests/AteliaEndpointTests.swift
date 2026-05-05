@@ -2,6 +2,35 @@ import Foundation
 import Testing
 @testable import AteliaKit
 
+private actor HealthOnlyClient: AteliaClient {
+    private var healthCallCount = 0
+    private var repertoireCallCount = 0
+
+    func health(for session: AteliaSession) async throws -> AteliaHealthResponse {
+        _ = session
+        healthCallCount += 1
+        return AteliaHealthResponse(
+            daemonStatus: .degraded,
+            daemonVersion: "0.0.0",
+            protocolVersion: "0.1.0",
+            storageVersion: "0.0.0",
+            storageStatus: .unavailable,
+            capabilities: [],
+            betaState: nil
+        )
+    }
+
+    func repertoire(for session: AteliaSession) async throws -> [AteliaRepertoireEntry] {
+        _ = session
+        repertoireCallCount += 1
+        return []
+    }
+
+    func callCounts() -> (health: Int, repertoire: Int) {
+        (healthCallCount, repertoireCallCount)
+    }
+}
+
 @Test func endpointBuildsBaseURL() {
     let endpoint = AteliaEndpoint(host: "127.0.0.1", port: 8787, usesTLS: false)
     #expect(endpoint.baseURL.absoluteString == "http://127.0.0.1:8787")
@@ -147,5 +176,18 @@ import Testing
 
     let status = try await client.status(for: session)
     #expect(status.phase == .starting)
+    #expect(status.message == nil)
+}
+
+@Test func defaultStatusDerivesFromHealthSnapshot() async throws {
+    let client = HealthOnlyClient()
+    let session = AteliaSession()
+
+    let status = try await client.status(for: session)
+    let counts = await client.callCounts()
+
+    #expect(counts.health == 1)
+    #expect(counts.repertoire == 0)
+    #expect(status.phase == .degraded)
     #expect(status.message == nil)
 }

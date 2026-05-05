@@ -43,9 +43,4 @@ public actor LocalAteliaClient: AteliaClient {
         return []
     }
 
-    /// Returns a placeholder secretary status for the given session.
-    public func status(for session: AteliaSession) async throws -> SecretaryStatus {
-        let health = try await health(for: session)
-        return health.secretaryStatus
-    }
 }
