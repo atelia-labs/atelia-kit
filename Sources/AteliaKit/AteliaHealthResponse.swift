@@ -104,7 +104,9 @@ public extension AteliaHealthResponse.DaemonStatus {
         switch self {
         case .starting:
             return .starting
-        case .running, .ready:
+        case .running:
+            return .starting
+        case .ready:
             return .ready
         case .degraded:
             return .degraded

@@ -7,7 +7,7 @@ import Testing
     #expect(endpoint.baseURL.absoluteString == "http://127.0.0.1:8787")
 }
 
-@Test func healthResponseMapsToSecretaryStatus() {
+@Test func healthResponseMapsRunningToStartingSecretaryPhase() {
     let health = AteliaHealthResponse(
         daemonStatus: .running,
         daemonVersion: "0.1.0",
@@ -21,6 +21,20 @@ import Testing
             restartSemantics: "preserved",
             limits: ["beta-slice"]
         )
+    )
+
+    #expect(health.secretaryStatus.phase == .starting)
+    #expect(health.secretaryStatus.message == nil)
+}
+
+@Test func healthResponseMapsReadyToReadySecretaryPhase() {
+    let health = AteliaHealthResponse(
+        daemonStatus: .ready,
+        daemonVersion: "0.1.0",
+        protocolVersion: "0.1.0",
+        storageVersion: "0.1.0",
+        storageStatus: .ready,
+        capabilities: []
     )
 
     #expect(health.secretaryStatus.phase == .ready)
