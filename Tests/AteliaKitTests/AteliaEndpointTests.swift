@@ -31,6 +31,20 @@ private actor HealthOnlyClient: AteliaClient {
     }
 }
 
+private actor StatusOnlyClient: AteliaClient {
+    private var statusCallCount = 0
+
+    func status(for session: AteliaSession) async throws -> SecretaryStatus {
+        _ = session
+        statusCallCount += 1
+        return SecretaryStatus(phase: .ready, message: "legacy")
+    }
+
+    func callCount() -> Int {
+        statusCallCount
+    }
+}
+
 @Test func endpointBuildsBaseURL() {
     let endpoint = AteliaEndpoint(host: "127.0.0.1", port: 8787, usesTLS: false)
     #expect(endpoint.baseURL.absoluteString == "http://127.0.0.1:8787")
@@ -190,4 +204,24 @@ private actor HealthOnlyClient: AteliaClient {
     #expect(counts.repertoire == 0)
     #expect(status.phase == .degraded)
     #expect(status.message == nil)
+}
+
+@Test func statusOnlyConformerStillCompilesAndUsesLegacyStatusImplementation() async throws {
+    let client = StatusOnlyClient()
+    let session = AteliaSession()
+
+    let status = try await client.status(for: session)
+    let callCount = await client.callCount()
+
+    #expect(callCount == 1)
+    #expect(status.phase == .ready)
+    #expect(status.message == "legacy")
+
+    await #expect(throws: AteliaClientError.healthUnavailable) {
+        _ = try await client.health(for: session)
+    }
+
+    await #expect(throws: AteliaClientError.repertoireUnavailable) {
+        _ = try await client.repertoire(for: session)
+    }
 }

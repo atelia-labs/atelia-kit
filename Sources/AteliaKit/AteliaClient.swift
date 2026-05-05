@@ -1,5 +1,13 @@
 import Foundation
 
+/// Errors thrown by the default `AteliaClient` compatibility surface.
+public enum AteliaClientError: Error, Sendable, Equatable {
+    /// The conformer does not provide a health snapshot implementation.
+    case healthUnavailable
+    /// The conformer does not provide a repertoire implementation.
+    case repertoireUnavailable
+}
+
 /// Protocol for fetching Atelia health, repertoire, and derived secretary status for a session.
 public protocol AteliaClient: Sendable {
     /// Returns the current health snapshot for the given session.
@@ -11,6 +19,18 @@ public protocol AteliaClient: Sendable {
 }
 
 public extension AteliaClient {
+    /// Returns a compatibility error when the conformer does not provide health.
+    func health(for session: AteliaSession) async throws -> AteliaHealthResponse {
+        _ = session
+        throw AteliaClientError.healthUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide repertoire.
+    func repertoire(for session: AteliaSession) async throws -> [AteliaRepertoireEntry] {
+        _ = session
+        throw AteliaClientError.repertoireUnavailable
+    }
+
     /// Returns the secretary status derived from the current health snapshot.
     func status(for session: AteliaSession) async throws -> SecretaryStatus {
         let health = try await health(for: session)
