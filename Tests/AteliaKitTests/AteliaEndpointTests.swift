@@ -41,6 +41,42 @@ import Testing
     #expect(health.secretaryStatus.message == nil)
 }
 
+@Test func healthResponseDecodesCanonicalSnakeCaseProtocolJSON() throws {
+    let data = #"""
+    {
+      "daemon_status": "degraded",
+      "daemon_version": "1.2.3",
+      "protocol_version": "2.0.0",
+      "storage_version": "4.5.6",
+      "storage_status": "read_only",
+      "capabilities": ["health.v1", "beta.v1"],
+      "beta_state": {
+        "scope": "workspace",
+        "durability": "session",
+        "restart_semantics": "preserved",
+        "limits": ["beta-slice"]
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaHealthResponse.self, from: data)
+
+    #expect(decoded == AteliaHealthResponse(
+        daemonStatus: .degraded,
+        daemonVersion: "1.2.3",
+        protocolVersion: "2.0.0",
+        storageVersion: "4.5.6",
+        storageStatus: .readOnly,
+        capabilities: ["health.v1", "beta.v1"],
+        betaState: .init(
+            scope: "workspace",
+            durability: "session",
+            restartSemantics: "preserved",
+            limits: ["beta-slice"]
+        )
+    ))
+}
+
 @Test func repertoireEntryRoundTripsAvailability() throws {
     let entry = AteliaRepertoireEntry(
         id: "tool.fs.write",
@@ -63,6 +99,41 @@ import Testing
     #expect(decoded == entry)
 }
 
+@Test func repertoireEntryDecodesCanonicalSnakeCaseProtocolJSON() throws {
+    let data = #"""
+    {
+      "id": "tool.fs.write",
+      "label": "Write file",
+      "declared_effect": "Writes to the workspace",
+      "risk_tier": "r2",
+      "scope": "workspace",
+      "invocation_style": "sync",
+      "availability": {
+        "state": "unavailable",
+        "reason": "missing capability"
+      },
+      "visibility": "both",
+      "permission": false,
+      "runnable_now": false
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaRepertoireEntry.self, from: data)
+
+    #expect(decoded == AteliaRepertoireEntry(
+        id: "tool.fs.write",
+        label: "Write file",
+        declaredEffect: "Writes to the workspace",
+        riskTier: .r2,
+        scope: .workspace,
+        invocationStyle: .sync,
+        availability: .unavailable(reason: "missing capability"),
+        visibility: .both,
+        permission: false,
+        runnableNow: false
+    ))
+}
+
 @Test func localClientExposesTypedProtocolSurface() async throws {
     let client = LocalAteliaClient()
     let session = AteliaSession()
@@ -75,6 +146,6 @@ import Testing
     #expect(repertoire.isEmpty)
 
     let status = try await client.status(for: session)
-    #expect(status.phase == .unknown)
-    #expect(status.message == "Protocol transport is not implemented yet.")
+    #expect(status.phase == .starting)
+    #expect(status.message == nil)
 }

@@ -30,6 +30,13 @@ public struct AteliaHealthResponse: Sendable, Codable, Equatable {
 
     /// Optional beta metadata surfaced by the daemon.
     public struct BetaState: Sendable, Codable, Equatable {
+        private enum CodingKeys: String, CodingKey {
+            case scope
+            case durability
+            case restartSemantics = "restart_semantics"
+            case limits
+        }
+
         /// Scope covered by the beta state.
         public var scope: String
         /// Durability expectations for the beta feature.
@@ -51,6 +58,16 @@ public struct AteliaHealthResponse: Sendable, Codable, Equatable {
             self.restartSemantics = restartSemantics
             self.limits = limits
         }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case daemonStatus = "daemon_status"
+        case daemonVersion = "daemon_version"
+        case protocolVersion = "protocol_version"
+        case storageVersion = "storage_version"
+        case storageStatus = "storage_status"
+        case capabilities
+        case betaState = "beta_state"
     }
 
     /// Current daemon status.

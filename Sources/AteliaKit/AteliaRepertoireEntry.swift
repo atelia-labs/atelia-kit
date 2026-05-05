@@ -91,6 +91,19 @@ public struct AteliaRepertoireEntry: Sendable, Codable, Equatable, Identifiable 
         }
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case label
+        case declaredEffect = "declared_effect"
+        case riskTier = "risk_tier"
+        case scope
+        case invocationStyle = "invocation_style"
+        case availability
+        case visibility
+        case permission
+        case runnableNow = "runnable_now"
+    }
+
     /// Stable identifier for the entry.
     public var id: String
     /// Human-readable entry label.

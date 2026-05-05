@@ -45,10 +45,7 @@ public actor LocalAteliaClient: AteliaClient {
 
     /// Returns a placeholder secretary status for the given session.
     public func status(for session: AteliaSession) async throws -> SecretaryStatus {
-        _ = session
-        return SecretaryStatus(
-            phase: .unknown,
-            message: "Protocol transport is not implemented yet."
-        )
+        let health = try await health(for: session)
+        return health.secretaryStatus
     }
 }
