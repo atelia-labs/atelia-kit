@@ -6,6 +6,12 @@ Atelia Kit is the shared Swift package used by Atelia Mac and Atelia iOS.
 
 This repository owns shared client logic for Apple platform clients, not UI.
 
+Within AEP, Atelia Kit owns shared client-side models for presentation hosts:
+Atelia Protocol client state, AEP package / component / permission / risk
+models, semantic presentation declarations, action routing inputs, and extension
+inspection view-model coordination. It does not execute extension code or render
+platform-specific UI.
+
 ## Scope
 
 - Atelia Protocol client
@@ -15,6 +21,8 @@ This repository owns shared client logic for Apple platform clients, not UI.
 - local cache interfaces
 - notification routing
 - platform-neutral view model coordination
+- AEP package, permission, and semantic presentation models
+- extension inspector and permission diff view-model support
 
 ## Non-goals
 
