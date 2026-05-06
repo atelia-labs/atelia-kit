@@ -210,6 +210,37 @@ import Testing
     }
 }
 
+@Test func httpClientPreservesErrorRecoveryFields() async throws {
+    let client = HTTPAteliaClient(transport: .fixture(statusCode: 429) { _ in
+        #"""
+        {
+          "status": "error",
+          "error": {
+            "code": "rate_limited",
+            "reason": "retry after daemon cooldown",
+            "recoverable": true,
+            "next_state": "retry_same_request",
+            "retry_after": 2.5,
+            "audit_ref": "aud_123"
+          }
+        }
+        """#
+    })
+
+    await #expect(throws: HTTPAteliaClientError.apiError(
+        AteliaAPIError(
+            code: "rate_limited",
+            reason: "retry after daemon cooldown",
+            recoverable: true,
+            nextState: "retry_same_request",
+            retryAfter: .seconds(2.5),
+            auditRef: "aud_123"
+        )
+    )) {
+        _ = try await client.health(for: AteliaSession())
+    }
+}
+
 private extension AteliaHTTPTransport {
     static func fixture(
         statusCode: Int = 200,

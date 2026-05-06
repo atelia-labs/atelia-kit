@@ -39,11 +39,59 @@ public struct AteliaRepository: Sendable, Codable, Equatable, Identifiable {
         case updatedAtUnixMilliseconds = "updated_at_unix_ms"
     }
 
-    public enum TrustState: String, Sendable, Codable, Equatable {
+    public enum TrustState: Sendable, Codable, Equatable, RawRepresentable {
         case unspecified
         case trusted
-        case readOnly = "read_only"
+        case readOnly
         case blocked
+        case unknown(String)
+
+        public init?(rawValue: String) {
+            switch rawValue {
+            case "unspecified":
+                self = .unspecified
+            case "trusted":
+                self = .trusted
+            case "read_only":
+                self = .readOnly
+            case "blocked":
+                self = .blocked
+            default:
+                self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .unspecified:
+                return "unspecified"
+            case .trusted:
+                return "trusted"
+            case .readOnly:
+                return "read_only"
+            case .blocked:
+                return "blocked"
+            case .unknown(let rawValue):
+                return rawValue
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            guard let value = Self(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid trust state: \(rawValue)"
+                )
+            }
+            self = value
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 
     public var repositoryId: String
@@ -84,11 +132,59 @@ public struct AteliaPathScope: Sendable, Codable, Equatable {
         case excludePatterns = "exclude_patterns"
     }
 
-    public enum Kind: String, Sendable, Codable, Equatable {
+    public enum Kind: Sendable, Codable, Equatable, RawRepresentable {
         case unspecified
         case repository
-        case explicitPaths = "explicit_paths"
-        case readOnly = "read_only"
+        case explicitPaths
+        case readOnly
+        case unknown(String)
+
+        public init?(rawValue: String) {
+            switch rawValue {
+            case "unspecified":
+                self = .unspecified
+            case "repository":
+                self = .repository
+            case "explicit_paths":
+                self = .explicitPaths
+            case "read_only":
+                self = .readOnly
+            default:
+                self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .unspecified:
+                return "unspecified"
+            case .repository:
+                return "repository"
+            case .explicitPaths:
+                return "explicit_paths"
+            case .readOnly:
+                return "read_only"
+            case .unknown(let rawValue):
+                return rawValue
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            guard let value = Self(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid path scope kind: \(rawValue)"
+                )
+            }
+            self = value
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 
     public var kind: Kind
@@ -111,6 +207,12 @@ public struct AteliaPathScope: Sendable, Codable, Equatable {
 
 /// Platform-neutral project identity used by client coordination surfaces.
 public struct AteliaProjectIdentity: Sendable, Codable, Equatable, Identifiable {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case displayName = "display_name"
+        case repositoryId = "repository_id"
+    }
+
     public var id: String
     public var displayName: String
     public var repositoryId: String?
@@ -124,6 +226,12 @@ public struct AteliaProjectIdentity: Sendable, Codable, Equatable, Identifiable 
 
 /// Platform-neutral thread identity used by Mac and iOS navigation.
 public struct AteliaThreadIdentity: Sendable, Codable, Equatable, Identifiable {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case projectId = "project_id"
+        case title
+    }
+
     public var id: String
     public var projectId: String
     public var title: String
@@ -209,7 +317,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         case cancellation
     }
 
-    public enum Status: String, Sendable, Codable, Equatable {
+    public enum Status: Sendable, Codable, Equatable, RawRepresentable {
         case queued
         case running
         case succeeded
@@ -217,6 +325,66 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         case blocked
         case canceled
         case unknown
+        case unrecognized(String)
+
+        public init?(rawValue: String) {
+            switch rawValue {
+            case "queued":
+                self = .queued
+            case "running":
+                self = .running
+            case "succeeded":
+                self = .succeeded
+            case "failed":
+                self = .failed
+            case "blocked":
+                self = .blocked
+            case "canceled":
+                self = .canceled
+            case "unknown":
+                self = .unknown
+            default:
+                self = .unrecognized(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .queued:
+                return "queued"
+            case .running:
+                return "running"
+            case .succeeded:
+                return "succeeded"
+            case .failed:
+                return "failed"
+            case .blocked:
+                return "blocked"
+            case .canceled:
+                return "canceled"
+            case .unknown:
+                return "unknown"
+            case .unrecognized(let rawValue):
+                return rawValue
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            guard let value = Self(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid job status: \(rawValue)"
+                )
+            }
+            self = value
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 
     public var jobId: String
@@ -327,19 +495,119 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
         case auditRef = "audit_ref"
     }
 
-    public enum Outcome: String, Sendable, Codable, Equatable {
+    public enum Outcome: Sendable, Codable, Equatable, RawRepresentable {
         case allowed
         case audited
-        case needsApproval = "needs_approval"
+        case needsApproval
         case blocked
+        case unknown(String)
+
+        public init?(rawValue: String) {
+            switch rawValue {
+            case "allowed":
+                self = .allowed
+            case "audited":
+                self = .audited
+            case "needs_approval":
+                self = .needsApproval
+            case "blocked":
+                self = .blocked
+            default:
+                self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .allowed:
+                return "allowed"
+            case .audited:
+                return "audited"
+            case .needsApproval:
+                return "needs_approval"
+            case .blocked:
+                return "blocked"
+            case .unknown(let rawValue):
+                return rawValue
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            guard let value = Self(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid policy outcome: \(rawValue)"
+                )
+            }
+            self = value
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 
-    public enum RiskTier: String, Sendable, Codable, Equatable {
-        case r0 = "R0"
-        case r1 = "R1"
-        case r2 = "R2"
-        case r3 = "R3"
-        case r4 = "R4"
+    public enum RiskTier: Sendable, Codable, Equatable, RawRepresentable {
+        case r0
+        case r1
+        case r2
+        case r3
+        case r4
+        case unknown(String)
+
+        public init?(rawValue: String) {
+            switch rawValue {
+            case "R0":
+                self = .r0
+            case "R1":
+                self = .r1
+            case "R2":
+                self = .r2
+            case "R3":
+                self = .r3
+            case "R4":
+                self = .r4
+            default:
+                self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .r0:
+                return "R0"
+            case .r1:
+                return "R1"
+            case .r2:
+                return "R2"
+            case .r3:
+                return "R3"
+            case .r4:
+                return "R4"
+            case .unknown(let rawValue):
+                return rawValue
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            guard let value = Self(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid risk tier: \(rawValue)"
+                )
+            }
+            self = value
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 
     public var decisionId: String
@@ -375,12 +643,72 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
 }
 
 public struct AteliaApprovalState: Sendable, Codable, Equatable, Identifiable {
-    public enum Status: String, Sendable, Codable, Equatable {
-        case notRequired = "not_required"
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case status
+        case policyDecisionId = "policy_decision_id"
+        case requestedBy = "requested_by"
+        case reason
+    }
+
+    public enum Status: Sendable, Codable, Equatable, RawRepresentable {
+        case notRequired
         case pending
         case approved
         case denied
         case expired
+        case unknown(String)
+
+        public init?(rawValue: String) {
+            switch rawValue {
+            case "not_required":
+                self = .notRequired
+            case "pending":
+                self = .pending
+            case "approved":
+                self = .approved
+            case "denied":
+                self = .denied
+            case "expired":
+                self = .expired
+            default:
+                self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .notRequired:
+                return "not_required"
+            case .pending:
+                return "pending"
+            case .approved:
+                return "approved"
+            case .denied:
+                return "denied"
+            case .expired:
+                return "expired"
+            case .unknown(let rawValue):
+                return rawValue
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            guard let value = Self(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid approval status: \(rawValue)"
+                )
+            }
+            self = value
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 
     public var id: String
@@ -405,6 +733,14 @@ public struct AteliaApprovalState: Sendable, Codable, Equatable, Identifiable {
 }
 
 public struct AteliaAuditReference: Sendable, Codable, Equatable, Identifiable {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case repositoryId = "repository_id"
+        case jobId = "job_id"
+        case policyDecisionId = "policy_decision_id"
+        case message
+    }
+
     public var id: String
     public var repositoryId: String?
     public var jobId: String?
@@ -427,12 +763,74 @@ public struct AteliaAuditReference: Sendable, Codable, Equatable, Identifiable {
 }
 
 public struct AteliaReviewQueueItem: Sendable, Codable, Equatable, Identifiable {
-    public enum Kind: String, Sendable, Codable, Equatable {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case kind
+        case title
+        case repositoryId = "repository_id"
+        case jobId = "job_id"
+        case policyDecisionId = "policy_decision_id"
+        case priority
+    }
+
+    public enum Kind: Sendable, Codable, Equatable, RawRepresentable {
         case approval
         case review
         case policy
         case audit
         case job
+        case unknown(String)
+
+        public init?(rawValue: String) {
+            switch rawValue {
+            case "approval":
+                self = .approval
+            case "review":
+                self = .review
+            case "policy":
+                self = .policy
+            case "audit":
+                self = .audit
+            case "job":
+                self = .job
+            default:
+                self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .approval:
+                return "approval"
+            case .review:
+                return "review"
+            case .policy:
+                return "policy"
+            case .audit:
+                return "audit"
+            case .job:
+                return "job"
+            case .unknown(let rawValue):
+                return rawValue
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            guard let value = Self(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid review queue kind: \(rawValue)"
+                )
+            }
+            self = value
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 
     public var id: String

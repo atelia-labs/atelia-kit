@@ -28,6 +28,99 @@ import Testing
     #expect(decoded.allowedScope.excludePatterns == [".build/**"])
 }
 
+@Test func protocolModelsPreserveUnknownEnumValues() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.1.0",
+        "daemon_version": "0.2.0",
+        "storage_version": "0.2.0",
+        "capabilities": ["project_status.v1"]
+      },
+      "repository": {
+        "repository_id": "repo_123",
+        "display_name": "Atelia Kit",
+        "root_path": "/workspace/atelia-kit",
+        "allowed_scope": {
+          "kind": "workspace_overlay",
+          "roots": ["/workspace/atelia-kit"],
+          "include_patterns": [],
+          "exclude_patterns": []
+        },
+        "trust_state": "quarantined",
+        "created_at_unix_ms": 1710000000000,
+        "updated_at_unix_ms": 1710000100000
+      },
+      "recent_jobs": [
+        {
+          "job_id": "job_123",
+          "repository_id": "repo_123",
+          "requester": {
+            "type": "agent",
+            "id": "agent_secretary",
+            "display_name": "Secretary"
+          },
+          "kind": "tool",
+          "goal": "Read package manifest",
+          "status": "paused",
+          "policy_summary": null,
+          "created_at_unix_ms": 1710000000000,
+          "started_at_unix_ms": null,
+          "completed_at_unix_ms": null,
+          "latest_event_id": null,
+          "cancellation": {
+            "state": "none",
+            "requested_by": null,
+            "reason": null,
+            "requested_at_unix_ms": null,
+            "completed_at_unix_ms": null
+          }
+        }
+      ],
+      "recent_policy_decisions": [
+        {
+          "decision_id": "pol_123",
+          "outcome": "deferred",
+          "risk_tier": "R5",
+          "requested_capability": "filesystem.write",
+          "reason_code": "new_policy",
+          "reason": "New daemon policy",
+          "approval_request_ref": null,
+          "audit_ref": null
+        }
+      ],
+      "latest_cursor": null,
+      "daemon_status": "warming",
+      "storage_status": "repairing"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaProjectStatus.self, from: data)
+
+    #expect(decoded.repository.trustState == .unknown("quarantined"))
+    #expect(decoded.repository.allowedScope.kind == .unknown("workspace_overlay"))
+    #expect(decoded.recentJobs[0].status == .unrecognized("paused"))
+    #expect(decoded.recentPolicyDecisions[0].outcome == .unknown("deferred"))
+    #expect(decoded.recentPolicyDecisions[0].riskTier == .unknown("R5"))
+    #expect(decoded.daemonStatus == .unknown("warming"))
+    #expect(decoded.storageStatus == .unknown("repairing"))
+
+    let encoded = try JSONEncoder().encode(decoded)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    let repository = try #require(object["repository"] as? [String: Any])
+    let allowedScope = try #require(repository["allowed_scope"] as? [String: Any])
+    let jobs = try #require(object["recent_jobs"] as? [[String: Any]])
+    let policies = try #require(object["recent_policy_decisions"] as? [[String: Any]])
+
+    #expect(repository["trust_state"] as? String == "quarantined")
+    #expect(allowedScope["kind"] as? String == "workspace_overlay")
+    #expect(jobs[0]["status"] as? String == "paused")
+    #expect(policies[0]["outcome"] as? String == "deferred")
+    #expect(policies[0]["risk_tier"] as? String == "R5")
+    #expect(object["daemon_status"] as? String == "warming")
+    #expect(object["storage_status"] as? String == "repairing")
+}
+
 @Test func jobPolicyAndActorRoundTrip() throws {
     let job = AteliaJob(
         jobId: "job_123",
@@ -118,20 +211,116 @@ import Testing
 }
 
 @Test func reviewQueueItemIsPlatformNeutralAndCodable() throws {
-    let item = AteliaReviewQueueItem(
-        id: "review_123",
-        kind: .approval,
-        title: "Approve filesystem write",
-        repositoryId: "repo_123",
-        jobId: "job_123",
-        policyDecisionId: "pol_123",
-        priority: 2
-    )
+    let data = #"""
+    {
+      "id": "review_123",
+      "kind": "approval",
+      "title": "Approve filesystem write",
+      "repository_id": "repo_123",
+      "job_id": "job_123",
+      "policy_decision_id": "pol_123",
+      "priority": 2
+    }
+    """#.data(using: .utf8)!
 
-    let data = try JSONEncoder().encode(item)
     let decoded = try JSONDecoder().decode(AteliaReviewQueueItem.self, from: data)
+    let encoded = try JSONEncoder().encode(decoded)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
 
-    #expect(decoded == item)
+    #expect(decoded.repositoryId == "repo_123")
+    #expect(decoded.jobId == "job_123")
+    #expect(decoded.policyDecisionId == "pol_123")
+    #expect(object["repository_id"] as? String == "repo_123")
+    #expect(object["job_id"] as? String == "job_123")
+    #expect(object["policy_decision_id"] as? String == "pol_123")
+}
+
+@Test func approvalAndReviewQueueEnumsPreserveUnknownValues() throws {
+    let approvalData = #"""
+    {
+      "id": "approval_123",
+      "status": "escalated",
+      "policy_decision_id": "pol_123",
+      "requested_by": {
+        "type": "user",
+        "id": "user_123",
+        "display_name": "Approver"
+      },
+      "reason": null
+    }
+    """#.data(using: .utf8)!
+    let reviewData = #"""
+    {
+      "id": "review_123",
+      "kind": "handoff",
+      "title": "Human handoff",
+      "repository_id": null,
+      "job_id": null,
+      "policy_decision_id": null,
+      "priority": 1
+    }
+    """#.data(using: .utf8)!
+
+    let approval = try JSONDecoder().decode(AteliaApprovalState.self, from: approvalData)
+    let review = try JSONDecoder().decode(AteliaReviewQueueItem.self, from: reviewData)
+    let encodedApproval = try JSONEncoder().encode(approval)
+    let approvalObject = try #require(JSONSerialization.jsonObject(with: encodedApproval) as? [String: Any])
+
+    #expect(approval.status == .unknown("escalated"))
+    #expect(approval.policyDecisionId == "pol_123")
+    #expect(approval.requestedBy == .user(id: "user_123", displayName: "Approver"))
+    #expect(approvalObject["policy_decision_id"] as? String == "pol_123")
+    #expect(approvalObject["requested_by"] != nil)
+    #expect(review.kind == .unknown("handoff"))
+}
+
+@Test func clientIdentityAndAuditReferencesUseProtocolSnakeCaseKeys() throws {
+    let identityData = #"""
+    {
+      "id": "project_123",
+      "display_name": "Atelia Project",
+      "repository_id": "repo_123"
+    }
+    """#.data(using: .utf8)!
+    let threadData = #"""
+    {
+      "id": "thread_123",
+      "project_id": "project_123",
+      "title": "Review protocol"
+    }
+    """#.data(using: .utf8)!
+    let auditData = #"""
+    {
+      "id": "audit_123",
+      "repository_id": "repo_123",
+      "job_id": "job_123",
+      "policy_decision_id": "pol_123",
+      "message": "Recorded policy decision"
+    }
+    """#.data(using: .utf8)!
+
+    let identity = try JSONDecoder().decode(AteliaProjectIdentity.self, from: identityData)
+    let thread = try JSONDecoder().decode(AteliaThreadIdentity.self, from: threadData)
+    let audit = try JSONDecoder().decode(AteliaAuditReference.self, from: auditData)
+    let encodedIdentity = try JSONEncoder().encode(identity)
+    let encodedThread = try JSONEncoder().encode(thread)
+    let encodedAudit = try JSONEncoder().encode(audit)
+    let identityObject = try #require(JSONSerialization.jsonObject(with: encodedIdentity) as? [String: Any])
+    let threadObject = try #require(JSONSerialization.jsonObject(with: encodedThread) as? [String: Any])
+    let auditObject = try #require(JSONSerialization.jsonObject(with: encodedAudit) as? [String: Any])
+
+    #expect(identity.displayName == "Atelia Project")
+    #expect(identity.repositoryId == "repo_123")
+    #expect(thread.projectId == "project_123")
+    #expect(audit.repositoryId == "repo_123")
+    #expect(audit.jobId == "job_123")
+    #expect(audit.policyDecisionId == "pol_123")
+    #expect(identityObject["display_name"] as? String == "Atelia Project")
+    #expect(identityObject["repository_id"] as? String == "repo_123")
+    #expect(threadObject["project_id"] as? String == "project_123")
+    #expect(auditObject["repository_id"] as? String == "repo_123")
+    #expect(auditObject["job_id"] as? String == "job_123")
+    #expect(auditObject["policy_decision_id"] as? String == "pol_123")
 }
 
 @Test func toolRepertoireDecodesBetaProjection() throws {

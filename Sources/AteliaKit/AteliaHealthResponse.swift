@@ -3,7 +3,7 @@ import Foundation
 /// Health payload returned by the secretary daemon.
 public struct AteliaHealthResponse: Sendable, Codable, Equatable {
     /// High-level daemon state.
-    public enum DaemonStatus: String, Sendable, Codable, Equatable {
+    public enum DaemonStatus: Sendable, Codable, Equatable, RawRepresentable {
         /// The daemon is starting up.
         case starting
         /// The daemon is running but not yet ready for use.
@@ -14,18 +14,120 @@ public struct AteliaHealthResponse: Sendable, Codable, Equatable {
         case degraded
         /// The daemon is shutting down.
         case stopping
+        /// A daemon status this client version does not know yet.
+        case unknown(String)
+
+        public init?(rawValue: String) {
+            switch rawValue {
+            case "starting":
+                self = .starting
+            case "running":
+                self = .running
+            case "ready":
+                self = .ready
+            case "degraded":
+                self = .degraded
+            case "stopping":
+                self = .stopping
+            default:
+                self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .starting:
+                return "starting"
+            case .running:
+                return "running"
+            case .ready:
+                return "ready"
+            case .degraded:
+                return "degraded"
+            case .stopping:
+                return "stopping"
+            case .unknown(let rawValue):
+                return rawValue
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            guard let value = Self(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid daemon status: \(rawValue)"
+                )
+            }
+            self = value
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 
     /// Storage state reported by the daemon.
-    public enum StorageStatus: String, Sendable, Codable, Equatable {
+    public enum StorageStatus: Sendable, Codable, Equatable, RawRepresentable {
         /// Storage is ready for use.
         case ready
         /// Storage is migrating between versions or layouts.
         case migrating
         /// Storage is available in read-only mode.
-        case readOnly = "read_only"
+        case readOnly
         /// Storage is not currently available.
         case unavailable
+        /// A storage status this client version does not know yet.
+        case unknown(String)
+
+        public init?(rawValue: String) {
+            switch rawValue {
+            case "ready":
+                self = .ready
+            case "migrating":
+                self = .migrating
+            case "read_only":
+                self = .readOnly
+            case "unavailable":
+                self = .unavailable
+            default:
+                self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .ready:
+                return "ready"
+            case .migrating:
+                return "migrating"
+            case .readOnly:
+                return "read_only"
+            case .unavailable:
+                return "unavailable"
+            case .unknown(let rawValue):
+                return rawValue
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let rawValue = try container.decode(String.self)
+            guard let value = Self(rawValue: rawValue) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid storage status: \(rawValue)"
+                )
+            }
+            self = value
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
     }
 
     /// Optional beta metadata surfaced by the daemon.
@@ -129,6 +231,8 @@ public extension AteliaHealthResponse.DaemonStatus {
             return .degraded
         case .stopping:
             return .offline
+        case .unknown:
+            return .degraded
         }
     }
 }

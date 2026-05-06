@@ -15,18 +15,56 @@ public struct AteliaAPIError: Sendable, Codable, Equatable {
         case reason
         case recoverable
         case nextState = "next_state"
+        case retryAfter = "retry_after"
+        case auditRef = "audit_ref"
     }
 
     public var code: String
     public var reason: String
     public var recoverable: Bool
     public var nextState: String
+    public var retryAfter: AteliaRetryAfter?
+    public var auditRef: String?
 
-    public init(code: String, reason: String, recoverable: Bool, nextState: String) {
+    public init(
+        code: String,
+        reason: String,
+        recoverable: Bool,
+        nextState: String,
+        retryAfter: AteliaRetryAfter? = nil,
+        auditRef: String? = nil
+    ) {
         self.code = code
         self.reason = reason
         self.recoverable = recoverable
         self.nextState = nextState
+        self.retryAfter = retryAfter
+        self.auditRef = auditRef
+    }
+}
+
+/// Retry hint returned by Secretary errors.
+public enum AteliaRetryAfter: Sendable, Codable, Equatable {
+    case seconds(Double)
+    case token(String)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let seconds = try? container.decode(Double.self) {
+            self = .seconds(seconds)
+            return
+        }
+        self = .token(try container.decode(String.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .seconds(let seconds):
+            try container.encode(seconds)
+        case .token(let token):
+            try container.encode(token)
+        }
     }
 }
 
