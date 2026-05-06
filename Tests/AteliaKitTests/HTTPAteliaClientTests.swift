@@ -127,6 +127,62 @@ import Testing
     #expect(entries.map(\.toolId) == ["secretary.echo"])
 }
 
+@Test func httpClientFetchesProjectStatus() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/project-status:get")
+        #expect(request.httpMethod == "POST")
+
+        let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+        #expect(body?["repository_id"] as? String == "repo_123")
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["project_status.v1"]
+            },
+            "repository": {
+              "repository_id": "repo_123",
+              "display_name": "Atelia Kit",
+              "root_path": "/workspace/atelia-kit",
+              "allowed_scope": {
+                "kind": "repository",
+                "roots": ["/workspace/atelia-kit"],
+                "include_patterns": [],
+                "exclude_patterns": []
+              },
+              "trust_state": "trusted",
+              "created_at_unix_ms": 1710000000000,
+              "updated_at_unix_ms": 1710000100000
+            },
+            "recent_jobs": [],
+            "recent_policy_decisions": [],
+            "latest_cursor": {
+              "sequence": 7,
+              "event_id": "evt_7"
+            },
+            "daemon_status": "running",
+            "storage_status": "ready"
+          }
+        }
+        """#
+    })
+
+    let status = try await client.projectStatus(
+        for: AteliaSession(),
+        repositoryId: "repo_123"
+    )
+
+    #expect(status.repository.repositoryId == "repo_123")
+    #expect(status.latestCursor?.eventId == "evt_7")
+    #expect(status.daemonStatus == .running)
+    #expect(status.storageStatus == .ready)
+}
+
 @Test func httpClientSurfacesStructuredAPIError() async throws {
     let client = HTTPAteliaClient(transport: .fixture(statusCode: 401) { _ in
         #"""
