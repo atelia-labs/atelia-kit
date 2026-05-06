@@ -56,9 +56,9 @@ import Testing
           "job_id": "job_123",
           "repository_id": "repo_123",
           "requester": {
-            "type": "agent",
-            "id": "agent_secretary",
-            "display_name": "Secretary"
+            "type": "automation",
+            "id": "automation_secretary",
+            "display_name": "Secretary Automation"
           },
           "kind": "tool",
           "goal": "Read package manifest",
@@ -99,6 +99,11 @@ import Testing
 
     #expect(decoded.repository.trustState == .unknown("quarantined"))
     #expect(decoded.repository.allowedScope.kind == .unknown("workspace_overlay"))
+    #expect(decoded.recentJobs[0].requester == .unknown(
+        rawValue: "automation",
+        id: "automation_secretary",
+        displayName: "Secretary Automation"
+    ))
     #expect(decoded.recentJobs[0].status == .unrecognized("paused"))
     #expect(decoded.recentPolicyDecisions[0].outcome == .unknown("deferred"))
     #expect(decoded.recentPolicyDecisions[0].riskTier == .unknown("R5"))
@@ -114,6 +119,10 @@ import Testing
 
     #expect(repository["trust_state"] as? String == "quarantined")
     #expect(allowedScope["kind"] as? String == "workspace_overlay")
+    let requester = try #require(jobs[0]["requester"] as? [String: Any])
+    #expect(requester["type"] as? String == "automation")
+    #expect(requester["id"] as? String == "automation_secretary")
+    #expect(requester["display_name"] as? String == "Secretary Automation")
     #expect(jobs[0]["status"] as? String == "paused")
     #expect(policies[0]["outcome"] as? String == "deferred")
     #expect(policies[0]["risk_tier"] as? String == "R5")

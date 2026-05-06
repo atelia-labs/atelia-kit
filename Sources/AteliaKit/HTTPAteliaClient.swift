@@ -6,6 +6,7 @@ public enum HTTPAteliaClientError: Error, Sendable, Equatable {
     case invalidHTTPResponse
     case unsuccessfulStatus(code: Int, reason: String?)
     case apiError(AteliaAPIError)
+    case repeatedPageToken(String)
 }
 
 /// Stable error shape returned by the daemon transport.
@@ -116,8 +117,9 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
     public func repositories(for session: AteliaSession) async throws -> [AteliaRepository] {
         var repositories: [AteliaRepository] = []
         var pageToken: String?
+        var seenPageTokens = Set<String>()
 
-        repeat {
+        while true {
             let response: ListRepositoriesResponse = try await send(
                 session: session,
                 method: "POST",
@@ -125,8 +127,15 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
                 body: ListRepositoriesRequest(pageToken: pageToken)
             )
             repositories.append(contentsOf: response.repositories)
-            pageToken = response.nextPageToken
-        } while pageToken != nil
+
+            guard let nextPageToken = response.nextPageToken else {
+                break
+            }
+            guard seenPageTokens.insert(nextPageToken).inserted else {
+                throw HTTPAteliaClientError.repeatedPageToken(nextPageToken)
+            }
+            pageToken = nextPageToken
+        }
 
         return repositories
     }
@@ -161,17 +170,35 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
     ) async throws -> Response {
         let request = try makeRequest(session: session, method: method, path: path, body: body)
         let (data, response) = try await transport.send(request)
+
+        guard (200..<300).contains(response.statusCode) else {
+            if let envelope = try? decoder.decode(APIEnvelope<EmptyResponse>.self, from: data),
+               case .error(let error) = envelope {
+                throw HTTPAteliaClientError.apiError(error)
+            }
+            throw HTTPAteliaClientError.unsuccessfulStatus(
+                code: response.statusCode,
+                reason: Self.responseReason(from: data)
+            )
+        }
+
         let envelope = try decoder.decode(APIEnvelope<Response>.self, from: data)
 
         switch envelope {
         case .ok(let data):
-            if !(200..<300).contains(response.statusCode) {
-                throw HTTPAteliaClientError.unsuccessfulStatus(code: response.statusCode, reason: nil)
-            }
             return data
         case .error(let error):
             throw HTTPAteliaClientError.apiError(error)
         }
+    }
+
+    private static func responseReason(from data: Data) -> String? {
+        guard let reason = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !reason.isEmpty else {
+            return nil
+        }
+        return reason
     }
 
     private func makeRequest<Request: Encodable>(
@@ -210,6 +237,8 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
 }
 
 private struct EmptyRequest: Sendable, Codable, Equatable {}
+
+private struct EmptyResponse: Sendable, Decodable {}
 
 private struct ProjectStatusRequest: Sendable, Encodable {
     private enum CodingKeys: String, CodingKey {

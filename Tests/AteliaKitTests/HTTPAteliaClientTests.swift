@@ -87,6 +87,16 @@ import Testing
     #expect(pageTokens == [nil, "page-2"])
 }
 
+@Test func httpClientRejectsRepeatedRepositoryPageToken() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { _ in
+        RepositoryPageRecorder.repositoryResponse(id: "repo_loop", nextPageToken: "page-loop")
+    })
+
+    await #expect(throws: HTTPAteliaClientError.repeatedPageToken("page-loop")) {
+        _ = try await client.repositories(for: AteliaSession())
+    }
+}
+
 @Test func httpClientDecodesToolRepertoire() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
         #expect(request.url?.path == "/v1/repertoire:list")
@@ -241,6 +251,19 @@ import Testing
     }
 }
 
+@Test func httpClientSurfacesNonJSONHTTPErrorBody() async throws {
+    let client = HTTPAteliaClient(transport: .fixture(statusCode: 502) { _ in
+        "<html>bad gateway</html>"
+    })
+
+    await #expect(throws: HTTPAteliaClientError.unsuccessfulStatus(
+        code: 502,
+        reason: "<html>bad gateway</html>"
+    )) {
+        _ = try await client.health(for: AteliaSession())
+    }
+}
+
 private extension AteliaHTTPTransport {
     static func fixture(
         statusCode: Int = 200,
@@ -283,12 +306,12 @@ private actor RepositoryPageRecorder {
 
         switch pageToken {
         case nil:
-            return repositoryResponse(id: "repo_1", nextPageToken: "page-2")
+            return Self.repositoryResponse(id: "repo_1", nextPageToken: "page-2")
         case "page-2":
-            return repositoryResponse(id: "repo_2", nextPageToken: nil)
+            return Self.repositoryResponse(id: "repo_2", nextPageToken: nil)
         default:
             Issue.record("Unexpected page token: \(String(describing: pageToken))")
-            return repositoryResponse(id: "repo_unexpected", nextPageToken: nil)
+            return Self.repositoryResponse(id: "repo_unexpected", nextPageToken: nil)
         }
     }
 
@@ -301,7 +324,7 @@ private actor RepositoryPageRecorder {
         return object?["page_token"] as? String
     }
 
-    private func repositoryResponse(id: String, nextPageToken: String?) -> String {
+    static func repositoryResponse(id: String, nextPageToken: String?) -> String {
         let encodedNextPageToken = nextPageToken.map { #""\#($0)""# } ?? "null"
         return #"""
         {

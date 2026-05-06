@@ -249,6 +249,7 @@ public enum AteliaActor: Sendable, Codable, Equatable {
     case agent(id: String, displayName: String?)
     case `extension`(id: String)
     case system(id: String)
+    case unknown(rawValue: String, id: String, displayName: String?)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -256,26 +257,25 @@ public enum AteliaActor: Sendable, Codable, Equatable {
         case displayName = "display_name"
     }
 
-    private enum ActorType: String, Codable {
-        case user
-        case agent
-        case `extension`
-        case system
-    }
-
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try container.decode(ActorType.self, forKey: .type)
+        let type = try container.decode(String.self, forKey: .type)
         let id = try container.decode(String.self, forKey: .id)
         switch type {
-        case .user:
+        case "user":
             self = .user(id: id, displayName: try container.decodeIfPresent(String.self, forKey: .displayName))
-        case .agent:
+        case "agent":
             self = .agent(id: id, displayName: try container.decodeIfPresent(String.self, forKey: .displayName))
-        case .extension:
+        case "extension":
             self = .extension(id: id)
-        case .system:
+        case "system":
             self = .system(id: id)
+        default:
+            self = .unknown(
+                rawValue: type,
+                id: id,
+                displayName: try container.decodeIfPresent(String.self, forKey: .displayName)
+            )
         }
     }
 
@@ -283,19 +283,23 @@ public enum AteliaActor: Sendable, Codable, Equatable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case .user(let id, let displayName):
-            try container.encode(ActorType.user, forKey: .type)
+            try container.encode("user", forKey: .type)
             try container.encode(id, forKey: .id)
             try container.encodeIfPresent(displayName, forKey: .displayName)
         case .agent(let id, let displayName):
-            try container.encode(ActorType.agent, forKey: .type)
+            try container.encode("agent", forKey: .type)
             try container.encode(id, forKey: .id)
             try container.encodeIfPresent(displayName, forKey: .displayName)
         case .extension(let id):
-            try container.encode(ActorType.extension, forKey: .type)
+            try container.encode("extension", forKey: .type)
             try container.encode(id, forKey: .id)
         case .system(let id):
-            try container.encode(ActorType.system, forKey: .type)
+            try container.encode("system", forKey: .type)
             try container.encode(id, forKey: .id)
+        case .unknown(let rawValue, let id, let displayName):
+            try container.encode(rawValue, forKey: .type)
+            try container.encode(id, forKey: .id)
+            try container.encodeIfPresent(displayName, forKey: .displayName)
         }
     }
 }
