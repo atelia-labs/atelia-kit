@@ -140,8 +140,8 @@ import Testing
         status: .running,
         policySummary: AteliaPolicySummary(
             decisionId: "pol_123",
-            outcome: "audited",
-            riskTier: "R1",
+            outcome: .audited,
+            riskTier: .r1,
             reasonCode: "bounded_read"
         ),
         createdAtUnixMilliseconds: 1710000000000,
@@ -154,6 +154,39 @@ import Testing
     let decoded = try JSONDecoder().decode(AteliaJob.self, from: data)
 
     #expect(decoded == job)
+}
+
+@Test func jobDecodesWhenCancellationIsOmitted() throws {
+    let data = #"""
+    {
+      "job_id": "job_123",
+      "repository_id": "repo_123",
+      "requester": {
+        "type": "agent",
+        "id": "agent_secretary",
+        "display_name": "Secretary"
+      },
+      "kind": "tool",
+      "goal": "Read package manifest",
+      "status": "queued",
+      "policy_summary": {
+        "decision_id": "pol_123",
+        "outcome": "audited",
+        "risk_tier": "R1",
+        "reason_code": "bounded_read"
+      },
+      "created_at_unix_ms": 1710000000000,
+      "started_at_unix_ms": null,
+      "completed_at_unix_ms": null,
+      "latest_event_id": null
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaJob.self, from: data)
+
+    #expect(decoded.cancellation == nil)
+    #expect(decoded.policySummary?.outcome == .audited)
+    #expect(decoded.policySummary?.riskTier == .r1)
 }
 
 @Test func policyDecisionDecodesApprovalAndAuditRefs() throws {

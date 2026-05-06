@@ -46,7 +46,7 @@ public struct AteliaRepository: Sendable, Codable, Equatable, Identifiable {
         case blocked
         case unknown(String)
 
-        public init?(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "unspecified":
                 self = .unspecified
@@ -79,13 +79,7 @@ public struct AteliaRepository: Sendable, Codable, Equatable, Identifiable {
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            guard let value = Self(rawValue: rawValue) else {
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid trust state: \(rawValue)"
-                )
-            }
-            self = value
+            self = Self(rawValue: rawValue)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -139,7 +133,7 @@ public struct AteliaPathScope: Sendable, Codable, Equatable {
         case readOnly
         case unknown(String)
 
-        public init?(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "unspecified":
                 self = .unspecified
@@ -172,13 +166,7 @@ public struct AteliaPathScope: Sendable, Codable, Equatable {
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            guard let value = Self(rawValue: rawValue) else {
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid path scope kind: \(rawValue)"
-                )
-            }
-            self = value
+            self = Self(rawValue: rawValue)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -331,7 +319,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         case unknown
         case unrecognized(String)
 
-        public init?(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "queued":
                 self = .queued
@@ -376,13 +364,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            guard let value = Self(rawValue: rawValue) else {
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid job status: \(rawValue)"
-                )
-            }
-            self = value
+            self = Self(rawValue: rawValue)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -402,7 +384,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
     public var startedAtUnixMilliseconds: Int64?
     public var completedAtUnixMilliseconds: Int64?
     public var latestEventId: String?
-    public var cancellation: AteliaJobCancellation
+    public var cancellation: AteliaJobCancellation?
 
     public var id: String { jobId }
 
@@ -418,7 +400,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         startedAtUnixMilliseconds: Int64? = nil,
         completedAtUnixMilliseconds: Int64? = nil,
         latestEventId: String? = nil,
-        cancellation: AteliaJobCancellation = AteliaJobCancellation()
+        cancellation: AteliaJobCancellation? = AteliaJobCancellation()
     ) {
         self.jobId = jobId
         self.repositoryId = repositoryId
@@ -474,11 +456,16 @@ public struct AteliaPolicySummary: Sendable, Codable, Equatable {
     }
 
     public var decisionId: String
-    public var outcome: String
-    public var riskTier: String
+    public var outcome: AteliaPolicyDecision.Outcome
+    public var riskTier: AteliaPolicyDecision.RiskTier
     public var reasonCode: String
 
-    public init(decisionId: String, outcome: String, riskTier: String, reasonCode: String) {
+    public init(
+        decisionId: String,
+        outcome: AteliaPolicyDecision.Outcome,
+        riskTier: AteliaPolicyDecision.RiskTier,
+        reasonCode: String
+    ) {
         self.decisionId = decisionId
         self.outcome = outcome
         self.riskTier = riskTier
@@ -506,7 +493,7 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
         case blocked
         case unknown(String)
 
-        public init?(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "allowed":
                 self = .allowed
@@ -539,13 +526,7 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            guard let value = Self(rawValue: rawValue) else {
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid policy outcome: \(rawValue)"
-                )
-            }
-            self = value
+            self = Self(rawValue: rawValue)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -562,7 +543,7 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
         case r4
         case unknown(String)
 
-        public init?(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "R0":
                 self = .r0
@@ -599,13 +580,7 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            guard let value = Self(rawValue: rawValue) else {
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid risk tier: \(rawValue)"
-                )
-            }
-            self = value
+            self = Self(rawValue: rawValue)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -663,7 +638,7 @@ public struct AteliaApprovalState: Sendable, Codable, Equatable, Identifiable {
         case expired
         case unknown(String)
 
-        public init?(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "not_required":
                 self = .notRequired
@@ -700,13 +675,7 @@ public struct AteliaApprovalState: Sendable, Codable, Equatable, Identifiable {
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            guard let value = Self(rawValue: rawValue) else {
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid approval status: \(rawValue)"
-                )
-            }
-            self = value
+            self = Self(rawValue: rawValue)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -785,7 +754,7 @@ public struct AteliaReviewQueueItem: Sendable, Codable, Equatable, Identifiable 
         case job
         case unknown(String)
 
-        public init?(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "approval":
                 self = .approval
@@ -822,13 +791,7 @@ public struct AteliaReviewQueueItem: Sendable, Codable, Equatable, Identifiable 
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            guard let value = Self(rawValue: rawValue) else {
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid review queue kind: \(rawValue)"
-                )
-            }
-            self = value
+            self = Self(rawValue: rawValue)
         }
 
         public func encode(to encoder: Encoder) throws {

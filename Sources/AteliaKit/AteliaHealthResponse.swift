@@ -17,7 +17,7 @@ public struct AteliaHealthResponse: Sendable, Codable, Equatable {
         /// A daemon status this client version does not know yet.
         case unknown(String)
 
-        public init?(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "starting":
                 self = .starting
@@ -54,13 +54,7 @@ public struct AteliaHealthResponse: Sendable, Codable, Equatable {
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            guard let value = Self(rawValue: rawValue) else {
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid daemon status: \(rawValue)"
-                )
-            }
-            self = value
+            self = Self(rawValue: rawValue)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -82,7 +76,7 @@ public struct AteliaHealthResponse: Sendable, Codable, Equatable {
         /// A storage status this client version does not know yet.
         case unknown(String)
 
-        public init?(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "ready":
                 self = .ready
@@ -115,13 +109,7 @@ public struct AteliaHealthResponse: Sendable, Codable, Equatable {
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
-            guard let value = Self(rawValue: rawValue) else {
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid storage status: \(rawValue)"
-                )
-            }
-            self = value
+            self = Self(rawValue: rawValue)
         }
 
         public func encode(to encoder: Encoder) throws {
