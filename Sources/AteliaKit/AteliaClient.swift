@@ -6,6 +6,12 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case healthUnavailable
     /// The conformer does not provide a repertoire implementation.
     case repertoireUnavailable
+    /// The conformer does not provide repository listing.
+    case repositoriesUnavailable
+    /// The conformer does not provide the live tool repertoire projection.
+    case toolRepertoireUnavailable
+    /// The conformer does not provide project status snapshots.
+    case projectStatusUnavailable
 }
 
 /// Protocol for fetching Atelia health, repertoire, and derived secretary status for a session.
@@ -16,6 +22,15 @@ public protocol AteliaClient: Sendable {
     func repertoire(for session: AteliaSession) async throws -> [AteliaRepertoireEntry]
     /// Returns the secretary status derived from the current health snapshot.
     func status(for session: AteliaSession) async throws -> SecretaryStatus
+    /// Returns registered repositories visible to the session.
+    func repositories(for session: AteliaSession) async throws -> [AteliaRepository]
+    /// Returns the beta tool repertoire projection visible to the session.
+    func toolRepertoire(for session: AteliaSession) async throws -> [AteliaToolRepertoireEntry]
+    /// Returns a compact project status snapshot for a registered repository.
+    func projectStatus(
+        for session: AteliaSession,
+        repositoryId: String
+    ) async throws -> AteliaProjectStatus
 }
 
 public extension AteliaClient {
@@ -35,6 +50,28 @@ public extension AteliaClient {
     func status(for session: AteliaSession) async throws -> SecretaryStatus {
         let health = try await health(for: session)
         return health.secretaryStatus
+    }
+
+    /// Returns a compatibility error when the conformer does not provide repositories.
+    func repositories(for session: AteliaSession) async throws -> [AteliaRepository] {
+        _ = session
+        throw AteliaClientError.repositoriesUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide tool repertoire.
+    func toolRepertoire(for session: AteliaSession) async throws -> [AteliaToolRepertoireEntry] {
+        _ = session
+        throw AteliaClientError.toolRepertoireUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide project status.
+    func projectStatus(
+        for session: AteliaSession,
+        repositoryId: String
+    ) async throws -> AteliaProjectStatus {
+        _ = session
+        _ = repositoryId
+        throw AteliaClientError.projectStatusUnavailable
     }
 }
 
@@ -61,6 +98,28 @@ public actor LocalAteliaClient: AteliaClient {
     public func repertoire(for session: AteliaSession) async throws -> [AteliaRepertoireEntry] {
         _ = session
         return []
+    }
+
+    /// Returns no repositories for the local placeholder client.
+    public func repositories(for session: AteliaSession) async throws -> [AteliaRepository] {
+        _ = session
+        return []
+    }
+
+    /// Returns no tool repertoire entries for the local placeholder client.
+    public func toolRepertoire(for session: AteliaSession) async throws -> [AteliaToolRepertoireEntry] {
+        _ = session
+        return []
+    }
+
+    /// Returns a compatibility error until a project status fixture is supplied.
+    public func projectStatus(
+        for session: AteliaSession,
+        repositoryId: String
+    ) async throws -> AteliaProjectStatus {
+        _ = session
+        _ = repositoryId
+        throw AteliaClientError.projectStatusUnavailable
     }
 
     /// Returns the legacy local status placeholder for compatibility with older clients.

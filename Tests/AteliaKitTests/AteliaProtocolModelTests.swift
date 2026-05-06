@@ -1,0 +1,390 @@
+import Foundation
+import Testing
+@testable import AteliaKit
+
+@Test func repositoryDecodesCanonicalSnakeCaseProtocolJSON() throws {
+    let data = #"""
+    {
+      "repository_id": "repo_123",
+      "display_name": "Atelia Kit",
+      "root_path": "/workspace/atelia-kit",
+      "allowed_scope": {
+        "kind": "repository",
+        "roots": ["/workspace/atelia-kit"],
+        "include_patterns": ["Sources/**"],
+        "exclude_patterns": [".build/**"]
+      },
+      "trust_state": "trusted",
+      "created_at_unix_ms": 1710000000000,
+      "updated_at_unix_ms": 1710000100000
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaRepository.self, from: data)
+
+    #expect(decoded.repositoryId == "repo_123")
+    #expect(decoded.allowedScope.kind == .repository)
+    #expect(decoded.trustState == .trusted)
+    #expect(decoded.allowedScope.excludePatterns == [".build/**"])
+}
+
+@Test func protocolModelsPreserveUnknownEnumValues() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.1.0",
+        "daemon_version": "0.2.0",
+        "storage_version": "0.2.0",
+        "capabilities": ["project_status.v1"]
+      },
+      "repository": {
+        "repository_id": "repo_123",
+        "display_name": "Atelia Kit",
+        "root_path": "/workspace/atelia-kit",
+        "allowed_scope": {
+          "kind": "workspace_overlay",
+          "roots": ["/workspace/atelia-kit"],
+          "include_patterns": [],
+          "exclude_patterns": []
+        },
+        "trust_state": "quarantined",
+        "created_at_unix_ms": 1710000000000,
+        "updated_at_unix_ms": 1710000100000
+      },
+      "recent_jobs": [
+        {
+          "job_id": "job_123",
+          "repository_id": "repo_123",
+          "requester": {
+            "type": "automation",
+            "id": "automation_secretary",
+            "display_name": "Secretary Automation"
+          },
+          "kind": "tool",
+          "goal": "Read package manifest",
+          "status": "paused",
+          "policy_summary": null,
+          "created_at_unix_ms": 1710000000000,
+          "started_at_unix_ms": null,
+          "completed_at_unix_ms": null,
+          "latest_event_id": null,
+          "cancellation": {
+            "state": "none",
+            "requested_by": null,
+            "reason": null,
+            "requested_at_unix_ms": null,
+            "completed_at_unix_ms": null
+          }
+        }
+      ],
+      "recent_policy_decisions": [
+        {
+          "decision_id": "pol_123",
+          "outcome": "deferred",
+          "risk_tier": "R5",
+          "requested_capability": "filesystem.write",
+          "reason_code": "new_policy",
+          "reason": "New daemon policy",
+          "approval_request_ref": null,
+          "audit_ref": null
+        }
+      ],
+      "latest_cursor": null,
+      "daemon_status": "warming",
+      "storage_status": "repairing"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaProjectStatus.self, from: data)
+
+    #expect(decoded.repository.trustState == .unknown("quarantined"))
+    #expect(decoded.repository.allowedScope.kind == .unknown("workspace_overlay"))
+    #expect(decoded.recentJobs[0].requester == .unknown(
+        rawValue: "automation",
+        id: "automation_secretary",
+        displayName: "Secretary Automation"
+    ))
+    #expect(decoded.recentJobs[0].status == .unrecognized("paused"))
+    #expect(decoded.recentPolicyDecisions[0].outcome == .unknown("deferred"))
+    #expect(decoded.recentPolicyDecisions[0].riskTier == .unknown("R5"))
+    #expect(decoded.daemonStatus == .unknown("warming"))
+    #expect(decoded.storageStatus == .unknown("repairing"))
+
+    let encoded = try JSONEncoder().encode(decoded)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    let repository = try #require(object["repository"] as? [String: Any])
+    let allowedScope = try #require(repository["allowed_scope"] as? [String: Any])
+    let jobs = try #require(object["recent_jobs"] as? [[String: Any]])
+    let policies = try #require(object["recent_policy_decisions"] as? [[String: Any]])
+
+    #expect(repository["trust_state"] as? String == "quarantined")
+    #expect(allowedScope["kind"] as? String == "workspace_overlay")
+    let requester = try #require(jobs[0]["requester"] as? [String: Any])
+    #expect(requester["type"] as? String == "automation")
+    #expect(requester["id"] as? String == "automation_secretary")
+    #expect(requester["display_name"] as? String == "Secretary Automation")
+    #expect(jobs[0]["status"] as? String == "paused")
+    #expect(policies[0]["outcome"] as? String == "deferred")
+    #expect(policies[0]["risk_tier"] as? String == "R5")
+    #expect(object["daemon_status"] as? String == "warming")
+    #expect(object["storage_status"] as? String == "repairing")
+}
+
+@Test func jobPolicyAndActorRoundTrip() throws {
+    let job = AteliaJob(
+        jobId: "job_123",
+        repositoryId: "repo_123",
+        requester: .agent(id: "agent_secretary", displayName: "Secretary"),
+        kind: "tool",
+        goal: "Read package manifest",
+        status: .running,
+        policySummary: AteliaPolicySummary(
+            decisionId: "pol_123",
+            outcome: .audited,
+            riskTier: .r1,
+            reasonCode: "bounded_read"
+        ),
+        createdAtUnixMilliseconds: 1710000000000,
+        startedAtUnixMilliseconds: 1710000001000,
+        latestEventId: "evt_123",
+        cancellation: AteliaJobCancellation(state: "none")
+    )
+
+    let data = try JSONEncoder().encode(job)
+    let decoded = try JSONDecoder().decode(AteliaJob.self, from: data)
+
+    #expect(decoded == job)
+}
+
+@Test func jobDecodesWhenCancellationIsOmitted() throws {
+    let data = #"""
+    {
+      "job_id": "job_123",
+      "repository_id": "repo_123",
+      "requester": {
+        "type": "agent",
+        "id": "agent_secretary",
+        "display_name": "Secretary"
+      },
+      "kind": "tool",
+      "goal": "Read package manifest",
+      "status": "queued",
+      "policy_summary": {
+        "decision_id": "pol_123",
+        "outcome": "audited",
+        "risk_tier": "R1",
+        "reason_code": "bounded_read"
+      },
+      "created_at_unix_ms": 1710000000000,
+      "started_at_unix_ms": null,
+      "completed_at_unix_ms": null,
+      "latest_event_id": null
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaJob.self, from: data)
+
+    #expect(decoded.cancellation == nil)
+    #expect(decoded.policySummary?.outcome == .audited)
+    #expect(decoded.policySummary?.riskTier == .r1)
+}
+
+@Test func policyDecisionDecodesApprovalAndAuditRefs() throws {
+    let data = #"""
+    {
+      "decision_id": "pol_123",
+      "outcome": "needs_approval",
+      "risk_tier": "R3",
+      "requested_capability": "filesystem.write",
+      "reason_code": "approval_required",
+      "reason": "Writes require approval",
+      "approval_request_ref": "approval_123",
+      "audit_ref": "aud_123"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPolicyDecision.self, from: data)
+
+    #expect(decoded.outcome == .needsApproval)
+    #expect(decoded.riskTier == .r3)
+    #expect(decoded.auditRef == "aud_123")
+}
+
+@Test func projectStatusDecodesCanonicalProtocolJSON() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["health.v1", "project_status.v1"]
+      },
+      "repository": {
+        "repository_id": "repo_123",
+        "display_name": "Atelia Kit",
+        "root_path": "/workspace/atelia-kit",
+        "allowed_scope": {
+          "kind": "repository",
+          "roots": ["/workspace/atelia-kit"],
+          "include_patterns": [],
+          "exclude_patterns": []
+        },
+        "trust_state": "trusted",
+        "created_at_unix_ms": 1710000000000,
+        "updated_at_unix_ms": 1710000100000
+      },
+      "recent_jobs": [],
+      "recent_policy_decisions": [],
+      "latest_cursor": {
+        "sequence": 42,
+        "event_id": "evt_42"
+      },
+      "daemon_status": "running",
+      "storage_status": "ready"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaProjectStatus.self, from: data)
+
+    #expect(decoded.metadata.protocolVersion == "1.0.0")
+    #expect(decoded.repository.repositoryId == "repo_123")
+    #expect(decoded.latestCursor?.sequence == 42)
+    #expect(decoded.daemonStatus == .running)
+}
+
+@Test func reviewQueueItemIsPlatformNeutralAndCodable() throws {
+    let data = #"""
+    {
+      "id": "review_123",
+      "kind": "approval",
+      "title": "Approve filesystem write",
+      "repository_id": "repo_123",
+      "job_id": "job_123",
+      "policy_decision_id": "pol_123",
+      "priority": 2
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaReviewQueueItem.self, from: data)
+    let encoded = try JSONEncoder().encode(decoded)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+    #expect(decoded.repositoryId == "repo_123")
+    #expect(decoded.jobId == "job_123")
+    #expect(decoded.policyDecisionId == "pol_123")
+    #expect(object["repository_id"] as? String == "repo_123")
+    #expect(object["job_id"] as? String == "job_123")
+    #expect(object["policy_decision_id"] as? String == "pol_123")
+}
+
+@Test func approvalAndReviewQueueEnumsPreserveUnknownValues() throws {
+    let approvalData = #"""
+    {
+      "id": "approval_123",
+      "status": "escalated",
+      "policy_decision_id": "pol_123",
+      "requested_by": {
+        "type": "user",
+        "id": "user_123",
+        "display_name": "Approver"
+      },
+      "reason": null
+    }
+    """#.data(using: .utf8)!
+    let reviewData = #"""
+    {
+      "id": "review_123",
+      "kind": "handoff",
+      "title": "Human handoff",
+      "repository_id": null,
+      "job_id": null,
+      "policy_decision_id": null,
+      "priority": 1
+    }
+    """#.data(using: .utf8)!
+
+    let approval = try JSONDecoder().decode(AteliaApprovalState.self, from: approvalData)
+    let review = try JSONDecoder().decode(AteliaReviewQueueItem.self, from: reviewData)
+    let encodedApproval = try JSONEncoder().encode(approval)
+    let approvalObject = try #require(JSONSerialization.jsonObject(with: encodedApproval) as? [String: Any])
+
+    #expect(approval.status == .unknown("escalated"))
+    #expect(approval.policyDecisionId == "pol_123")
+    #expect(approval.requestedBy == .user(id: "user_123", displayName: "Approver"))
+    #expect(approvalObject["policy_decision_id"] as? String == "pol_123")
+    #expect(approvalObject["requested_by"] != nil)
+    #expect(review.kind == .unknown("handoff"))
+}
+
+@Test func clientIdentityAndAuditReferencesUseProtocolSnakeCaseKeys() throws {
+    let identityData = #"""
+    {
+      "id": "project_123",
+      "display_name": "Atelia Project",
+      "repository_id": "repo_123"
+    }
+    """#.data(using: .utf8)!
+    let threadData = #"""
+    {
+      "id": "thread_123",
+      "project_id": "project_123",
+      "title": "Review protocol"
+    }
+    """#.data(using: .utf8)!
+    let auditData = #"""
+    {
+      "id": "audit_123",
+      "repository_id": "repo_123",
+      "job_id": "job_123",
+      "policy_decision_id": "pol_123",
+      "message": "Recorded policy decision"
+    }
+    """#.data(using: .utf8)!
+
+    let identity = try JSONDecoder().decode(AteliaProjectIdentity.self, from: identityData)
+    let thread = try JSONDecoder().decode(AteliaThreadIdentity.self, from: threadData)
+    let audit = try JSONDecoder().decode(AteliaAuditReference.self, from: auditData)
+    let encodedIdentity = try JSONEncoder().encode(identity)
+    let encodedThread = try JSONEncoder().encode(thread)
+    let encodedAudit = try JSONEncoder().encode(audit)
+    let identityObject = try #require(JSONSerialization.jsonObject(with: encodedIdentity) as? [String: Any])
+    let threadObject = try #require(JSONSerialization.jsonObject(with: encodedThread) as? [String: Any])
+    let auditObject = try #require(JSONSerialization.jsonObject(with: encodedAudit) as? [String: Any])
+
+    #expect(identity.displayName == "Atelia Project")
+    #expect(identity.repositoryId == "repo_123")
+    #expect(thread.projectId == "project_123")
+    #expect(audit.repositoryId == "repo_123")
+    #expect(audit.jobId == "job_123")
+    #expect(audit.policyDecisionId == "pol_123")
+    #expect(identityObject["display_name"] as? String == "Atelia Project")
+    #expect(identityObject["repository_id"] as? String == "repo_123")
+    #expect(threadObject["project_id"] as? String == "project_123")
+    #expect(auditObject["repository_id"] as? String == "repo_123")
+    #expect(auditObject["job_id"] as? String == "job_123")
+    #expect(auditObject["policy_decision_id"] as? String == "pol_123")
+}
+
+@Test func toolRepertoireDecodesBetaProjection() throws {
+    let data = #"""
+    {
+      "tool_id": "fs.read",
+      "name": "Filesystem Read",
+      "description": "Read a file from an allowed repository scope.",
+      "provider_kind": "builtin",
+      "provider_id": "atelia-secretary",
+      "risk_tier": "R1",
+      "default_result_format": "toon",
+      "supported_result_formats": ["toon", "json"],
+      "idempotency": "idempotent",
+      "cancellable": false,
+      "streaming": false,
+      "timeout_ms": 0
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaToolRepertoireEntry.self, from: data)
+
+    #expect(decoded.id == "fs.read")
+    #expect(decoded.supportedResultFormats == ["toon", "json"])
+}

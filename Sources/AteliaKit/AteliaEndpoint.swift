@@ -10,7 +10,7 @@ public struct AteliaEndpoint: Sendable, Equatable {
     public var usesTLS: Bool
 
     /// Creates a daemon endpoint.
-    public init(host: String = "localhost", port: Int = 8787, usesTLS: Bool = false) {
+    public init(host: String = "localhost", port: Int = 8080, usesTLS: Bool = false) {
         self.host = host
         self.port = port
         self.usesTLS = usesTLS

@@ -28,3 +28,8 @@ This repository owns shared client logic for Apple platform clients, not UI.
 ```sh
 swift test
 ```
+
+## Secretary Runtime Mapping
+
+The shared model and transport boundary follows the Secretary protocol contract.
+See [Docs/SecretaryRuntimeMapping.md](Docs/SecretaryRuntimeMapping.md).
