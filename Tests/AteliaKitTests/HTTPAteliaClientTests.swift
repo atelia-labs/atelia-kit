@@ -161,15 +161,30 @@ private extension AteliaHTTPTransport {
     ) -> Self {
         Self { request in
             let body = try await respond(request)
+            guard let url = request.url else {
+                throw FixtureError.missingRequestURL
+            }
+            guard let data = body.data(using: .utf8) else {
+                throw FixtureError.responseBodyEncodingFailed
+            }
             let response = HTTPURLResponse(
-                url: request.url!,
+                url: url,
                 statusCode: statusCode,
                 httpVersion: nil,
                 headerFields: nil
-            )!
-            return (body.data(using: .utf8)!, response)
+            )
+            guard let response else {
+                throw FixtureError.responseConstructionFailed(statusCode: statusCode)
+            }
+            return (data, response)
         }
     }
+}
+
+private enum FixtureError: Error, Equatable {
+    case missingRequestURL
+    case responseBodyEncodingFailed
+    case responseConstructionFailed(statusCode: Int)
 }
 
 private actor RepositoryPageRecorder {
