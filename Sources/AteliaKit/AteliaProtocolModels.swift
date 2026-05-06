@@ -400,7 +400,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         startedAtUnixMilliseconds: Int64? = nil,
         completedAtUnixMilliseconds: Int64? = nil,
         latestEventId: String? = nil,
-        cancellation: AteliaJobCancellation? = AteliaJobCancellation()
+        cancellation: AteliaJobCancellation? = nil
     ) {
         self.jobId = jobId
         self.repositoryId = repositoryId
