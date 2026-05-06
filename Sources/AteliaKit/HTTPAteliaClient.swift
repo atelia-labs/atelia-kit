@@ -76,13 +76,21 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
     }
 
     public func repositories(for session: AteliaSession) async throws -> [AteliaRepository] {
-        let response: ListRepositoriesResponse = try await send(
-            session: session,
-            method: "POST",
-            path: "/v1/repositories:list",
-            body: EmptyRequest()
-        )
-        return response.repositories
+        var repositories: [AteliaRepository] = []
+        var pageToken: String?
+
+        repeat {
+            let response: ListRepositoriesResponse = try await send(
+                session: session,
+                method: "POST",
+                path: "/v1/repositories:list",
+                body: ListRepositoriesRequest(pageToken: pageToken)
+            )
+            repositories.append(contentsOf: response.repositories)
+            pageToken = response.nextPageToken
+        } while pageToken != nil
+
+        return repositories
     }
 
     public func toolRepertoire(for session: AteliaSession) async throws -> [AteliaToolRepertoireEntry] {
@@ -171,6 +179,14 @@ private struct ProjectStatusRequest: Sendable, Encodable {
     }
 
     var repositoryId: String
+}
+
+private struct ListRepositoriesRequest: Sendable, Encodable {
+    private enum CodingKeys: String, CodingKey {
+        case pageToken = "page_token"
+    }
+
+    var pageToken: String?
 }
 
 private struct ListRepositoriesResponse: Sendable, Decodable {

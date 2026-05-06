@@ -74,6 +74,19 @@ import Testing
     #expect(repositories.map(\.repositoryId) == ["repo_123"])
 }
 
+@Test func httpClientPaginatesRepositoriesUntilTokenIsNil() async throws {
+    let recorder = RepositoryPageRecorder()
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        try await recorder.response(for: request)
+    })
+
+    let repositories = try await client.repositories(for: AteliaSession())
+    let pageTokens = await recorder.pageTokens
+
+    #expect(repositories.map(\.repositoryId) == ["repo_1", "repo_2"])
+    #expect(pageTokens == [nil, "page-2"])
+}
+
 @Test func httpClientDecodesToolRepertoire() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
         #expect(request.url?.path == "/v1/repertoire:list")
@@ -144,10 +157,10 @@ import Testing
 private extension AteliaHTTPTransport {
     static func fixture(
         statusCode: Int = 200,
-        respond: @escaping @Sendable (URLRequest) throws -> String
+        respond: @escaping @Sendable (URLRequest) async throws -> String
     ) -> Self {
         Self { request in
-            let body = try respond(request)
+            let body = try await respond(request)
             let response = HTTPURLResponse(
                 url: request.url!,
                 statusCode: statusCode,
@@ -156,5 +169,67 @@ private extension AteliaHTTPTransport {
             )!
             return (body.data(using: .utf8)!, response)
         }
+    }
+}
+
+private actor RepositoryPageRecorder {
+    private(set) var pageTokens: [String?] = []
+
+    func response(for request: URLRequest) throws -> String {
+        let pageToken = try pageToken(from: request)
+        pageTokens.append(pageToken)
+
+        switch pageToken {
+        case nil:
+            return repositoryResponse(id: "repo_1", nextPageToken: "page-2")
+        case "page-2":
+            return repositoryResponse(id: "repo_2", nextPageToken: nil)
+        default:
+            Issue.record("Unexpected page token: \(String(describing: pageToken))")
+            return repositoryResponse(id: "repo_unexpected", nextPageToken: nil)
+        }
+    }
+
+    private func pageToken(from request: URLRequest) throws -> String? {
+        guard let body = request.httpBody, !body.isEmpty else {
+            return nil
+        }
+
+        let object = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+        return object?["page_token"] as? String
+    }
+
+    private func repositoryResponse(id: String, nextPageToken: String?) -> String {
+        let encodedNextPageToken = nextPageToken.map { #""\#($0)""# } ?? "null"
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["repositories.v1"]
+            },
+            "repositories": [
+              {
+                "repository_id": "\#(id)",
+                "display_name": "\#(id)",
+                "root_path": "/workspace/\#(id)",
+                "allowed_scope": {
+                  "kind": "repository",
+                  "roots": ["/workspace/\#(id)"],
+                  "include_patterns": [],
+                  "exclude_patterns": []
+                },
+                "trust_state": "trusted",
+                "created_at_unix_ms": 1710000000000,
+                "updated_at_unix_ms": 1710000100000
+              }
+            ],
+            "next_page_token": \#(encodedNextPageToken)
+          }
+        }
+        """#
     }
 }
