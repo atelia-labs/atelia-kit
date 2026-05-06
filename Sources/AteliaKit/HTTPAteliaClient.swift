@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Errors surfaced by the HTTP/JSON Secretary beta transport.
 public enum HTTPAteliaClientError: Error, Sendable, Equatable {
