@@ -8,8 +8,10 @@ This repository owns shared client logic for Apple platform clients, not UI.
 
 Within AEP, Atelia Kit owns shared client-side models for presentation hosts:
 Atelia Protocol client state, AEP package / component / permission / risk
-models, semantic presentation declarations, action routing inputs, and extension
-inspection view-model coordination. It does not execute extension code or render
+models, Surface Protocol presentation declarations, component catalog data,
+action routing inputs, package inspection, and permission diff view-model
+coordination. It does not run Secretary, execute package code, load
+package-supplied web runtime UI, expose platform APIs to packages, or render
 platform-specific UI.
 
 ## Scope
@@ -21,8 +23,8 @@ platform-specific UI.
 - local cache interfaces
 - notification routing
 - platform-neutral view model coordination
-- AEP package, permission, and semantic presentation models
-- extension inspector and permission diff view-model support
+- AEP package, permission, Surface Protocol, and component catalog models
+- package inspector and permission diff view-model support
 
 ## Non-goals
 
@@ -30,6 +32,8 @@ platform-specific UI.
 - iOS navigation
 - platform-specific notification behavior
 - visual design decisions
+- Secretary runtime hosting
+- executable package loading
 
 ## Development
 

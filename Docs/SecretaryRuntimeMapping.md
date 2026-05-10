@@ -1,14 +1,19 @@
 # Secretary Runtime Mapping
 
-`atelia-kit` is the shared Apple-client boundary for the Secretary protocol. It
-keeps daemon transport, runtime identity, and client coordination models outside
-Mac-only and iOS-only UI code.
+`atelia-kit` is the shared Apple-client boundary for the Secretary protocol and
+Surface Protocol client models. It keeps daemon transport, runtime identity,
+package inspection, action routing inputs, and client coordination models
+outside Mac-only and iOS-only UI code. It is client infrastructure, not a
+Secretary host and not an executable package loader.
 
 ## Contract Sources
 
 - `atelia-secretary/docs/protocol-contract.md`
 - `atelia-secretary/docs/runtime-architecture.md`
 - `atelia/docs/client-ux.md`
+- `atelia/docs/surface-protocol.md`
+- `atelia/docs/aep-presentation.md`
+- `atelia/docs/component-catalog.md`
 
 The current shipping beta transport is HTTP/JSON. The Rust RPC boundary remains
 transport-neutral, so `atelia-kit` keeps the transport implementation small and
@@ -55,4 +60,6 @@ clients should pass the generated daemon token.
 - Do not display ids as primary user-facing labels.
 - Treat unknown capabilities as recoverable compatibility information.
 - Keep Mac windowing, iOS navigation, and visual design outside this package.
+- Keep Secretary execution, broker decisions, and package runtime hosting
+  outside this package.
 - Add Codable tests before changing any protocol-facing model shape.
