@@ -2,8 +2,11 @@ import Foundation
 
 /// Read-only package trust index projection returned by Secretary.
 public struct AteliaPackageTrustIndexResponse: Sendable, Codable, Equatable {
+    /// JSON keys for the package trust index response.
     private enum CodingKeys: String, CodingKey {
+        /// Protocol metadata for the response envelope.
         case metadata
+        /// Package trust index entries visible to the session.
         case packages
     }
 
@@ -21,14 +24,23 @@ public struct AteliaPackageTrustIndexResponse: Sendable, Codable, Equatable {
 
 /// Trust-index entry for one installed package revision.
 public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identifiable {
+    /// JSON keys for a package trust index entry.
     private enum CodingKeys: String, CodingKey {
+        /// Stable package identifier.
         case packageId = "package_id"
+        /// Package version, when known.
         case version
+        /// Package install or block status.
         case status
+        /// Trust boundary classification.
         case boundary
+        /// Manifest digest retained by Secretary.
         case manifestDigest = "manifest_digest"
+        /// Artifact digest retained by Secretary.
         case artifactDigest = "artifact_digest"
+        /// Source and provenance snapshot.
         case source
+        /// Optional blocklist marker.
         case block
     }
 
@@ -158,14 +170,23 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
     /// Snapshot of the package source and retained provenance metadata.
     public struct SourceSnapshot: Sendable, Codable, Equatable {
+        /// JSON keys for source provenance snapshots.
         private enum CodingKeys: String, CodingKey {
+            /// Provenance source kind.
             case source
+            /// Source repository location.
             case repository
+            /// Source repository ref.
             case sourceRef = "ref"
+            /// Manifest path inside the source repository.
             case manifestPath = "manifest_path"
+            /// Source commit retained for audit.
             case commit
+            /// Registry identity, when registry-backed.
             case registryIdentity = "registry_identity"
+            /// Lineage metadata for the package revision.
             case lineage
+            /// Publication metadata for the package revision.
             case publication
         }
 
@@ -210,10 +231,15 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
     /// Lineage metadata retained with a package revision.
     public struct Lineage: Sendable, Codable, Equatable {
+        /// JSON keys for package lineage metadata.
         private enum CodingKeys: String, CodingKey {
+            /// Parent package identifier.
             case parentId = "parent_id"
+            /// Parent package version, when known.
             case parentVersion = "parent_version"
+            /// Parent manifest digest, when known.
             case parentManifestDigest = "parent_manifest_digest"
+            /// Relationship to the parent package.
             case relationship
         }
 
@@ -295,8 +321,11 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
     /// Publication metadata retained with a package revision.
     public struct Publication: Sendable, Codable, Equatable {
+        /// JSON keys for publication metadata.
         private enum CodingKeys: String, CodingKey {
+            /// Publication visibility state.
             case visibility
+            /// Registry submission state.
             case registrySubmission = "registry_submission"
         }
 
@@ -432,8 +461,11 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
     /// Blocklist marker retained with the trust index.
     public struct Block: Sendable, Codable, Equatable {
+        /// JSON keys for package block markers.
         private enum CodingKeys: String, CodingKey {
+            /// Reason Secretary blocked the package.
             case reason
+            /// Externally tagged block key.
             case key
         }
 
@@ -542,7 +574,9 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             case unknown(name: String)
 
             private struct DynamicCodingKey: CodingKey {
+                /// Dynamic JSON field name.
                 var stringValue: String
+                /// Dynamic block keys are string-only.
                 var intValue: Int? { nil }
 
                 /// Creates a dynamic key from a string value.
@@ -558,7 +592,9 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             }
 
             private enum VersionCodingKeys: String, CodingKey {
+                /// Package identifier matched by a version block.
                 case id
+                /// Package version matched by a version block.
                 case version
             }
 
