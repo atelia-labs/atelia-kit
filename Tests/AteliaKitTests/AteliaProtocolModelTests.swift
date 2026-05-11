@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import AteliaKit
 
+/// Verifies repository JSON decodes from canonical protocol keys.
 @Test func repositoryDecodesCanonicalSnakeCaseProtocolJSON() throws {
     let data = #"""
     {
@@ -28,6 +29,7 @@ import Testing
     #expect(decoded.allowedScope.excludePatterns == [".build/**"])
 }
 
+/// Verifies project-status models retain unknown enum wire values.
 @Test func protocolModelsPreserveUnknownEnumValues() throws {
     let data = #"""
     {
@@ -130,6 +132,7 @@ import Testing
     #expect(object["storage_status"] as? String == "repairing")
 }
 
+/// Verifies job, policy, and actor models round-trip through Codable.
 @Test func jobPolicyAndActorRoundTrip() throws {
     let job = AteliaJob(
         jobId: "job_123",
@@ -156,6 +159,7 @@ import Testing
     #expect(decoded == job)
 }
 
+/// Verifies job decoding keeps cancellation optional for older payloads.
 @Test func jobDecodesWhenCancellationIsOmitted() throws {
     let data = #"""
     {
@@ -189,6 +193,7 @@ import Testing
     #expect(decoded.policySummary?.riskTier == .r1)
 }
 
+/// Verifies policy decisions decode approval and audit references.
 @Test func policyDecisionDecodesApprovalAndAuditRefs() throws {
     let data = #"""
     {
@@ -210,6 +215,7 @@ import Testing
     #expect(decoded.auditRef == "aud_123")
 }
 
+/// Verifies canonical project status JSON decodes from protocol keys.
 @Test func projectStatusDecodesCanonicalProtocolJSON() throws {
     let data = #"""
     {
@@ -312,6 +318,7 @@ import Testing
     #expect(entry.source?.lineage?.relationship == .fork)
 }
 
+/// Verifies review queue items remain platform-neutral and Codable.
 @Test func reviewQueueItemIsPlatformNeutralAndCodable() throws {
     let data = #"""
     {
@@ -337,6 +344,7 @@ import Testing
     #expect(object["policy_decision_id"] as? String == "pol_123")
 }
 
+/// Verifies approval and review queue enums preserve unknown values.
 @Test func approvalAndReviewQueueEnumsPreserveUnknownValues() throws {
     let approvalData = #"""
     {
@@ -458,6 +466,7 @@ import Testing
     }
 }
 
+/// Verifies client identity and audit references use protocol snake_case keys.
 @Test func clientIdentityAndAuditReferencesUseProtocolSnakeCaseKeys() throws {
     let identityData = #"""
     {
@@ -507,6 +516,7 @@ import Testing
     #expect(auditObject["policy_decision_id"] as? String == "pol_123")
 }
 
+/// Verifies beta tool repertoire JSON decodes from protocol keys.
 @Test func toolRepertoireDecodesBetaProjection() throws {
     let data = #"""
     {
