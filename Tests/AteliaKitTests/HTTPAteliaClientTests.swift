@@ -5,6 +5,7 @@ import FoundationNetworking
 import Testing
 @testable import AteliaKit
 
+/// Verifies the HTTP client fetches and decodes the health envelope.
 @Test func httpClientFetchesHealthFromEnvelope() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
         #expect(request.url?.absoluteString == "http://127.0.0.1:8080/v1/health")
@@ -34,6 +35,7 @@ import Testing
     #expect(health.protocolVersion == "1.0.0")
 }
 
+/// Verifies repository requests include bearer auth and decode repository pages.
 @Test func httpClientSendsBearerTokenAndDecodesRepositories() async throws {
     let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
         #expect(request.url?.absoluteString == "http://localhost:8080/v1/repositories:list")
@@ -77,6 +79,7 @@ import Testing
     #expect(repositories.map(\.repositoryId) == ["repo_123"])
 }
 
+/// Verifies repository listing follows page tokens until pagination ends.
 @Test func httpClientPaginatesRepositoriesUntilTokenIsNil() async throws {
     let recorder = RepositoryPageRecorder()
     let client = HTTPAteliaClient(transport: .fixture { request in
@@ -90,6 +93,7 @@ import Testing
     #expect(pageTokens == [nil, "page-2"])
 }
 
+/// Verifies repeated repository page tokens are rejected to avoid loops.
 @Test func httpClientRejectsRepeatedRepositoryPageToken() async throws {
     let client = HTTPAteliaClient(transport: .fixture { _ in
         RepositoryPageRecorder.repositoryResponse(id: "repo_loop", nextPageToken: "page-loop")
@@ -100,6 +104,7 @@ import Testing
     }
 }
 
+/// Verifies the HTTP client decodes the beta tool repertoire endpoint.
 @Test func httpClientDecodesToolRepertoire() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
         #expect(request.url?.path == "/v1/repertoire:list")
@@ -140,6 +145,81 @@ import Testing
     #expect(entries.map(\.toolId) == ["secretary.echo"])
 }
 
+/// Verifies the HTTP client calls the package trust index endpoint with the beta transport shape.
+@Test func httpClientFetchesPackageTrustIndexWithEmptyBody() async throws {
+    let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
+        #expect(request.url?.path == "/v1/package-trust-index:list")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
+        #expect(request.httpBody == Data("{}".utf8))
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["package_trust_index.v1"]
+            },
+            "packages": [
+              {
+                "package_id": "com.example.active",
+                "version": "1.2.3",
+                "status": "installed",
+                "boundary": "official",
+                "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source": {
+                  "source": "github",
+                  "repository": "atelia-labs/atelia",
+                  "ref": "refs/tags/v1.2.3",
+                  "manifest_path": "packages/example/package.yml",
+                  "commit": "deadbeef",
+                  "registry_identity": "atelia-official",
+                  "publication": {
+                    "visibility": "public_searchable",
+                    "registry_submission": "accepted"
+                  }
+                },
+                "approved_permissions": ["repo.read"],
+                "rollback_snapshot": {
+                  "manifest_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "artifact_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                }
+              },
+              {
+                "package_id": "com.example.blocked",
+                "version": "1.0.0",
+                "status": "blocked",
+                "boundary": "third_party",
+                "manifest_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "block": {
+                  "reason": "policy_violation",
+                  "key": {
+                    "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                  }
+                }
+              }
+            ]
+          }
+        }
+        """#
+    })
+
+    let packages = try await client.packageTrustIndex(for: AteliaSession())
+
+    #expect(packages.map(\.packageId) == ["com.example.active", "com.example.blocked"])
+    #expect(packages[1].status == .blocked)
+    #expect(packages[1].block?.reason == .policyViolation)
+    #expect(packages[1].block?.key == .artifactDigest("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
+}
+
+/// Verifies the HTTP client fetches compact project status snapshots.
 @Test func httpClientFetchesProjectStatus() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
         #expect(request.url?.path == "/v1/project-status:get")
@@ -196,6 +276,7 @@ import Testing
     #expect(status.storageStatus == .ready)
 }
 
+/// Verifies structured API error envelopes surface as typed client errors.
 @Test func httpClientSurfacesStructuredAPIError() async throws {
     let client = HTTPAteliaClient(transport: .fixture(statusCode: 401) { _ in
         #"""
@@ -223,6 +304,7 @@ import Testing
     }
 }
 
+/// Verifies structured API errors preserve retry and audit recovery fields.
 @Test func httpClientPreservesErrorRecoveryFields() async throws {
     let client = HTTPAteliaClient(transport: .fixture(statusCode: 429) { _ in
         #"""
@@ -254,6 +336,7 @@ import Testing
     }
 }
 
+/// Verifies non-JSON HTTP errors preserve a fallback textual reason.
 @Test func httpClientSurfacesNonJSONHTTPErrorBody() async throws {
     let client = HTTPAteliaClient(transport: .fixture(statusCode: 502) { _ in
         "<html>bad gateway</html>"
@@ -267,7 +350,9 @@ import Testing
     }
 }
 
+/// Fixture helpers for replacing HTTP transport calls in tests.
 private extension AteliaHTTPTransport {
+    /// Creates a transport that returns a fixture HTTP response.
     static func fixture(
         statusCode: Int = 200,
         respond: @escaping @Sendable (URLRequest) async throws -> String
@@ -294,15 +379,22 @@ private extension AteliaHTTPTransport {
     }
 }
 
+/// Errors produced by HTTP test fixtures.
 private enum FixtureError: Error, Equatable {
+    /// The request did not include a URL.
     case missingRequestURL
+    /// The string fixture could not be encoded as UTF-8 data.
     case responseBodyEncodingFailed
+    /// Foundation could not build the HTTP response fixture.
     case responseConstructionFailed(statusCode: Int)
 }
 
+/// Records repository pagination requests and returns fixture pages.
 private actor RepositoryPageRecorder {
+    /// Page tokens observed in request bodies.
     private(set) var pageTokens: [String?] = []
 
+    /// Returns a repository list fixture for the request page token.
     func response(for request: URLRequest) throws -> String {
         let pageToken = try pageToken(from: request)
         pageTokens.append(pageToken)
@@ -318,6 +410,7 @@ private actor RepositoryPageRecorder {
         }
     }
 
+    /// Extracts the optional page token from a JSON request body.
     private func pageToken(from request: URLRequest) throws -> String? {
         guard let body = request.httpBody, !body.isEmpty else {
             return nil
@@ -327,6 +420,7 @@ private actor RepositoryPageRecorder {
         return object?["page_token"] as? String
     }
 
+    /// Builds a repository list response fixture.
     static func repositoryResponse(id: String, nextPageToken: String?) -> String {
         let encodedNextPageToken = nextPageToken.map { #""\#($0)""# } ?? "null"
         return #"""

@@ -5,31 +5,50 @@ import FoundationNetworking
 
 /// Errors surfaced by the HTTP/JSON Secretary beta transport.
 public enum HTTPAteliaClientError: Error, Sendable, Equatable {
+    /// The configured endpoint and request path could not form a valid URL.
     case invalidURL(path: String)
+    /// The transport returned a non-HTTP response.
     case invalidHTTPResponse
+    /// Secretary returned a non-success HTTP status without a structured API error.
     case unsuccessfulStatus(code: Int, reason: String?)
+    /// Secretary returned a structured API error envelope.
     case apiError(AteliaAPIError)
+    /// Repository pagination repeated a page token, so the client stopped to avoid a loop.
     case repeatedPageToken(String)
 }
 
 /// Stable error shape returned by the daemon transport.
 public struct AteliaAPIError: Sendable, Codable, Equatable {
+    /// JSON keys used by Secretary's structured API error envelope.
     private enum CodingKeys: String, CodingKey {
+        /// Stable machine-readable error code.
         case code
+        /// Human-readable Secretary error reason.
         case reason
+        /// Whether the failed operation can recover.
         case recoverable
+        /// Suggested next state for client recovery.
         case nextState = "next_state"
+        /// Optional retry timing or token hint.
         case retryAfter = "retry_after"
+        /// Optional audit reference for diagnostics.
         case auditRef = "audit_ref"
     }
 
+    /// Stable machine-readable error code.
     public var code: String
+    /// Human-readable explanation from Secretary.
     public var reason: String
+    /// Whether the operation can be retried after user or system action.
     public var recoverable: Bool
+    /// Suggested next state for client recovery flows.
     public var nextState: String
+    /// Optional retry hint supplied by Secretary.
     public var retryAfter: AteliaRetryAfter?
+    /// Optional audit reference for support and diagnostics.
     public var auditRef: String?
 
+    /// Creates a structured API error.
     public init(
         code: String,
         reason: String,
@@ -49,9 +68,12 @@ public struct AteliaAPIError: Sendable, Codable, Equatable {
 
 /// Retry hint returned by Secretary errors.
 public enum AteliaRetryAfter: Sendable, Codable, Equatable {
+    /// Retry after the given number of seconds.
     case seconds(Double)
+    /// Retry after an opaque scheduler token or condition.
     case token(String)
 
+    /// Decodes either a numeric delay or an opaque retry token.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let seconds = try? container.decode(Double.self) {
@@ -61,6 +83,7 @@ public enum AteliaRetryAfter: Sendable, Codable, Equatable {
         self = .token(try container.decode(String.self))
     }
 
+    /// Encodes the retry hint as either a numeric delay or token.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
@@ -74,12 +97,15 @@ public enum AteliaRetryAfter: Sendable, Codable, Equatable {
 
 /// Small HTTP transport abstraction used to keep URLSession replaceable in tests.
 public struct AteliaHTTPTransport: Sendable {
+    /// Sends a URL request and returns the raw response data and HTTP metadata.
     public var send: @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
+    /// Creates a transport from a send closure.
     public init(send: @escaping @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)) {
         self.send = send
     }
 
+    /// Creates a transport backed by `URLSession`.
     public static func urlSession(_ session: URLSession = .shared) -> Self {
         Self { request in
             let (data, response) = try await session.data(for: request)
@@ -93,11 +119,16 @@ public struct AteliaHTTPTransport: Sendable {
 
 /// HTTP/JSON client for the Secretary beta daemon.
 public struct HTTPAteliaClient: AteliaClient, Sendable {
+    /// Replaceable HTTP transport used for production requests and tests.
     private let transport: AteliaHTTPTransport
+    /// Optional bearer token applied to outgoing requests.
     private let bearerToken: String?
+    /// JSON decoder used for Secretary envelopes.
     private let decoder: JSONDecoder
+    /// JSON encoder used for non-GET request bodies.
     private let encoder: JSONEncoder
 
+    /// Creates an HTTP client for a Secretary endpoint.
     public init(
         bearerToken: String? = nil,
         transport: AteliaHTTPTransport = .urlSession()
@@ -108,6 +139,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         self.encoder = JSONEncoder()
     }
 
+    /// Fetches the Secretary health envelope for the session.
     public func health(for session: AteliaSession) async throws -> AteliaHealthResponse {
         try await send(
             session: session,
@@ -117,6 +149,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Lists repositories visible to the session, following Secretary pagination.
     public func repositories(for session: AteliaSession) async throws -> [AteliaRepository] {
         var repositories: [AteliaRepository] = []
         var pageToken: String?
@@ -143,6 +176,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         return repositories
     }
 
+    /// Lists beta tool repertoire entries visible to the session.
     public func toolRepertoire(for session: AteliaSession) async throws -> [AteliaToolRepertoireEntry] {
         let response: ListToolRepertoireResponse = try await send(
             session: session,
@@ -153,6 +187,18 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         return response.entries
     }
 
+    /// Returns the Secretary package trust index projection.
+    public func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry] {
+        let response: AteliaPackageTrustIndexResponse = try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/package-trust-index:list",
+            body: EmptyRequest()
+        )
+        return response.packages
+    }
+
+    /// Fetches the compact project status snapshot for a repository.
     public func projectStatus(
         for session: AteliaSession,
         repositoryId: String
@@ -165,6 +211,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Sends one typed request and decodes the Secretary API envelope.
     private func send<Request: Encodable, Response: Decodable>(
         session: AteliaSession,
         method: String,
@@ -195,6 +242,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         }
     }
 
+    /// Extracts a fallback textual reason from an unstructured error body.
     private static func responseReason(from data: Data) -> String? {
         guard let reason = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
@@ -204,6 +252,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         return reason
     }
 
+    /// Builds a URL request for the configured Secretary endpoint.
     private func makeRequest<Request: Encodable>(
         session: AteliaSession,
         method: String,
@@ -239,58 +288,90 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
     }
 }
 
+/// Empty request body encoded as `{}` for POST endpoints without parameters.
 private struct EmptyRequest: Sendable, Codable, Equatable {}
 
+/// Empty success body used only when decoding structured API errors.
 private struct EmptyResponse: Sendable, Decodable {}
 
+/// Request body for the project status endpoint.
 private struct ProjectStatusRequest: Sendable, Encodable {
+    /// JSON keys for the compact project status request.
     private enum CodingKeys: String, CodingKey {
+        /// Repository identifier whose project status is requested.
         case repositoryId = "repository_id"
     }
 
+    /// Repository identifier whose project status should be fetched.
     var repositoryId: String
 }
 
+/// Request body for repository pagination.
 private struct ListRepositoriesRequest: Sendable, Encodable {
+    /// JSON keys for repository pagination requests.
     private enum CodingKeys: String, CodingKey {
+        /// Opaque page token returned by the previous response.
         case pageToken = "page_token"
     }
 
+    /// Opaque page token returned by the previous repository page.
     var pageToken: String?
 }
 
+/// Response body for one repository page.
 private struct ListRepositoriesResponse: Sendable, Decodable {
+    /// Protocol metadata attached to the repository list response.
     var metadata: AteliaProtocolMetadata
+    /// Repositories returned in the current page.
     var repositories: [AteliaRepository]
+    /// Opaque token for the next page, when more repositories are available.
     var nextPageToken: String?
 
+    /// JSON keys for repository list responses.
     private enum CodingKeys: String, CodingKey {
+        /// Protocol metadata attached to the response.
         case metadata
+        /// Repositories returned by the page.
         case repositories
+        /// Opaque token for the next page.
         case nextPageToken = "next_page_token"
     }
 }
 
+/// Response body for the beta tool repertoire endpoint.
 private struct ListToolRepertoireResponse: Sendable, Decodable {
+    /// Protocol metadata attached to the tool repertoire response.
     var metadata: AteliaProtocolMetadata
+    /// Tool repertoire entries visible to the session.
     var entries: [AteliaToolRepertoireEntry]
 }
 
+/// Secretary API envelope wrapping either success data or a structured error.
 private enum APIEnvelope<Payload: Decodable>: Decodable {
+    /// Successful response payload.
     case ok(Payload)
+    /// Structured API error payload.
     case error(AteliaAPIError)
 
+    /// Top-level keys used by the Secretary API envelope.
     private enum CodingKeys: String, CodingKey {
+        /// Envelope status discriminator.
         case status
+        /// Success payload.
         case data
+        /// Structured error payload.
         case error
     }
 
+    /// Envelope status discriminator values.
     private enum Status: String, Decodable {
+        /// Successful API response.
         case ok
+        /// Structured API error response.
         case error
     }
 
+    /// Decodes the mutually exclusive `ok` or `error` envelope shape.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Status.self, forKey: .status) {

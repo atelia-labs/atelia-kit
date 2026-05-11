@@ -12,6 +12,8 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case toolRepertoireUnavailable
     /// The conformer does not provide project status snapshots.
     case projectStatusUnavailable
+    /// The conformer does not provide the package trust index projection.
+    case packageTrustIndexUnavailable
 }
 
 /// Protocol for fetching Atelia health, repertoire, and derived secretary status for a session.
@@ -31,8 +33,11 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         repositoryId: String
     ) async throws -> AteliaProjectStatus
+    /// Returns the package trust index projection visible to the session.
+    func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry]
 }
 
+/// Default compatibility implementations for optional client capabilities.
 public extension AteliaClient {
     /// Returns a compatibility error when the conformer does not provide health.
     func health(for session: AteliaSession) async throws -> AteliaHealthResponse {
@@ -72,6 +77,12 @@ public extension AteliaClient {
         _ = session
         _ = repositoryId
         throw AteliaClientError.projectStatusUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide the package trust index.
+    func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry] {
+        _ = session
+        throw AteliaClientError.packageTrustIndexUnavailable
     }
 }
 
@@ -120,6 +131,12 @@ public actor LocalAteliaClient: AteliaClient {
         _ = session
         _ = repositoryId
         throw AteliaClientError.projectStatusUnavailable
+    }
+
+    /// Returns an empty package trust index for the local placeholder client.
+    public func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry] {
+        _ = session
+        return []
     }
 
     /// Returns the legacy local status placeholder for compatibility with older clients.
