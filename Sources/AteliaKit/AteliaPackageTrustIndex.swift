@@ -42,6 +42,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
         case installedPreviousVersion
         case unknown(String)
 
+        /// Creates a status from its Secretary wire value.
         public init(rawValue: String) {
             switch rawValue {
             case "installed":
@@ -61,6 +62,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             }
         }
 
+        /// Secretary wire value for the status.
         public var rawValue: String {
             switch self {
             case .installed:
@@ -80,12 +82,14 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             }
         }
 
+        /// Decodes a status while preserving unknown wire values.
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
             self = Self(rawValue: rawValue)
         }
 
+        /// Encodes the status as its Secretary wire value.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.singleValueContainer()
             try container.encode(rawValue)
@@ -99,6 +103,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
         case localDevelopment
         case unknown(String)
 
+        /// Creates a boundary from its Secretary wire value.
         public init(rawValue: String) {
             switch rawValue {
             case "official":
@@ -112,6 +117,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             }
         }
 
+        /// Secretary wire value for the boundary.
         public var rawValue: String {
             switch self {
             case .official:
@@ -125,12 +131,14 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             }
         }
 
+        /// Decodes a boundary while preserving unknown wire values.
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
             let rawValue = try container.decode(String.self)
             self = Self(rawValue: rawValue)
         }
 
+        /// Encodes the boundary as its Secretary wire value.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.singleValueContainer()
             try container.encode(rawValue)
@@ -205,6 +213,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             case derived
             case unknown(String)
 
+            /// Creates a lineage relationship from its Secretary wire value.
             public init(rawValue: String) {
                 switch rawValue {
                 case "remix":
@@ -218,6 +227,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 }
             }
 
+            /// Secretary wire value for the relationship.
             public var rawValue: String {
                 switch self {
                 case .remix:
@@ -231,12 +241,14 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 }
             }
 
+            /// Decodes a relationship while preserving unknown wire values.
             public init(from decoder: Decoder) throws {
                 let container = try decoder.singleValueContainer()
                 let rawValue = try container.decode(String.self)
                 self = Self(rawValue: rawValue)
             }
 
+            /// Encodes the relationship as its Secretary wire value.
             public func encode(to encoder: Encoder) throws {
                 var container = encoder.singleValueContainer()
                 try container.encode(rawValue)
@@ -281,6 +293,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             case official
             case unknown(String)
 
+            /// Creates a visibility value from its Secretary wire value.
             public init(rawValue: String) {
                 switch rawValue {
                 case "private_remix":
@@ -296,6 +309,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 }
             }
 
+            /// Secretary wire value for the visibility.
             public var rawValue: String {
                 switch self {
                 case .privateRemix:
@@ -311,12 +325,14 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 }
             }
 
+            /// Decodes a visibility value while preserving unknown wire values.
             public init(from decoder: Decoder) throws {
                 let container = try decoder.singleValueContainer()
                 let rawValue = try container.decode(String.self)
                 self = Self(rawValue: rawValue)
             }
 
+            /// Encodes the visibility as its Secretary wire value.
             public func encode(to encoder: Encoder) throws {
                 var container = encoder.singleValueContainer()
                 try container.encode(rawValue)
@@ -331,6 +347,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             case rejected
             case unknown(String)
 
+            /// Creates a registry submission state from its Secretary wire value.
             public init(rawValue: String) {
                 switch rawValue {
                 case "not_submitted":
@@ -346,6 +363,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 }
             }
 
+            /// Secretary wire value for the registry submission state.
             public var rawValue: String {
                 switch self {
                 case .notSubmitted:
@@ -361,12 +379,14 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 }
             }
 
+            /// Decodes a registry submission state while preserving unknown wire values.
             public init(from decoder: Decoder) throws {
                 let container = try decoder.singleValueContainer()
                 let rawValue = try container.decode(String.self)
                 self = Self(rawValue: rawValue)
             }
 
+            /// Encodes the registry submission state as its Secretary wire value.
             public func encode(to encoder: Encoder) throws {
                 var container = encoder.singleValueContainer()
                 try container.encode(rawValue)
@@ -404,6 +424,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
             case registryRemoved
             case unknown(String)
 
+            /// Creates a block reason from its Secretary wire value.
             public init(rawValue: String) {
                 switch rawValue {
                 case "malware":
@@ -427,6 +448,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 }
             }
 
+            /// Secretary wire value for the block reason.
             public var rawValue: String {
                 switch self {
                 case .malware:
@@ -450,12 +472,14 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 }
             }
 
+            /// Decodes a block reason while preserving unknown wire values.
             public init(from decoder: Decoder) throws {
                 let container = try decoder.singleValueContainer()
                 let rawValue = try container.decode(String.self)
                 self = Self(rawValue: rawValue)
             }
 
+            /// Encodes the block reason as its Secretary wire value.
             public func encode(to encoder: Encoder) throws {
                 var container = encoder.singleValueContainer()
                 try container.encode(rawValue)
@@ -493,11 +517,15 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 case version
             }
 
+            /// Decodes the externally tagged Secretary block key.
             public init(from decoder: Decoder) throws {
                 let container = try decoder.container(keyedBy: DynamicCodingKey.self)
-                guard let key = container.allKeys.first else {
-                    self = .unknown(name: "")
-                    return
+                let keys = container.allKeys
+                guard keys.count == 1, let key = keys.first else {
+                    throw DecodingError.dataCorrupted(.init(
+                        codingPath: container.codingPath,
+                        debugDescription: "Expected exactly one key in block.key, found \(keys.count)."
+                    ))
                 }
 
                 switch key.stringValue {
@@ -526,6 +554,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 }
             }
 
+            /// Encodes the externally tagged Secretary block key.
             public func encode(to encoder: Encoder) throws {
                 var container = encoder.container(keyedBy: DynamicCodingKey.self)
                 switch self {
@@ -551,7 +580,13 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 case .vulnerabilityId(let id):
                     try container.encode(id, forKey: DynamicCodingKey(stringValue: "vulnerability_id")!)
                 case .unknown(let name):
-                    try container.encode([String: String](), forKey: DynamicCodingKey(stringValue: name)!)
+                    throw EncodingError.invalidValue(
+                        self,
+                        .init(
+                            codingPath: container.codingPath,
+                            debugDescription: "Cannot encode unknown block key '\(name)' without preserving its raw value."
+                        )
+                    )
                 }
             }
         }

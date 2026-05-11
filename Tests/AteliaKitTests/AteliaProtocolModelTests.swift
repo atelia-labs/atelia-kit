@@ -432,6 +432,27 @@ import Testing
     #expect(entry.block?.key == .extensionId("com.example.blocked"))
 }
 
+@Test func packageTrustIndexBlockKeyRejectsAmbiguousPayloads() throws {
+    let data = #"""
+    {
+      "extension_id": "com.example.blocked",
+      "artifact_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaPackageTrustIndexEntry.Block.Key.self, from: data)
+    }
+}
+
+@Test func packageTrustIndexUnknownBlockKeyDoesNotEncodeWithoutRawPayload() throws {
+    let key = AteliaPackageTrustIndexEntry.Block.Key.unknown(name: "future_key")
+
+    #expect(throws: EncodingError.self) {
+        _ = try JSONEncoder().encode(key)
+    }
+}
+
 @Test func clientIdentityAndAuditReferencesUseProtocolSnakeCaseKeys() throws {
     let identityData = #"""
     {
