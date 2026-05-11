@@ -19,12 +19,19 @@ public enum HTTPAteliaClientError: Error, Sendable, Equatable {
 
 /// Stable error shape returned by the daemon transport.
 public struct AteliaAPIError: Sendable, Codable, Equatable {
+    /// JSON keys used by Secretary's structured API error envelope.
     private enum CodingKeys: String, CodingKey {
+        /// Stable machine-readable error code.
         case code
+        /// Human-readable Secretary error reason.
         case reason
+        /// Whether the failed operation can recover.
         case recoverable
+        /// Suggested next state for client recovery.
         case nextState = "next_state"
+        /// Optional retry timing or token hint.
         case retryAfter = "retry_after"
+        /// Optional audit reference for diagnostics.
         case auditRef = "audit_ref"
     }
 
@@ -289,7 +296,9 @@ private struct EmptyResponse: Sendable, Decodable {}
 
 /// Request body for the project status endpoint.
 private struct ProjectStatusRequest: Sendable, Encodable {
+    /// JSON keys for the compact project status request.
     private enum CodingKeys: String, CodingKey {
+        /// Repository identifier whose project status is requested.
         case repositoryId = "repository_id"
     }
 
@@ -299,7 +308,9 @@ private struct ProjectStatusRequest: Sendable, Encodable {
 
 /// Request body for repository pagination.
 private struct ListRepositoriesRequest: Sendable, Encodable {
+    /// JSON keys for repository pagination requests.
     private enum CodingKeys: String, CodingKey {
+        /// Opaque page token returned by the previous response.
         case pageToken = "page_token"
     }
 
@@ -316,9 +327,13 @@ private struct ListRepositoriesResponse: Sendable, Decodable {
     /// Opaque token for the next page, when more repositories are available.
     var nextPageToken: String?
 
+    /// JSON keys for repository list responses.
     private enum CodingKeys: String, CodingKey {
+        /// Protocol metadata attached to the response.
         case metadata
+        /// Repositories returned by the page.
         case repositories
+        /// Opaque token for the next page.
         case nextPageToken = "next_page_token"
     }
 }
@@ -338,14 +353,21 @@ private enum APIEnvelope<Payload: Decodable>: Decodable {
     /// Structured API error payload.
     case error(AteliaAPIError)
 
+    /// Top-level keys used by the Secretary API envelope.
     private enum CodingKeys: String, CodingKey {
+        /// Envelope status discriminator.
         case status
+        /// Success payload.
         case data
+        /// Structured error payload.
         case error
     }
 
+    /// Envelope status discriminator values.
     private enum Status: String, Decodable {
+        /// Successful API response.
         case ok
+        /// Structured API error response.
         case error
     }
 
