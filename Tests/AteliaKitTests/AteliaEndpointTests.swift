@@ -232,9 +232,9 @@ private actor StatusOnlyClient: AteliaClient {
     let session = AteliaSession()
 
     let status = try await client.status(for: session)
-    let callCount = await client.callCount()
+    let callCountBeforeUnavailableChecks = await client.callCount()
 
-    #expect(callCount == 1)
+    #expect(callCountBeforeUnavailableChecks == 1)
     #expect(status.phase == .ready)
     #expect(status.message == "legacy")
 
@@ -249,4 +249,7 @@ private actor StatusOnlyClient: AteliaClient {
     await #expect(throws: AteliaClientError.packageTrustIndexUnavailable) {
         _ = try await client.packageTrustIndex(for: session)
     }
+
+    let callCountAfterUnavailableChecks = await client.callCount()
+    #expect(callCountAfterUnavailableChecks == 1)
 }
