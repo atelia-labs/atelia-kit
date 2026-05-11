@@ -6,24 +6,33 @@ private actor PackageTrustIndexClientFixture: AteliaClient {
     private let response: AteliaPackageTrustIndexResponse
     private var callCount = 0
 
+    /// Creates a fixture client that returns the supplied trust-index response.
     init(response: AteliaPackageTrustIndexResponse) {
         self.response = response
     }
 
+    /// Returns the fixture trust-index response and records one client call.
     func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
         callCount += 1
         return response
     }
 
+    /// Returns how many trust-index calls reached the fixture.
     func calls() -> Int {
         callCount
     }
 }
 
+private enum FixtureError: Error {
+    /// The controllable fixture did not observe the expected number of requests before timeout.
+    case timeoutWaitingForRequests(expected: Int, actual: Int)
+}
+
 private actor ControllablePackageTrustIndexClient: AteliaClient {
     private var continuations: [CheckedContinuation<AteliaPackageTrustIndexResponse, Never>] = []
 
+    /// Suspends until the test explicitly responds to the captured request.
     func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
         return await withCheckedContinuation { continuation in
@@ -31,17 +40,28 @@ private actor ControllablePackageTrustIndexClient: AteliaClient {
         }
     }
 
-    func waitForRequests(_ count: Int) async throws {
+    /// Waits until the expected number of requests have reached the fixture.
+    func waitForRequests(_ count: Int, timeout: Duration = .seconds(2)) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
         while continuations.count < count {
+            guard clock.now < deadline else {
+                throw FixtureError.timeoutWaitingForRequests(
+                    expected: count,
+                    actual: continuations.count
+                )
+            }
             try await Task.sleep(for: .milliseconds(10))
         }
     }
 
+    /// Resumes one captured request with the supplied trust-index response.
     func respond(to index: Int, with response: AteliaPackageTrustIndexResponse) {
         continuations[index].resume(returning: response)
     }
 }
 
+/// Shared trust-index response used by store behavior tests.
 private let packageTrustIndexFixtureResponse = AteliaPackageTrustIndexResponse(
     metadata: AteliaProtocolMetadata(
         protocolVersion: "1.0.0",
@@ -73,6 +93,7 @@ private let packageTrustIndexFixtureResponse = AteliaPackageTrustIndexResponse(
     ]
 )
 
+/// Creates a one-entry trust-index response for race-ordering tests.
 private func packageTrustIndexResponse(packageId: String) -> AteliaPackageTrustIndexResponse {
     AteliaPackageTrustIndexResponse(
         metadata: AteliaProtocolMetadata(
