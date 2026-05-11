@@ -33,8 +33,10 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         repositoryId: String
     ) async throws -> AteliaProjectStatus
-    /// Returns the package trust index projection visible to the session.
+    /// Returns the package trust index entries visible to the session.
     func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry]
+    /// Returns the full package trust index envelope, including protocol metadata.
+    func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse
 }
 
 /// Default compatibility implementations for optional client capabilities.
@@ -79,8 +81,13 @@ public extension AteliaClient {
         throw AteliaClientError.projectStatusUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide the package trust index.
+    /// Returns the package trust index entries from the full envelope.
     func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry] {
+        try await packageTrustIndexResponse(for: session).packages
+    }
+
+    /// Returns a compatibility error when the conformer does not provide the package trust index.
+    func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
         throw AteliaClientError.packageTrustIndexUnavailable
     }
@@ -134,9 +141,17 @@ public actor LocalAteliaClient: AteliaClient {
     }
 
     /// Returns an empty package trust index for the local placeholder client.
-    public func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry] {
+    public func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
-        return []
+        return AteliaPackageTrustIndexResponse(
+            metadata: AteliaProtocolMetadata(
+                protocolVersion: "0.1.0",
+                daemonVersion: "0.0.0",
+                storageVersion: "0.0.0",
+                capabilities: ["package_trust_index.v1"]
+            ),
+            packages: []
+        )
     }
 
     /// Returns the legacy local status placeholder for compatibility with older clients.

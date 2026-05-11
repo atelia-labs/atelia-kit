@@ -204,8 +204,13 @@ private actor StatusOnlyClient: AteliaClient {
     let repertoire = try await client.repertoire(for: session)
     #expect(repertoire.isEmpty)
 
-    let trustIndex = try await client.packageTrustIndex(for: session)
-    #expect(trustIndex.isEmpty)
+    let trustIndex = try await client.packageTrustIndexResponse(for: session)
+    #expect(trustIndex.packages.isEmpty)
+    #expect(trustIndex.metadata.protocolVersion == "0.1.0")
+    #expect(trustIndex.metadata.capabilities == ["package_trust_index.v1"])
+
+    let trustIndexEntries = try await client.packageTrustIndex(for: session)
+    #expect(trustIndexEntries.isEmpty)
 
     let status = try await client.status(for: session)
     #expect(status.phase == .unknown)
