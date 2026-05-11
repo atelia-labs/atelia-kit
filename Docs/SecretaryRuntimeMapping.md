@@ -37,6 +37,7 @@ replaceable.
 | review queue item | `AteliaReviewQueueItem` |
 | event cursor | `AteliaEventCursor` |
 | project status | `AteliaProjectStatus` |
+| package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` |
 | beta repertoire projection | `AteliaToolRepertoireEntry` |
 
 ## Transport Boundary
@@ -48,6 +49,7 @@ and iOS operating surfaces:
 - `POST /v1/repositories:list`
 - `POST /v1/repertoire:list`
 - `POST /v1/project-status:get`
+- `POST /v1/package-trust-index:list`
 
 The client accepts an `AteliaHTTPTransport`, so tests and future transports do
 not need UI-specific mocking. Bearer authentication is optional at construction

@@ -252,6 +252,64 @@ import Testing
     #expect(decoded.daemonStatus == .running)
 }
 
+@Test func packageTrustIndexDecodesCanonicalProtocolJSON() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["package_trust_index.v1"]
+      },
+      "packages": [
+        {
+          "package_id": "com.example.active",
+          "version": "1.2.3",
+          "status": "installed",
+          "boundary": "official",
+          "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source": {
+            "source": "github",
+            "repository": "atelia-labs/atelia",
+            "ref": "refs/tags/v1.2.3",
+            "manifest_path": "packages/example/package.yml",
+            "commit": "deadbeef",
+            "registry_identity": "atelia-official",
+            "publication": {
+              "visibility": "public_searchable",
+              "registry_submission": "accepted"
+            },
+            "lineage": {
+              "parent_id": "com.example.parent",
+              "parent_version": "1.0.0",
+              "parent_manifest_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "relationship": "fork"
+            }
+          },
+          "approved_permissions": ["repo.read"],
+          "rollback_snapshot": {
+            "manifest_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "artifact_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        }
+      ]
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageTrustIndexResponse.self, from: data)
+
+    #expect(decoded.metadata.capabilities == ["package_trust_index.v1"])
+    #expect(decoded.packages.count == 1)
+    #expect(decoded.packages[0].packageId == "com.example.active")
+    #expect(decoded.packages[0].status == .installed)
+    #expect(decoded.packages[0].boundary == .official)
+    #expect(decoded.packages[0].source?.source == "github")
+    #expect(decoded.packages[0].source?.publication?.visibility == .publicSearchable)
+    #expect(decoded.packages[0].source?.publication?.registrySubmission == .accepted)
+    #expect(decoded.packages[0].source?.lineage?.relationship == .fork)
+}
+
 @Test func reviewQueueItemIsPlatformNeutralAndCodable() throws {
     let data = #"""
     {
@@ -314,6 +372,64 @@ import Testing
     #expect(approvalObject["policy_decision_id"] as? String == "pol_123")
     #expect(approvalObject["requested_by"] != nil)
     #expect(review.kind == .unknown("handoff"))
+}
+
+@Test func packageTrustIndexEnumsPreserveUnknownValues() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["package_trust_index.v1"]
+      },
+      "packages": [
+        {
+          "package_id": "com.example.blocked",
+          "version": "9.9.9",
+          "status": "quarantined",
+          "boundary": "partner_lab",
+          "manifest_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "artifact_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "source": {
+            "source": "registry",
+            "repository": "example.registry/package",
+            "ref": "main",
+            "manifest_path": "manifest.yml",
+            "commit": "abc123",
+            "registry_identity": "example-registry",
+            "publication": {
+              "visibility": "public_only",
+              "registry_submission": "queued"
+            },
+            "lineage": {
+              "parent_id": "com.example.parent",
+              "parent_version": null,
+              "parent_manifest_digest": null,
+              "relationship": "transplanted"
+            }
+          },
+          "block": {
+            "reason": "supply_chain_compromise",
+            "key": {
+              "extension_id": "com.example.blocked"
+            }
+          }
+        }
+      ]
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageTrustIndexResponse.self, from: data)
+    let entry = decoded.packages[0]
+
+    #expect(entry.status == .unknown("quarantined"))
+    #expect(entry.boundary == .unknown("partner_lab"))
+    #expect(entry.source?.publication?.visibility == .unknown("public_only"))
+    #expect(entry.source?.publication?.registrySubmission == .unknown("queued"))
+    #expect(entry.source?.lineage?.relationship == .unknown("transplanted"))
+    #expect(entry.block?.reason == .unknown("supply_chain_compromise"))
+    #expect(entry.block?.key == .extensionId("com.example.blocked"))
 }
 
 @Test func clientIdentityAndAuditReferencesUseProtocolSnakeCaseKeys() throws {

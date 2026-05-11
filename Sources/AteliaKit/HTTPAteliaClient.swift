@@ -153,6 +153,16 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         return response.entries
     }
 
+    public func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry] {
+        let response: AteliaPackageTrustIndexResponse = try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/package-trust-index:list",
+            body: EmptyRequest()
+        )
+        return response.packages
+    }
+
     public func projectStatus(
         for session: AteliaSession,
         repositoryId: String

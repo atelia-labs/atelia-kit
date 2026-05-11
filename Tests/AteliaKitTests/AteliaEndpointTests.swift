@@ -188,6 +188,9 @@ private actor StatusOnlyClient: AteliaClient {
     let repertoire = try await client.repertoire(for: session)
     #expect(repertoire.isEmpty)
 
+    let trustIndex = try await client.packageTrustIndex(for: session)
+    #expect(trustIndex.isEmpty)
+
     let status = try await client.status(for: session)
     #expect(status.phase == .unknown)
     #expect(status.message == "Protocol transport is not implemented yet.")
@@ -223,5 +226,9 @@ private actor StatusOnlyClient: AteliaClient {
 
     await #expect(throws: AteliaClientError.repertoireUnavailable) {
         _ = try await client.repertoire(for: session)
+    }
+
+    await #expect(throws: AteliaClientError.packageTrustIndexUnavailable) {
+        _ = try await client.packageTrustIndex(for: session)
     }
 }

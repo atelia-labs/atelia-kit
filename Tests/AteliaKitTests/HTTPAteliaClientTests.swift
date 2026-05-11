@@ -140,6 +140,79 @@ import Testing
     #expect(entries.map(\.toolId) == ["secretary.echo"])
 }
 
+@Test func httpClientFetchesPackageTrustIndexWithEmptyBody() async throws {
+    let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
+        #expect(request.url?.path == "/v1/package-trust-index:list")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
+        #expect(request.httpBody == Data("{}".utf8))
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["package_trust_index.v1"]
+            },
+            "packages": [
+              {
+                "package_id": "com.example.active",
+                "version": "1.2.3",
+                "status": "installed",
+                "boundary": "official",
+                "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source": {
+                  "source": "github",
+                  "repository": "atelia-labs/atelia",
+                  "ref": "refs/tags/v1.2.3",
+                  "manifest_path": "packages/example/package.yml",
+                  "commit": "deadbeef",
+                  "registry_identity": "atelia-official",
+                  "publication": {
+                    "visibility": "public_searchable",
+                    "registry_submission": "accepted"
+                  }
+                },
+                "approved_permissions": ["repo.read"],
+                "rollback_snapshot": {
+                  "manifest_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "artifact_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                }
+              },
+              {
+                "package_id": "com.example.blocked",
+                "version": "1.0.0",
+                "status": "blocked",
+                "boundary": "third_party",
+                "manifest_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "block": {
+                  "reason": "policy_violation",
+                  "key": {
+                    "artifact_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                  }
+                }
+              }
+            ]
+          }
+        }
+        """#
+    })
+
+    let packages = try await client.packageTrustIndex(for: AteliaSession())
+
+    #expect(packages.map(\.packageId) == ["com.example.active", "com.example.blocked"])
+    #expect(packages[1].status == .blocked)
+    #expect(packages[1].block?.reason == .policyViolation)
+    #expect(packages[1].block?.key == .artifactDigest("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
+}
+
 @Test func httpClientFetchesProjectStatus() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
         #expect(request.url?.path == "/v1/project-status:get")
