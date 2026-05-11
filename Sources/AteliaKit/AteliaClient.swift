@@ -37,6 +37,7 @@ public protocol AteliaClient: Sendable {
     func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry]
 }
 
+/// Default compatibility implementations for optional client capabilities.
 public extension AteliaClient {
     /// Returns a compatibility error when the conformer does not provide health.
     func health(for session: AteliaSession) async throws -> AteliaHealthResponse {

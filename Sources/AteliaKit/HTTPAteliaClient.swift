@@ -112,9 +112,13 @@ public struct AteliaHTTPTransport: Sendable {
 
 /// HTTP/JSON client for the Secretary beta daemon.
 public struct HTTPAteliaClient: AteliaClient, Sendable {
+    /// Replaceable HTTP transport used for production requests and tests.
     private let transport: AteliaHTTPTransport
+    /// Optional bearer token applied to outgoing requests.
     private let bearerToken: String?
+    /// JSON decoder used for Secretary envelopes.
     private let decoder: JSONDecoder
+    /// JSON encoder used for non-GET request bodies.
     private let encoder: JSONEncoder
 
     /// Creates an HTTP client for a Secretary endpoint.
@@ -200,6 +204,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Sends one typed request and decodes the Secretary API envelope.
     private func send<Request: Encodable, Response: Decodable>(
         session: AteliaSession,
         method: String,
@@ -230,6 +235,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         }
     }
 
+    /// Extracts a fallback textual reason from an unstructured error body.
     private static func responseReason(from data: Data) -> String? {
         guard let reason = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
@@ -239,6 +245,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         return reason
     }
 
+    /// Builds a URL request for the configured Secretary endpoint.
     private func makeRequest<Request: Encodable>(
         session: AteliaSession,
         method: String,
@@ -274,29 +281,39 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
     }
 }
 
+/// Empty request body encoded as `{}` for POST endpoints without parameters.
 private struct EmptyRequest: Sendable, Codable, Equatable {}
 
+/// Empty success body used only when decoding structured API errors.
 private struct EmptyResponse: Sendable, Decodable {}
 
+/// Request body for the project status endpoint.
 private struct ProjectStatusRequest: Sendable, Encodable {
     private enum CodingKeys: String, CodingKey {
         case repositoryId = "repository_id"
     }
 
+    /// Repository identifier whose project status should be fetched.
     var repositoryId: String
 }
 
+/// Request body for repository pagination.
 private struct ListRepositoriesRequest: Sendable, Encodable {
     private enum CodingKeys: String, CodingKey {
         case pageToken = "page_token"
     }
 
+    /// Opaque page token returned by the previous repository page.
     var pageToken: String?
 }
 
+/// Response body for one repository page.
 private struct ListRepositoriesResponse: Sendable, Decodable {
+    /// Protocol metadata attached to the repository list response.
     var metadata: AteliaProtocolMetadata
+    /// Repositories returned in the current page.
     var repositories: [AteliaRepository]
+    /// Opaque token for the next page, when more repositories are available.
     var nextPageToken: String?
 
     private enum CodingKeys: String, CodingKey {
@@ -306,13 +323,19 @@ private struct ListRepositoriesResponse: Sendable, Decodable {
     }
 }
 
+/// Response body for the beta tool repertoire endpoint.
 private struct ListToolRepertoireResponse: Sendable, Decodable {
+    /// Protocol metadata attached to the tool repertoire response.
     var metadata: AteliaProtocolMetadata
+    /// Tool repertoire entries visible to the session.
     var entries: [AteliaToolRepertoireEntry]
 }
 
+/// Secretary API envelope wrapping either success data or a structured error.
 private enum APIEnvelope<Payload: Decodable>: Decodable {
+    /// Successful response payload.
     case ok(Payload)
+    /// Structured API error payload.
     case error(AteliaAPIError)
 
     private enum CodingKeys: String, CodingKey {
@@ -326,6 +349,7 @@ private enum APIEnvelope<Payload: Decodable>: Decodable {
         case error
     }
 
+    /// Decodes the mutually exclusive `ok` or `error` envelope shape.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Status.self, forKey: .status) {
