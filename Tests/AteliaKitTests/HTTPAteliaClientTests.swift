@@ -146,7 +146,7 @@ import Testing
 }
 
 /// Verifies the HTTP client calls the package trust index endpoint with the beta transport shape.
-@Test func httpClientFetchesPackageTrustIndexWithEmptyBody() async throws {
+@Test func httpClientFetchesPackageTrustIndexEnvelope() async throws {
     let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
         #expect(request.url?.path == "/v1/package-trust-index:list")
         #expect(request.httpMethod == "POST")
@@ -211,12 +211,17 @@ import Testing
         """#
     })
 
-    let packages = try await client.packageTrustIndex(for: AteliaSession())
+    let response = try await client.packageTrustIndexResponse(for: AteliaSession())
 
-    #expect(packages.map(\.packageId) == ["com.example.active", "com.example.blocked"])
-    #expect(packages[1].status == .blocked)
-    #expect(packages[1].block?.reason == .policyViolation)
-    #expect(packages[1].block?.key == .artifactDigest("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
+    #expect(response.metadata.protocolVersion == "1.0.0")
+    #expect(response.metadata.capabilities == ["package_trust_index.v1"])
+    #expect(response.packages.map(\.packageId) == ["com.example.active", "com.example.blocked"])
+    #expect(response.packages[1].status == .blocked)
+    #expect(response.packages[1].block?.reason == .policyViolation)
+    #expect(response.packages[1].block?.key == .artifactDigest("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
+
+    let entries = try await client.packageTrustIndex(for: AteliaSession())
+    #expect(entries.map(\.packageId) == ["com.example.active", "com.example.blocked"])
 }
 
 /// Verifies the HTTP client fetches compact project status snapshots.

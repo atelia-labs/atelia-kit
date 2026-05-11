@@ -187,15 +187,14 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         return response.entries
     }
 
-    /// Returns the Secretary package trust index projection.
-    public func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry] {
-        let response: AteliaPackageTrustIndexResponse = try await send(
+    /// Returns the full Secretary package trust index envelope.
+    public func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
+        try await send(
             session: session,
             method: "POST",
             path: "/v1/package-trust-index:list",
             body: EmptyRequest()
         )
-        return response.packages
     }
 
     /// Fetches the compact project status snapshot for a repository.
