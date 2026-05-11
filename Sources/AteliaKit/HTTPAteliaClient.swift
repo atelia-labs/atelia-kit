@@ -5,10 +5,15 @@ import FoundationNetworking
 
 /// Errors surfaced by the HTTP/JSON Secretary beta transport.
 public enum HTTPAteliaClientError: Error, Sendable, Equatable {
+    /// The configured endpoint and request path could not form a valid URL.
     case invalidURL(path: String)
+    /// The transport returned a non-HTTP response.
     case invalidHTTPResponse
+    /// Secretary returned a non-success HTTP status without a structured API error.
     case unsuccessfulStatus(code: Int, reason: String?)
+    /// Secretary returned a structured API error envelope.
     case apiError(AteliaAPIError)
+    /// Repository pagination repeated a page token, so the client stopped to avoid a loop.
     case repeatedPageToken(String)
 }
 
@@ -23,13 +28,20 @@ public struct AteliaAPIError: Sendable, Codable, Equatable {
         case auditRef = "audit_ref"
     }
 
+    /// Stable machine-readable error code.
     public var code: String
+    /// Human-readable explanation from Secretary.
     public var reason: String
+    /// Whether the operation can be retried after user or system action.
     public var recoverable: Bool
+    /// Suggested next state for client recovery flows.
     public var nextState: String
+    /// Optional retry hint supplied by Secretary.
     public var retryAfter: AteliaRetryAfter?
+    /// Optional audit reference for support and diagnostics.
     public var auditRef: String?
 
+    /// Creates a structured API error.
     public init(
         code: String,
         reason: String,
@@ -49,9 +61,12 @@ public struct AteliaAPIError: Sendable, Codable, Equatable {
 
 /// Retry hint returned by Secretary errors.
 public enum AteliaRetryAfter: Sendable, Codable, Equatable {
+    /// Retry after the given number of seconds.
     case seconds(Double)
+    /// Retry after an opaque scheduler token or condition.
     case token(String)
 
+    /// Decodes either a numeric delay or an opaque retry token.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let seconds = try? container.decode(Double.self) {
@@ -61,6 +76,7 @@ public enum AteliaRetryAfter: Sendable, Codable, Equatable {
         self = .token(try container.decode(String.self))
     }
 
+    /// Encodes the retry hint as either a numeric delay or token.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
@@ -74,12 +90,15 @@ public enum AteliaRetryAfter: Sendable, Codable, Equatable {
 
 /// Small HTTP transport abstraction used to keep URLSession replaceable in tests.
 public struct AteliaHTTPTransport: Sendable {
+    /// Sends a URL request and returns the raw response data and HTTP metadata.
     public var send: @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
 
+    /// Creates a transport from a send closure.
     public init(send: @escaping @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)) {
         self.send = send
     }
 
+    /// Creates a transport backed by `URLSession`.
     public static func urlSession(_ session: URLSession = .shared) -> Self {
         Self { request in
             let (data, response) = try await session.data(for: request)
@@ -98,6 +117,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
 
+    /// Creates an HTTP client for a Secretary endpoint.
     public init(
         bearerToken: String? = nil,
         transport: AteliaHTTPTransport = .urlSession()
@@ -108,6 +128,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         self.encoder = JSONEncoder()
     }
 
+    /// Fetches the Secretary health envelope for the session.
     public func health(for session: AteliaSession) async throws -> AteliaHealthResponse {
         try await send(
             session: session,
@@ -117,6 +138,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Lists repositories visible to the session, following Secretary pagination.
     public func repositories(for session: AteliaSession) async throws -> [AteliaRepository] {
         var repositories: [AteliaRepository] = []
         var pageToken: String?
@@ -143,6 +165,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         return repositories
     }
 
+    /// Lists beta tool repertoire entries visible to the session.
     public func toolRepertoire(for session: AteliaSession) async throws -> [AteliaToolRepertoireEntry] {
         let response: ListToolRepertoireResponse = try await send(
             session: session,
@@ -164,6 +187,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         return response.packages
     }
 
+    /// Fetches the compact project status snapshot for a repository.
     public func projectStatus(
         for session: AteliaSession,
         repositoryId: String
