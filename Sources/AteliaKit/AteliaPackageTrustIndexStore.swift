@@ -6,7 +6,9 @@ public actor AteliaPackageTrustIndexStore {
     private let session: AteliaSession
     private var latestResponse: AteliaPackageTrustIndexResponse?
     private var packagesByID: [String: AteliaPackageTrustIndexEntry] = [:]
-    private var generation = 0
+    private var nextReloadGeneration = 0
+    private var latestAppliedGeneration = 0
+    private var clearGeneration = 0
 
     /// Creates a trust index store for a client/session pair.
     public init(client: some AteliaClient, session: AteliaSession) {
@@ -16,12 +18,14 @@ public actor AteliaPackageTrustIndexStore {
 
     /// Reloads the latest trust index response from the client.
     public func reload() async throws {
-        generation += 1
-        let reloadGeneration = generation
+        nextReloadGeneration += 1
+        let reloadGeneration = nextReloadGeneration
         let response = try await client.packageTrustIndexResponse(for: session)
-        guard reloadGeneration == generation else {
+        guard reloadGeneration > latestAppliedGeneration,
+              reloadGeneration > clearGeneration else {
             return
         }
+        latestAppliedGeneration = reloadGeneration
         latestResponse = response
         packagesByID = response.packages.reduce(into: [:]) { index, entry in
             index[entry.packageId] = entry
@@ -30,7 +34,7 @@ public actor AteliaPackageTrustIndexStore {
 
     /// Clears any cached trust index state.
     public func clear() {
-        generation += 1
+        clearGeneration = nextReloadGeneration
         latestResponse = nil
         packagesByID.removeAll(keepingCapacity: true)
     }
