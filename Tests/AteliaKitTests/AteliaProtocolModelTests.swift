@@ -302,13 +302,14 @@ import Testing
 
     #expect(decoded.metadata.capabilities == ["package_trust_index.v1"])
     #expect(decoded.packages.count == 1)
-    #expect(decoded.packages[0].packageId == "com.example.active")
-    #expect(decoded.packages[0].status == .installed)
-    #expect(decoded.packages[0].boundary == .official)
-    #expect(decoded.packages[0].source?.source == "github")
-    #expect(decoded.packages[0].source?.publication?.visibility == .publicSearchable)
-    #expect(decoded.packages[0].source?.publication?.registrySubmission == .accepted)
-    #expect(decoded.packages[0].source?.lineage?.relationship == .fork)
+    let entry = try #require(decoded.packages.first)
+    #expect(entry.packageId == "com.example.active")
+    #expect(entry.status == .installed)
+    #expect(entry.boundary == .official)
+    #expect(entry.source?.source == "github")
+    #expect(entry.source?.publication?.visibility == .publicSearchable)
+    #expect(entry.source?.publication?.registrySubmission == .accepted)
+    #expect(entry.source?.lineage?.relationship == .fork)
 }
 
 @Test func reviewQueueItemIsPlatformNeutralAndCodable() throws {
@@ -423,7 +424,7 @@ import Testing
     """#.data(using: .utf8)!
 
     let decoded = try JSONDecoder().decode(AteliaPackageTrustIndexResponse.self, from: data)
-    let entry = decoded.packages[0]
+    let entry = try #require(decoded.packages.first)
 
     #expect(entry.status == .unknown("quarantined"))
     #expect(entry.boundary == .unknown("partner_lab"))
