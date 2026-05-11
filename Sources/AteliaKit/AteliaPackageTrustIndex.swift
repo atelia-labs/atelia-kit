@@ -502,10 +502,12 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
                 var stringValue: String
                 var intValue: Int? { nil }
 
+                /// Creates a dynamic key from a string value.
                 init?(stringValue: String) {
                     self.stringValue = stringValue
                 }
 
+                /// Dynamic block keys do not support integer coding keys.
                 init?(intValue: Int) {
                     _ = intValue
                     return nil
@@ -620,6 +622,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
     /// Block marker if the package is blocklisted.
     public var block: Block?
 
+    /// Stable package identity for SwiftUI and collection diffing.
     public var id: String { packageId }
 
     /// Creates a trust-index entry.

@@ -153,6 +153,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         return response.entries
     }
 
+    /// Returns the Secretary package trust index projection.
     public func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry] {
         let response: AteliaPackageTrustIndexResponse = try await send(
             session: session,

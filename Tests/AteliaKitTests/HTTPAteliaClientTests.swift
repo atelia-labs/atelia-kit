@@ -140,6 +140,7 @@ import Testing
     #expect(entries.map(\.toolId) == ["secretary.echo"])
 }
 
+/// Verifies the HTTP client calls the package trust index endpoint with the beta transport shape.
 @Test func httpClientFetchesPackageTrustIndexWithEmptyBody() async throws {
     let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
         #expect(request.url?.path == "/v1/package-trust-index:list")

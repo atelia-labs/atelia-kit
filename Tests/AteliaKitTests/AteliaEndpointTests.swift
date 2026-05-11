@@ -31,6 +31,7 @@ private actor HealthOnlyClient: AteliaClient {
     }
 }
 
+/// Minimal conformer used to verify default protocol compatibility behavior.
 private actor StatusOnlyClient: AteliaClient {
     private var statusCallCount = 0
 

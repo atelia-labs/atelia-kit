@@ -252,6 +252,7 @@ import Testing
     #expect(decoded.daemonStatus == .running)
 }
 
+/// Verifies canonical package trust index JSON decodes into shared client models.
 @Test func packageTrustIndexDecodesCanonicalProtocolJSON() throws {
     let data = #"""
     {
@@ -374,6 +375,7 @@ import Testing
     #expect(review.kind == .unknown("handoff"))
 }
 
+/// Verifies unknown trust-index enum values remain available to clients.
 @Test func packageTrustIndexEnumsPreserveUnknownValues() throws {
     let data = #"""
     {
@@ -432,6 +434,7 @@ import Testing
     #expect(entry.block?.key == .extensionId("com.example.blocked"))
 }
 
+/// Verifies malformed block keys fail instead of decoding arbitrary data.
 @Test func packageTrustIndexBlockKeyRejectsAmbiguousPayloads() throws {
     let data = #"""
     {
@@ -445,6 +448,7 @@ import Testing
     }
 }
 
+/// Verifies unknown block keys are not re-encoded without their raw payload.
 @Test func packageTrustIndexUnknownBlockKeyDoesNotEncodeWithoutRawPayload() throws {
     let key = AteliaPackageTrustIndexEntry.Block.Key.unknown(name: "future_key")
 
