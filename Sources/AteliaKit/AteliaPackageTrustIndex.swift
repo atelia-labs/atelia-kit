@@ -34,12 +34,19 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
     /// Install status for trust-index projections.
     public enum Status: Sendable, Codable, Equatable, RawRepresentable {
+        /// Package is installed and enabled.
         case installed
+        /// Package is installed but disabled.
         case disabled
+        /// Package is blocked by Secretary policy or blocklist.
         case blocked
+        /// Package update is in progress.
         case updating
+        /// Package rollback is in progress.
         case rollbackInProgress
+        /// Previous package version is installed after rollback.
         case installedPreviousVersion
+        /// Unknown status retained for forward compatibility.
         case unknown(String)
 
         /// Creates a status from its Secretary wire value.
@@ -98,9 +105,13 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
     /// Boundary classification for the package revision.
     public enum Boundary: Sendable, Codable, Equatable, RawRepresentable {
+        /// Host-official package boundary.
         case official
+        /// Third-party package boundary.
         case thirdParty
+        /// Local development package boundary.
         case localDevelopment
+        /// Unknown boundary retained for forward compatibility.
         case unknown(String)
 
         /// Creates a boundary from its Secretary wire value.
@@ -208,9 +219,13 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
         /// Relationship between the package and its parent.
         public enum Relationship: Sendable, Codable, Equatable, RawRepresentable {
+            /// User-owned remix relationship.
             case remix
+            /// Fork relationship.
             case fork
+            /// Derived package relationship.
             case derived
+            /// Unknown relationship retained for forward compatibility.
             case unknown(String)
 
             /// Creates a lineage relationship from its Secretary wire value.
@@ -287,10 +302,15 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
         /// Visibility state for the publication.
         public enum Visibility: Sendable, Codable, Equatable, RawRepresentable {
+            /// Private remix visible inside the user's harness or workspace.
             case privateRemix
+            /// Directly shared package that is not publicly searchable.
             case unlistedShare
+            /// Publicly searchable package.
             case publicSearchable
+            /// Host-official publication.
             case official
+            /// Unknown visibility retained for forward compatibility.
             case unknown(String)
 
             /// Creates a visibility value from its Secretary wire value.
@@ -341,10 +361,15 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
         /// Registry submission state for the publication.
         public enum RegistrySubmission: Sendable, Codable, Equatable, RawRepresentable {
+            /// Package has not been submitted to a registry.
             case notSubmitted
+            /// Package has been submitted and awaits a registry decision.
             case submitted
+            /// Package has been accepted by registry policy.
             case accepted
+            /// Package has been rejected by registry policy.
             case rejected
+            /// Unknown submission state retained for forward compatibility.
             case unknown(String)
 
             /// Creates a registry submission state from its Secretary wire value.
@@ -414,14 +439,23 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
         /// Why the package is blocked.
         public enum Reason: Sendable, Codable, Equatable, RawRepresentable {
+            /// Package was classified as malware.
             case malware
+            /// Package manifest did not match expected metadata or digest.
             case manifestMismatch
+            /// Package requested excessive permissions.
             case overPermissioned
+            /// Package version is vulnerable.
             case vulnerableVersion
+            /// Package signer is compromised.
             case compromisedSigner
+            /// Package violates policy.
             case policyViolation
+            /// User explicitly blocked the package.
             case userBlocked
+            /// Registry removed the package.
             case registryRemoved
+            /// Unknown reason retained for forward compatibility.
             case unknown(String)
 
             /// Creates a block reason from its Secretary wire value.
@@ -488,14 +522,23 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
         /// Blocklist key matched by Secretary.
         public enum Key: Sendable, Codable, Equatable {
+            /// Block matched by package id.
             case extensionId(String)
+            /// Block matched by package id and version.
             case version(id: String, version: String)
+            /// Block matched by artifact digest.
             case artifactDigest(String)
+            /// Block matched by signer.
             case signer(String)
+            /// Block matched by publisher.
             case publisher(String)
+            /// Block matched by source repository.
             case sourceRepository(String)
+            /// Block matched by permission pattern.
             case permissionPattern(String)
+            /// Block matched by vulnerability identifier.
             case vulnerabilityId(String)
+            /// Unknown key name retained for decode-only forward compatibility.
             case unknown(name: String)
 
             private struct DynamicCodingKey: CodingKey {
