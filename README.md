@@ -10,9 +10,9 @@ Within AEP, Atelia Kit owns shared client-side models for presentation hosts:
 Atelia Protocol client state, AEP package / component / permission / risk
 models, Surface Protocol presentation declarations, component catalog data,
 action routing inputs, package inspection, and permission diff view-model
-coordination. It does not run Secretary, execute package code, load
-package-supplied web runtime UI, expose platform APIs to packages, or render
-platform-specific UI.
+coordination. It does not run Secretary, execute package code, load downloaded
+native UI / JS / WebView rendering surfaces, provide dynamic loaders, expose
+direct native API access to packages, or render platform-specific UI.
 
 ## Scope
 

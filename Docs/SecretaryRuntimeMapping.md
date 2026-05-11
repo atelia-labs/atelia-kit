@@ -8,12 +8,12 @@ Secretary host and not an executable package loader.
 
 ## Contract Sources
 
-- `atelia-secretary/docs/protocol-contract.md`
-- `atelia-secretary/docs/runtime-architecture.md`
-- `atelia/docs/client-ux.md`
-- `atelia/docs/surface-protocol.md`
-- `atelia/docs/aep-presentation.md`
-- `atelia/docs/component-catalog.md`
+- [Secretary Protocol Contract](https://github.com/atelia-labs/atelia-secretary/blob/main/docs/protocol-contract.md)
+- [Secretary Runtime Architecture](https://github.com/atelia-labs/atelia-secretary/blob/main/docs/runtime-architecture.md)
+- [Client UX](https://github.com/atelia-labs/atelia/blob/main/docs/client-ux.md)
+- [Surface Protocol](https://github.com/atelia-labs/atelia/blob/main/docs/surface-protocol.md)
+- [AEP Presentation](https://github.com/atelia-labs/atelia/blob/main/docs/aep-presentation.md)
+- [Component Catalog](https://github.com/atelia-labs/atelia/blob/main/docs/component-catalog.md)
 
 The current shipping beta transport is HTTP/JSON. The Rust RPC boundary remains
 transport-neutral, so `atelia-kit` keeps the transport implementation small and
