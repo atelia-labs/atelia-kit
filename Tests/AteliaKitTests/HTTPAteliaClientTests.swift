@@ -294,6 +294,125 @@ import Testing
     #expect(record.packageId == "com.example.review.extension")
 }
 
+/// Verifies the HTTP client calls POST `/v1/extensions/validate` with the beta envelope shape.
+@Test func httpClientValidatesPackageManifest() async throws {
+    let manifestFixture = try JSONDecoder().decode(
+        AteliaPackageManifest.self,
+        from: #"""
+        {
+          "schema": "atelia.extension.v1",
+          "id": "com.example.review.extension",
+          "name": "Review extension",
+          "metadata": {
+            "source": "github",
+            "publisher": "atelia-labs"
+          }
+        }
+        """#.data(using: .utf8)!
+    )
+    let validationRequest = AteliaPackageValidationRequest(
+        manifest: manifestFixture,
+        approveLocalUnsigned: true,
+        allowLocalProcessRuntime: true,
+        approveSourceChange: false
+    )
+
+    let client = HTTPAteliaClient(
+        bearerToken: "token-123",
+        transport: .fixture { request in
+            #expect(request.url?.path == "/v1/extensions/validate")
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
+            #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
+
+            let body = try #require(
+                JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+            )
+            let manifestObject = try #require(body["manifest"] as? [String: Any])
+            #expect(manifestObject["id"] as? String == "com.example.review.extension")
+            #expect(manifestObject["name"] as? String == "Review extension")
+            #expect(body["approve_local_unsigned"] as? Bool == true)
+            #expect(body["allow_local_process_runtime"] as? Bool == true)
+            #expect(body["approve_source_change"] as? Bool == false)
+
+            return #"""
+            {
+              "status": "ok",
+              "data": {
+                "metadata": {
+                  "protocol_version": "1.0.0",
+                  "daemon_version": "0.1.0",
+                  "storage_version": "0.1.0",
+                  "capabilities": ["extensions.validate.v1"]
+                },
+                "manifest": {
+                  "schema": "atelia.extension.v1",
+                  "id": "com.example.review.extension",
+                  "name": "Review extension",
+                  "tools": ["read", "write"],
+                  "compatibility": {
+                    "protocol": "1.0.0",
+                    "capabilities": ["filesystem", "network"]
+                  }
+                },
+                "boundary": "third_party"
+              }
+            }
+            """#
+        }
+    )
+
+    let response = try await client.packageValidationResponse(
+        for: AteliaSession(),
+        request: validationRequest
+    )
+    #expect(response.metadata.capabilities == ["extensions.validate.v1"])
+    #expect(response.boundary == .thirdParty)
+    #expect(response.manifest["id"] == .string("com.example.review.extension"))
+    #expect(response.manifest["tools"] == .array([.string("read"), .string("write")]))
+
+    let validatedManifest = try await client.packageValidation(
+        for: AteliaSession(),
+        request: validationRequest
+    )
+    #expect(validatedManifest["name"] == .string("Review extension"))
+}
+
+/// Verifies package validation errors are surfaced as typed API errors.
+@Test func httpClientSurfacesPackageValidationAPIError() async throws {
+    let client = HTTPAteliaClient(transport: .fixture(statusCode: 409) { _ in
+        #"""
+        {
+          "status": "error",
+          "error": {
+            "code": "invalid_manifest",
+            "reason": "manifest is missing required fields",
+            "recoverable": false,
+            "next_state": "revision_needed"
+          }
+        }
+        """#
+    })
+    let validationRequest = AteliaPackageValidationRequest(
+        manifest: AteliaPackageManifest(fields: ["id": .string("com.example.missing")])
+    )
+
+    await #expect(throws: HTTPAteliaClientError.apiError(
+        AteliaAPIError(
+            code: "invalid_manifest",
+            reason: "manifest is missing required fields",
+            recoverable: false,
+            nextState: "revision_needed"
+        )
+    )) {
+        _ = try await client.packageValidationResponse(
+            for: AteliaSession(),
+            request: validationRequest
+        )
+    }
+}
+
 /// Verifies package operation paths reject identifiers that Secretary cannot route.
 @Test func httpClientRejectsInvalidPackageOperationIds() async throws {
     let client = HTTPAteliaClient(transport: .fixture { _ in

@@ -215,6 +215,19 @@ private actor StatusOnlyClient: AteliaClient {
     let status = try await client.status(for: session)
     #expect(status.phase == .unknown)
     #expect(status.message == "Protocol transport is not implemented yet.")
+
+    await #expect(throws: AteliaClientError.packageValidationUnavailable) {
+        _ = try await client.packageValidationResponse(
+            for: session,
+            request: AteliaPackageValidationRequest(manifest: AteliaPackageManifest())
+        )
+    }
+    await #expect(throws: AteliaClientError.packageValidationUnavailable) {
+        _ = try await client.packageValidation(
+            for: session,
+            request: AteliaPackageValidationRequest(manifest: AteliaPackageManifest())
+        )
+    }
 }
 
 /// Verifies default status derives from health when no explicit status exists.
@@ -257,6 +270,18 @@ private actor StatusOnlyClient: AteliaClient {
 
     await #expect(throws: AteliaClientError.packageRollbackUnavailable) {
         _ = try await client.packageRollbackResponse(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageValidationUnavailable) {
+        _ = try await client.packageValidationResponse(
+            for: session,
+            request: AteliaPackageValidationRequest(manifest: AteliaPackageManifest())
+        )
+    }
+    await #expect(throws: AteliaClientError.packageValidationUnavailable) {
+        _ = try await client.packageValidation(
+            for: session,
+            request: AteliaPackageValidationRequest(manifest: AteliaPackageManifest())
+        )
     }
 
     let callCountAfterUnavailableChecks = await client.callCount()

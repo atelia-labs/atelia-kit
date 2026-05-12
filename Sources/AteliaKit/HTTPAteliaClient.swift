@@ -212,6 +212,19 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Returns the validation response envelope for an extension manifest.
+    public func packageValidationResponse(
+        for session: AteliaSession,
+        request: AteliaPackageValidationRequest
+    ) async throws -> AteliaPackageValidationResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/extensions/validate",
+            body: request
+        )
+    }
+
     /// Fetches the compact project status snapshot for a repository.
     public func projectStatus(
         for session: AteliaSession,
