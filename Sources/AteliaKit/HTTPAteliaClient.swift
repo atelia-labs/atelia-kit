@@ -228,7 +228,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         try await send(
             session: session,
             method: "POST",
-            path: "/v1/extensions/install",
+            path: "/v1/packages/install",
             body: request
         )
     }
@@ -241,7 +241,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         try await send(
             session: session,
             method: "POST",
-            path: "/v1/extensions/update",
+            path: "/v1/packages/update",
             body: request
         )
     }
@@ -267,7 +267,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         try await send(
             session: session,
             method: "POST",
-            path: "/v1/extensions/list",
+            path: "/v1/packages/list",
             body: request
         )
     }
@@ -371,7 +371,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         try await send(
             session: session,
             method: "POST",
-            path: "/v1/extensions/blocklist/apply",
+            path: "/v1/packages/blocklist/apply",
             body: request
         )
     }
@@ -383,7 +383,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         try await send(
             session: session,
             method: "POST",
-            path: "/v1/extensions/blocklist/list",
+            path: "/v1/packages/blocklist/list",
             body: EmptyRequest()
         )
     }
@@ -401,7 +401,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
-    /// Returns the validation response envelope for an extension manifest.
+    /// Returns the validation response envelope for a package manifest.
     public func packageValidationResponse(
         for session: AteliaSession,
         request: AteliaPackageValidationRequest
@@ -409,7 +409,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         try await send(
             session: session,
             method: "POST",
-            path: "/v1/extensions/validate",
+            path: "/v1/packages/validate",
             body: request
         )
     }
@@ -506,7 +506,7 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
     /// Builds a Secretary path for a package operation after validating the package identifier.
     private func makePackageOperationPath(packageId: String, operation: String) throws -> String {
         try makePackageOperationPath(
-            baseSegment: "extensions",
+            baseSegment: "packages",
             packageId: packageId,
             operation: operation
         )
@@ -515,13 +515,13 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
     /// Builds a Secretary path for package-authoring operations after validating the package identifier.
     private func makePackageAuthoringPath(packageId: String, operation: String) throws -> String {
         try makePackageOperationPath(
-            baseSegment: "extensions",
+            baseSegment: "packages",
             packageId: packageId,
             operation: operation
         )
     }
 
-    /// Builds a Secretary extension path after validating the package identifier.
+    /// Builds a Secretary package path after validating the package identifier.
     private func makePackageOperationPath(
         baseSegment: String,
         packageId: String,

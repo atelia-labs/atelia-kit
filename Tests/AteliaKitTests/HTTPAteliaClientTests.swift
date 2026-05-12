@@ -263,7 +263,7 @@ import Testing
     #expect(response.metadata.capabilities == ["package_trust_index.v1"])
 }
 
-/// Verifies package install requests hit the extension install route and decode the lifecycle envelope.
+/// Verifies package install requests hit the package install route and decode the lifecycle envelope.
 @Test func httpClientInstallsPackage() async throws {
     let manifestFixture = try JSONDecoder().decode(
         AteliaPackageManifest.self,
@@ -286,7 +286,7 @@ import Testing
     let client = HTTPAteliaClient(
         bearerToken: "token-123",
         transport: .fixture { request in
-            #expect(request.url?.path == "/v1/extensions/install")
+            #expect(request.url?.path == "/v1/packages/install")
             #expect(request.httpMethod == "POST")
             #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
 
@@ -342,7 +342,7 @@ import Testing
     #expect(response.record.status == .installed)
 }
 
-/// Verifies package updates hit the extension update route and decode the lifecycle envelope.
+/// Verifies package updates hit the package update route and decode the lifecycle envelope.
 @Test func httpClientUpdatesPackage() async throws {
     let manifestFixture = try JSONDecoder().decode(
         AteliaPackageManifest.self,
@@ -363,7 +363,7 @@ import Testing
     )
 
     let client = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/update")
+        #expect(request.url?.path == "/v1/packages/update")
         #expect(request.httpMethod == "POST")
         let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
         #expect(body["manifest"] != nil)
@@ -408,10 +408,10 @@ import Testing
     #expect(response.record.version == "1.1.0")
 }
 
-/// Verifies package status checks the extension status endpoint and decodes extension naming.
+/// Verifies package status checks the package status endpoint and decodes package status response naming.
 @Test func httpClientGetsPackageStatus() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/status")
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/status")
         #expect(request.httpMethod == "POST")
         #expect(request.httpBody == Data("{}".utf8))
 
@@ -459,10 +459,10 @@ import Testing
     #expect(status.record?.status == .installed)
 }
 
-/// Verifies package list calls the extensions list endpoint with list filters.
+/// Verifies package list calls the packages list endpoint with list filters.
 @Test func httpClientListsPackages() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/list")
+        #expect(request.url?.path == "/v1/packages/list")
         #expect(request.httpMethod == "POST")
         let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
         #expect(body?["include_blocked"] as? Bool == false)
@@ -533,7 +533,7 @@ import Testing
 /// Verifies package disable and enable use identifier-scoped lifecycle endpoints.
 @Test func httpClientDisablesAndEnablesPackage() async throws {
     let disableClient = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/disable")
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/disable")
         #expect(request.httpMethod == "POST")
         #expect(request.httpBody == Data("{}".utf8))
 
@@ -549,7 +549,7 @@ import Testing
     #expect(disabled.status == .disabled)
 
     let enableClient = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/enable")
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/enable")
         #expect(request.httpMethod == "POST")
         #expect(request.httpBody == Data("{}".utf8))
 
@@ -568,7 +568,7 @@ import Testing
 /// Verifies package authoring-flow requests hit the identifier-scoped endpoint and decode.
 @Test func httpClientFetchesPackageAuthoringFlow() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/authoring-flow")
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/authoring-flow")
         #expect(request.httpMethod == "POST")
         let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
         #expect(body["package_id"] as? String == "com.example.review.extension")
@@ -634,7 +634,7 @@ import Testing
     )
 
     let client = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/remix")
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/remix")
         #expect(request.httpMethod == "POST")
         let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
         #expect(body["package_id"] as? String == "com.example.review.extension")
@@ -690,7 +690,7 @@ import Testing
     )
 
     let client = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/publication")
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/publication")
         #expect(request.httpMethod == "POST")
         let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
         #expect(body["package_id"] as? String == "com.example.review.extension")
@@ -750,7 +750,7 @@ import Testing
         note: "approved by release"
     )
     let client = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/registry-submission")
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/registry-submission")
         #expect(request.httpMethod == "POST")
         let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
         #expect(body["package_id"] as? String == "com.example.review.extension")
@@ -805,7 +805,7 @@ import Testing
 /// Verifies package removals use the identifier-scoped remove endpoint.
 @Test func httpClientRemovesPackage() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/remove")
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/remove")
         #expect(request.httpMethod == "POST")
         #expect(request.httpBody == Data("{}".utf8))
 
@@ -851,7 +851,7 @@ import Testing
     let applyClient = HTTPAteliaClient(
         bearerToken: "token-123",
         transport: .fixture { request in
-            #expect(request.url?.path == "/v1/extensions/blocklist/apply")
+            #expect(request.url?.path == "/v1/packages/blocklist/apply")
             #expect(request.httpMethod == "POST")
             #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
 
@@ -898,7 +898,7 @@ import Testing
     #expect(applyResponse.entry.note == "risk exception")
 
     let listClient = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/blocklist/list")
+        #expect(request.url?.path == "/v1/packages/blocklist/list")
         #expect(request.httpMethod == "POST")
         #expect(request.httpBody == Data("{}".utf8))
 
@@ -1017,7 +1017,7 @@ import Testing
 /// Verifies the HTTP client calls Secretary's beta rollback endpoint with package-named API.
 @Test func httpClientRollsBackPackage() async throws {
     let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
-        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/rollback")
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/rollback")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
@@ -1084,7 +1084,7 @@ import Testing
     #expect(record.packageId == "com.example.review.extension")
 }
 
-/// Verifies the HTTP client calls POST `/v1/extensions/validate` with the beta envelope shape.
+/// Verifies the HTTP client calls POST `/v1/packages/validate` with the beta envelope shape.
 @Test func httpClientValidatesPackageManifest() async throws {
     let manifestFixture = try JSONDecoder().decode(
         AteliaPackageManifest.self,
@@ -1110,7 +1110,7 @@ import Testing
     let client = HTTPAteliaClient(
         bearerToken: "token-123",
         transport: .fixture { request in
-            #expect(request.url?.path == "/v1/extensions/validate")
+            #expect(request.url?.path == "/v1/packages/validate")
             #expect(request.httpMethod == "POST")
             #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
             #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
