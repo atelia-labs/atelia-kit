@@ -478,6 +478,34 @@ private func listResponse(packageIds: [String]) -> AteliaPackageListResponse {
     #expect(await store.package(id: "com.example.install")?.record == installResponse.record)
 }
 
+/// Verifies newer lifecycle responses do not suppress older package index upserts.
+@Test func newerInstallDoesNotDiscardOlderDifferentPackageInstallStatus() async throws {
+    let client = ControllablePackageLifecycleClientFixture()
+    let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
+    let olderResponse = lifecycleResponse(packageId: "com.example.older")
+    let newerResponse = lifecycleResponse(packageId: "com.example.newer")
+
+    let olderInstall = Task {
+        try await store.install(request: AteliaPackageLifecycleRequest(manifest: packageManifest(id: "com.example.older")))
+    }
+    try await client.waitForRequests(.install, count: 1)
+
+    let newerInstall = Task {
+        try await store.install(request: AteliaPackageLifecycleRequest(manifest: packageManifest(id: "com.example.newer")))
+    }
+    try await client.waitForRequests(.install, count: 2)
+
+    await client.respondToInstall(1, with: newerResponse)
+    _ = try await newerInstall.value
+    await client.respondToInstall(0, with: olderResponse)
+    _ = try await olderInstall.value
+
+    #expect(await store.lifecycleResponse == newerResponse)
+    #expect(await store.latestRecord == newerResponse.record)
+    #expect(await store.package(id: "com.example.newer")?.record == newerResponse.record)
+    #expect(await store.package(id: "com.example.older")?.record == olderResponse.record)
+}
+
 /// Verifies clear prevents older in-flight operations from repopulating state.
 @Test func clearInvalidatesInFlightPackageOperation() async throws {
     let client = ControllablePackageLifecycleClientFixture()

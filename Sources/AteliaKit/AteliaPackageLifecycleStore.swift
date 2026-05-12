@@ -56,13 +56,12 @@ public actor AteliaPackageLifecycleStore {
     public func rollback(packageId: String) async throws -> AteliaPackageRollbackRecord {
         let operationGeneration = beginOperation()
         let response = try await client.packageRollbackResponse(for: session, packageId: packageId)
-        guard shouldApply(operationGeneration, after: latestRollbackGeneration) else {
-            return response.record
+        if shouldApply(operationGeneration, after: latestRollbackGeneration) {
+            latestRollbackGeneration = operationGeneration
+            latestRollbackResponse = response
+            applyMetadata(response.metadata, generation: operationGeneration)
+            applyRecord(response.record, generation: operationGeneration)
         }
-        latestRollbackGeneration = operationGeneration
-        latestRollbackResponse = response
-        applyMetadata(response.metadata, generation: operationGeneration)
-        applyRecord(response.record, generation: operationGeneration)
         upsertPackageStatus(Self.status(from: response.record), generation: operationGeneration)
         return response.record
     }
@@ -99,12 +98,11 @@ public actor AteliaPackageLifecycleStore {
     public func status(packageId: String) async throws -> AteliaPackageStatus {
         let operationGeneration = beginOperation()
         let response = try await client.packageStatusResponse(for: session, packageId: packageId)
-        guard shouldApply(operationGeneration, after: latestStatusGeneration) else {
-            return response.package
+        if shouldApply(operationGeneration, after: latestStatusGeneration) {
+            latestStatusGeneration = operationGeneration
+            latestStatusResponse = response
+            applyMetadata(response.metadata, generation: operationGeneration)
         }
-        latestStatusGeneration = operationGeneration
-        latestStatusResponse = response
-        applyMetadata(response.metadata, generation: operationGeneration)
         upsertPackageStatus(response.package, generation: operationGeneration)
         return response.package
     }
@@ -242,13 +240,12 @@ public actor AteliaPackageLifecycleStore {
         _ response: AteliaPackageLifecycleResponse,
         generation operationGeneration: Int
     ) {
-        guard shouldApply(operationGeneration, after: latestLifecycleGeneration) else {
-            return
+        if shouldApply(operationGeneration, after: latestLifecycleGeneration) {
+            latestLifecycleGeneration = operationGeneration
+            latestLifecycleResponse = response
+            applyMetadata(response.metadata, generation: operationGeneration)
+            applyRecord(response.record, generation: operationGeneration)
         }
-        latestLifecycleGeneration = operationGeneration
-        latestLifecycleResponse = response
-        applyMetadata(response.metadata, generation: operationGeneration)
-        applyRecord(response.record, generation: operationGeneration)
         upsertPackageStatus(Self.status(from: response.record), generation: operationGeneration)
     }
 
