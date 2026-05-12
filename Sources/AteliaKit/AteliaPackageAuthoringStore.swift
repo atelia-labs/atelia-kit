@@ -59,21 +59,37 @@ public struct AteliaPackageAuthoringStoreSnapshot: Sendable, Equatable {
 
 /// Actor-backed cache for package authoring-flow, remix, publication, and registry-submission state.
 public actor AteliaPackageAuthoringStore {
+    /// Client used to perform Secretary package-authoring requests.
     private let client: any AteliaClient
+    /// Session attached to all package-authoring requests.
     private let session: AteliaSession
+    /// Latest protocol metadata from a successful package-authoring operation.
     private var latestMetadata: AteliaProtocolMetadata?
+    /// Latest flow returned by any package-authoring operation.
     private var latestFlow: AteliaPackageAuthoringFlow?
+    /// Latest authoring-flow response envelope.
     private var latestAuthoringFlowResponse: AteliaPackageAuthoringFlowResponse?
+    /// Latest remix response envelope.
     private var latestRemixResponse: AteliaPackageRemixResponse?
+    /// Latest publication response envelope.
     private var latestPublicationResponse: AteliaPackagePublicationResponse?
+    /// Latest registry-submission response envelope.
     private var latestRegistrySubmissionResponse: AteliaPackageRegistrySubmissionResponse?
+    /// Monotonic token assigned to newly started operations.
     private var nextOperationGeneration = 0
+    /// Generation after which results are allowed to update the cache.
     private var clearGeneration = 0
+    /// Latest generation that updated metadata.
     private var metadataGeneration = 0
+    /// Latest generation that updated the flow.
     private var flowGeneration = 0
+    /// Latest generation that updated the authoring-flow envelope.
     private var authoringFlowGeneration = 0
+    /// Latest generation that updated the remix envelope.
     private var remixGeneration = 0
+    /// Latest generation that updated the publication envelope.
     private var publicationGeneration = 0
+    /// Latest generation that updated the registry-submission envelope.
     private var registrySubmissionGeneration = 0
 
     /// Creates an authoring store for a client/session pair.
