@@ -226,7 +226,14 @@ public extension AteliaClient {
         for session: AteliaSession,
         request: AteliaPackageTrustIndexRequest
     ) async throws -> [AteliaPackageTrustIndexEntry] {
-        try await packageTrustIndexResponse(for: session, request: request).packages
+        if request == AteliaPackageTrustIndexRequest() {
+            do {
+                return try await packageTrustIndexResponse(for: session, request: request).packages
+            } catch AteliaClientError.packageTrustIndexUnavailable {
+                return try await packageTrustIndex(for: session)
+            }
+        }
+        return try await packageTrustIndexResponse(for: session, request: request).packages
     }
 
     /// Returns a compatibility error when the conformer does not provide the package trust index.
