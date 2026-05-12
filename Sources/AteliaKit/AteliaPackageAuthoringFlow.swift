@@ -319,6 +319,15 @@ public struct AteliaPackageGitHubSourceReference: Sendable, Codable, Equatable {
         self.manifestDigest = manifestDigest
         self.artifactDigests = artifactDigests
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.repository = try container.decode(String.self, forKey: .repository)
+        self.ref = try container.decodeIfPresent(String.self, forKey: .ref)
+        self.manifestPath = try container.decode(String.self, forKey: .manifestPath)
+        self.manifestDigest = try container.decodeIfPresent(String.self, forKey: .manifestDigest)
+        self.artifactDigests = try container.decodeIfPresent([String].self, forKey: .artifactDigests) ?? []
+    }
 }
 
 /// Client projection for a GitHub-backed package publication path.
@@ -354,6 +363,16 @@ public struct AteliaPackagePublicationPlan: Sendable, Codable, Equatable {
         self.requiresRegistrySubmission = requiresRegistrySubmission
         self.productionInstallable = productionInstallable
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.visibility = try container.decode(AteliaPackagePublicationVisibility.self, forKey: .visibility)
+        self.sourceClass = try container.decode(AteliaPackageSourceClass.self, forKey: .sourceClass)
+        self.source = try container.decodeIfPresent(AteliaPackageGitHubSourceReference.self, forKey: .source)
+        self.githubActions = try container.decodeIfPresent([AteliaPackageGitHubPublicationAction].self, forKey: .githubActions) ?? []
+        self.requiresRegistrySubmission = try container.decode(Bool.self, forKey: .requiresRegistrySubmission)
+        self.productionInstallable = try container.decode(Bool.self, forKey: .productionInstallable)
+    }
 }
 
 /// One host-rendered step in the client package authoring flow.
@@ -386,6 +405,15 @@ public struct AteliaPackageAuthoringFlowStep: Sendable, Codable, Equatable, Iden
         self.state = state
         self.requiresExplicitConsent = requiresExplicitConsent
         self.policyNotes = policyNotes
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(AteliaPackageAuthoringStage.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.state = try container.decode(AteliaPackageAuthoringStepState.self, forKey: .state)
+        self.requiresExplicitConsent = try container.decodeIfPresent(Bool.self, forKey: .requiresExplicitConsent) ?? false
+        self.policyNotes = try container.decodeIfPresent([String].self, forKey: .policyNotes) ?? []
     }
 }
 

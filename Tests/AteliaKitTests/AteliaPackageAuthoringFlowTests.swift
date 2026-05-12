@@ -112,6 +112,40 @@ import Testing
     #expect(publicationPlan["production_installable"] as? Bool == true)
 }
 
+/// Verifies optional collection and consent fields tolerate omitted keys.
+@Test func packageAuthoringFlowDecodesDefaultedMissingKeys() throws {
+    let data = #"""
+    {
+      "package_id": "com.example.review",
+      "source_class": "workspace-local",
+      "source": {
+        "repository": "atelia-labs/atelia-official-packages",
+        "manifest_path": "packages/review/aep.yaml"
+      },
+      "steps": [
+        {
+          "id": "inspect",
+          "title": "Inspect package",
+          "state": "available"
+        }
+      ],
+      "publication_plan": {
+        "visibility": "private_remix",
+        "source_class": "workspace-local",
+        "requires_registry_submission": false,
+        "production_installable": false
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageAuthoringFlow.self, from: data)
+
+    #expect(decoded.source?.artifactDigests == [])
+    #expect(decoded.steps[0].requiresExplicitConsent == false)
+    #expect(decoded.steps[0].policyNotes == [])
+    #expect(decoded.publicationPlan?.githubActions == [])
+}
+
 /// Verifies unknown enum values remain round-trippable for forward compatibility.
 @Test func packageAuthoringFlowPreservesUnknownEnumValues() throws {
     let data = #"""
