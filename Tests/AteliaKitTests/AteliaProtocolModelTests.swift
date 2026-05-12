@@ -601,6 +601,96 @@ import Testing
     #expect(review.kind == .unknown("handoff"))
 }
 
+/// Verifies approval-state contract keys remain stable for PDH-126 smoke checks.
+@Test func approvalStatePreservesCanonicalContractKeys() throws {
+    let data = #"""
+    {
+      "id": "approval_123",
+      "status": "approved",
+      "policy_decision_id": "pol_123",
+      "requested_by": {
+        "type": "user",
+        "id": "user_123",
+        "display_name": "Approver"
+      },
+      "reason": "Policy review complete"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaApprovalState.self, from: data)
+    let encoded = try JSONEncoder().encode(decoded)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+    #expect(decoded.id == "approval_123")
+    #expect(decoded.status == .approved)
+    #expect(decoded.policyDecisionId == "pol_123")
+    #expect(decoded.reason == "Policy review complete")
+    #expect(object["id"] as? String == "approval_123")
+    #expect(object["status"] as? String == "approved")
+    #expect(object["policy_decision_id"] as? String == "pol_123")
+    #expect(object["reason"] as? String == "Policy review complete")
+    #expect((object["requested_by"] as? [String: Any]) != nil)
+}
+
+/// Verifies audit references still use protocol snake_case keys for transport smoke checks.
+@Test func auditReferencePreservesCanonicalContractKeys() throws {
+    let data = #"""
+    {
+      "id": "audit_123",
+      "repository_id": "repo_123",
+      "job_id": "job_123",
+      "policy_decision_id": "pol_123",
+      "message": "Policy decision reviewed"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaAuditReference.self, from: data)
+    let encoded = try JSONEncoder().encode(decoded)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+    #expect(decoded.id == "audit_123")
+    #expect(decoded.repositoryId == "repo_123")
+    #expect(decoded.jobId == "job_123")
+    #expect(decoded.policyDecisionId == "pol_123")
+    #expect(decoded.message == "Policy decision reviewed")
+    #expect(object["id"] as? String == "audit_123")
+    #expect(object["repository_id"] as? String == "repo_123")
+    #expect(object["job_id"] as? String == "job_123")
+    #expect(object["policy_decision_id"] as? String == "pol_123")
+    #expect(object["message"] as? String == "Policy decision reviewed")
+}
+
+/// Verifies review queue item contract keys remain aligned with shared models.
+@Test func reviewQueueItemPreservesCanonicalContractKeys() throws {
+    let data = #"""
+    {
+      "id": "review_456",
+      "kind": "audit",
+      "title": "Audit review needed",
+      "repository_id": "repo_123",
+      "job_id": "job_123",
+      "policy_decision_id": "pol_456",
+      "priority": 3
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaReviewQueueItem.self, from: data)
+    let encoded = try JSONEncoder().encode(decoded)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+    #expect(decoded.id == "review_456")
+    #expect(decoded.kind == .audit)
+    #expect(decoded.title == "Audit review needed")
+    #expect(decoded.repositoryId == "repo_123")
+    #expect(decoded.jobId == "job_123")
+    #expect(decoded.policyDecisionId == "pol_456")
+    #expect(decoded.priority == 3)
+    #expect(object["id"] as? String == "review_456")
+    #expect(object["kind"] as? String == "audit")
+    #expect(object["policy_decision_id"] as? String == "pol_456")
+    #expect(object["priority"] as? Int == 3)
+}
+
 /// Verifies unknown trust-index enum values remain available to clients.
 @Test func packageTrustIndexEnumsPreserveUnknownValues() throws {
     let data = #"""
