@@ -8,6 +8,10 @@ Secretary host and not an executable package loader.
 
 ## Contract Sources
 
+Early MVP/MDP contract references now point to the canonical
+`docs/protocol-contract.md` in `atelia-secretary` for the current contract
+surface.
+
 - [Secretary Protocol Contract](https://github.com/atelia-labs/atelia-secretary/blob/main/docs/protocol-contract.md)
 - [Secretary Runtime Architecture](https://github.com/atelia-labs/atelia-secretary/blob/main/docs/runtime-architecture.md)
 - [Client UX](https://github.com/atelia-labs/atelia/blob/main/docs/client-ux.md)
@@ -21,24 +25,24 @@ replaceable.
 
 ## Model Mapping
 
-| Secretary contract | Atelia Kit model |
-| --- | --- |
-| protocol metadata | `AteliaProtocolMetadata` |
-| health response | `AteliaHealthResponse` |
-| repository | `AteliaRepository` |
-| allowed path scope | `AteliaPathScope` |
-| project/thread client identity | `AteliaProjectIdentity`, `AteliaThreadIdentity` |
-| actor | `AteliaActor` |
-| job | `AteliaJob` |
-| cancellation | `AteliaJobCancellation` |
-| policy summary / decision | `AteliaPolicySummary`, `AteliaPolicyDecision` |
-| approval state | `AteliaApprovalState` |
-| audit reference | `AteliaAuditReference` |
-| review queue item | `AteliaReviewQueueItem` |
-| event cursor | `AteliaEventCursor` |
-| project status | `AteliaProjectStatus` |
-| package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` |
-| beta repertoire projection | `AteliaToolRepertoireEntry` |
+| Secretary contract area | Atelia Kit model | Canonical protocol keys |
+| --- | --- | --- |
+| protocol metadata | `AteliaProtocolMetadata` | `metadata` |
+| health response | `AteliaHealthResponse` | `daemon_status`, `daemon_version`, `protocol_version`, `storage_status`, `storage_version`, `capabilities` |
+| repository | `AteliaRepository` | `repository`, `repository_id`, `allowed_scope` |
+| allowed path scope | `AteliaPathScope` | `kind`, `roots`, `include_patterns`, `exclude_patterns` |
+| project/thread client identity | `AteliaProjectIdentity`, `AteliaThreadIdentity` | `repository_id`, `project_id`, `id`, `title`, `display_name` |
+| actor | `AteliaActor` | `type`, `id`, `display_name` |
+| job | `AteliaJob` | `job_id`, `repository_id`, `requester`, `kind`, `status` |
+| cancellation | `AteliaJobCancellation` | `state`, `requested_by`, `reason` |
+| policy summary / decision | `AteliaPolicySummary`, `AteliaPolicyDecision` | `decision_id`, `outcome`, `risk_tier`, `approval_request_ref`, `audit_ref` |
+| approval state | `AteliaApprovalState` | `id`, `status`, `policy_decision_id`, `requested_by`, `reason` |
+| audit reference | `AteliaAuditReference` | `id`, `repository_id`, `job_id`, `policy_decision_id`, `message` |
+| review queue item | `AteliaReviewQueueItem` | `id`, `kind`, `title`, `repository_id`, `job_id`, `policy_decision_id`, `priority` |
+| event cursor | `AteliaEventCursor` | `sequence`, `event_id` |
+| project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor`, `daemon_status`, `storage_status` |
+| package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
+| beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `supported_result_formats` |
 
 ## Transport Boundary
 
