@@ -16,6 +16,8 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case packageTrustIndexUnavailable
     /// The conformer does not provide the package rollback operation.
     case packageRollbackUnavailable
+    /// The conformer does not provide package manifest validation.
+    case packageValidationUnavailable
 }
 
 /// Protocol for fetching Atelia health, repertoire, and derived secretary status for a session.
@@ -44,6 +46,11 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         packageId: String
     ) async throws -> AteliaPackageRollbackResponse
+    /// Returns the package validation response for a manifest request.
+    func packageValidationResponse(
+        for session: AteliaSession,
+        request: AteliaPackageValidationRequest
+    ) async throws -> AteliaPackageValidationResponse
 }
 
 /// Default compatibility implementations for optional client capabilities.
@@ -115,6 +122,24 @@ public extension AteliaClient {
         _ = session
         _ = packageId
         throw AteliaClientError.packageRollbackUnavailable
+    }
+
+    /// Returns the package manifest field validation response from the default client.
+    func packageValidationResponse(
+        for session: AteliaSession,
+        request: AteliaPackageValidationRequest
+    ) async throws -> AteliaPackageValidationResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.packageValidationUnavailable
+    }
+
+    /// Returns the validated package manifest from a package validation request.
+    func packageValidation(
+        for session: AteliaSession,
+        request: AteliaPackageValidationRequest
+    ) async throws -> AteliaPackageManifest {
+        try await packageValidationResponse(for: session, request: request).manifest
     }
 }
 

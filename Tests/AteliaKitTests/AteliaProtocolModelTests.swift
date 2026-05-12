@@ -370,6 +370,171 @@ import Testing
     #expect(future.requiresAttention == true)
 }
 
+/// Verifies package manifests preserve arbitrary JSON shapes through decoding and encoding.
+@Test func packageManifestPreservesArbitraryJSONShape() throws {
+    let manifestData = #"""
+    {
+      "schema": "atelia.extension.v1",
+      "id": "com.example.review.extension",
+      "name": "Review extension",
+      "tools": ["read", "write"],
+      "compatibility": {
+        "protocol": "1.0.0",
+        "permissions": {
+          "filesystem": ["read", "write"]
+        },
+        "supports_local": true
+      },
+      "version": 3
+    }
+    """#.data(using: .utf8)!
+
+    let manifest = try JSONDecoder().decode(AteliaPackageManifest.self, from: manifestData)
+    let encoded = try JSONEncoder().encode(manifest)
+    let decoded = try JSONDecoder().decode(AteliaPackageManifest.self, from: encoded)
+
+    #expect(decoded["schema"] == .string("atelia.extension.v1"))
+    #expect(decoded["id"] == .string("com.example.review.extension"))
+    #expect(decoded["tools"] == .array([.string("read"), .string("write")]))
+    #expect(decoded["compatibility"] == .object([
+        "protocol": .string("1.0.0"),
+        "permissions": .object([
+            "filesystem": .array([.string("read"), .string("write")])
+        ]),
+        "supports_local": .bool(true)
+    ]))
+    #expect(decoded["version"] == .number(Decimal(3)))
+    #expect(decoded == manifest)
+}
+
+/// Verifies package manifest numbers decode through Decimal without binary floating-point rounding.
+@Test func packageManifestPreservesDecimalNumberPrecision() throws {
+    let manifestData = #"""
+    {
+      "precise": 1.234567890123456789,
+      "integer": 1234567890123456789
+    }
+    """#.data(using: .utf8)!
+
+    let manifest = try JSONDecoder().decode(AteliaPackageManifest.self, from: manifestData)
+
+    #expect(manifest["precise"] == .number(Decimal(string: "1.234567890123456789")!))
+    #expect(manifest["integer"] == .number(Decimal(string: "1234567890123456789")!))
+}
+
+/// Verifies package validation request decoding uses canonical snake_case request keys.
+@Test func packageValidationRequestDecodesCanonicalSnakeCaseProtocolJSON() throws {
+    let data = #"""
+    {
+      "manifest": {
+        "schema": "atelia.extension.v1",
+        "id": "com.example.review.extension",
+        "name": "Review extension"
+      },
+      "approve_local_unsigned": true,
+      "allow_local_process_runtime": false,
+      "approve_source_change": true
+    }
+    """#.data(using: .utf8)!
+
+    let request = try JSONDecoder().decode(AteliaPackageValidationRequest.self, from: data)
+
+    #expect(request.manifest["schema"] == .string("atelia.extension.v1"))
+    #expect(request.manifest["name"] == .string("Review extension"))
+    #expect(request.approveLocalUnsigned == true)
+    #expect(request.allowLocalProcessRuntime == false)
+    #expect(request.approveSourceChange == true)
+}
+
+/// Verifies omitted package validation flags follow Secretary's default-false contract.
+@Test func packageValidationRequestDefaultsOmittedFlagsToFalse() throws {
+    let data = #"""
+    {
+      "manifest": {
+        "schema": "atelia.extension.v1",
+        "id": "com.example.review.extension",
+        "name": "Review extension"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let request = try JSONDecoder().decode(AteliaPackageValidationRequest.self, from: data)
+
+    #expect(request.manifest["id"] == .string("com.example.review.extension"))
+    #expect(request.approveLocalUnsigned == false)
+    #expect(request.allowLocalProcessRuntime == false)
+    #expect(request.approveSourceChange == false)
+}
+
+/// Verifies explicit null validation flags are rejected like Secretary's serde bool fields.
+@Test func packageValidationRequestRejectsNullFlags() {
+    let data = #"""
+    {
+      "manifest": {
+        "schema": "atelia.extension.v1",
+        "id": "com.example.review.extension"
+      },
+      "approve_local_unsigned": null
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaPackageValidationRequest.self, from: data)
+    }
+}
+
+/// Verifies package validation response decoding preserves metadata, manifest, and boundary.
+@Test func packageValidationResponseDecodesCanonicalProtocolJSON() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["extensions.validate.v1"]
+      },
+      "manifest": {
+        "schema": "atelia.extension.v1",
+        "id": "com.example.review.extension",
+        "name": "Review extension",
+        "source": "github"
+      },
+      "boundary": "third_party"
+    }
+    """#.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(AteliaPackageValidationResponse.self, from: data)
+
+    #expect(response.metadata.protocolVersion == "1.0.0")
+    #expect(response.metadata.capabilities == ["extensions.validate.v1"])
+    #expect(response.manifest["id"] == .string("com.example.review.extension"))
+    #expect(response.boundary == .thirdParty)
+}
+
+/// Verifies package validation boundary preserves unknown values for forward compatibility.
+@Test func packageValidationResponsePreservesUnknownBoundaryValues() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["extensions.validate.v1"]
+      },
+      "manifest": {
+        "schema": "atelia.extension.v1",
+        "id": "com.example.review.extension",
+        "name": "Review extension"
+      },
+      "boundary": "experimental_shadow"
+    }
+    """#.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(AteliaPackageValidationResponse.self, from: data)
+
+    #expect(response.boundary == .unknown("experimental_shadow"))
+}
+
 /// Verifies review queue items remain platform-neutral and Codable.
 @Test func reviewQueueItemIsPlatformNeutralAndCodable() throws {
     let data = #"""
