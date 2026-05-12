@@ -454,3 +454,345 @@ public struct AteliaPackageAuthoringFlow: Sendable, Codable, Equatable, Identifi
         }
     }
 }
+
+/// Request payload used to fetch the package authoring flow contract for a package id.
+public struct AteliaPackageAuthoringFlowRequest: Sendable, Codable, Equatable {
+    /// JSON keys for authoring-flow request bodies.
+    private enum CodingKeys: String, CodingKey {
+        /// Package identifier whose authoring flow is requested.
+        case packageId = "package_id"
+        /// Whether private or draft-only steps should be returned.
+        case includePrivateSteps = "include_private_steps"
+    }
+
+    /// Package identifier.
+    public var packageId: String
+    /// Whether private/draft-only flow steps should be returned.
+    public var includePrivateSteps: Bool
+
+    /// Creates a package authoring flow request.
+    public init(
+        packageId: String,
+        includePrivateSteps: Bool = true
+    ) {
+        self.packageId = packageId
+        self.includePrivateSteps = includePrivateSteps
+    }
+
+    /// Decodes authoring-flow requests preserving default values when omitted.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.packageId = try container.decode(String.self, forKey: .packageId)
+        self.includePrivateSteps = try container.contains(.includePrivateSteps)
+            ? container.decode(Bool.self, forKey: .includePrivateSteps)
+            : true
+    }
+}
+
+/// Envelope returned for authoring-flow retrieval.
+public struct AteliaPackageAuthoringFlowResponse: Sendable, Codable, Equatable {
+    /// JSON keys for authoring-flow responses.
+    private enum CodingKeys: String, CodingKey {
+        /// Protocol metadata.
+        case metadata
+        /// Authoring flow details.
+        case flow
+    }
+
+    /// Protocol metadata.
+    public var metadata: AteliaProtocolMetadata
+    /// Authoring flow payload used by UI contract and state machines.
+    public var flow: AteliaPackageAuthoringFlow
+}
+
+/// Request payload used to trigger or refresh a package remix flow.
+public struct AteliaPackageRemixRequest: Sendable, Codable, Equatable {
+    /// JSON keys for remix request bodies.
+    private enum CodingKeys: String, CodingKey {
+        /// Package identifier being remixed.
+        case packageId = "package_id"
+        /// Source class for the remixed result.
+        case sourceClass = "source_class"
+        /// Source reference used by the remix operation.
+        case source
+        /// Optional manifest payload to seed the flow.
+        case manifest
+    }
+
+    /// Package identifier being remixed.
+    public var packageId: String
+    /// Source class for the remix result.
+    public var sourceClass: AteliaPackageSourceClass
+    /// Source reference used by the remix operation.
+    public var source: AteliaPackageGitHubSourceReference?
+    /// Optional manifest payload used for manifest-aware remixes.
+    public var manifest: AteliaPackageManifest?
+
+    /// Creates a package remix request.
+    public init(
+        packageId: String,
+        sourceClass: AteliaPackageSourceClass,
+        source: AteliaPackageGitHubSourceReference? = nil,
+        manifest: AteliaPackageManifest? = nil
+    ) {
+        self.packageId = packageId
+        self.sourceClass = sourceClass
+        self.source = source
+        self.manifest = manifest
+    }
+
+    /// Decodes remix requests while preserving a workspace-local source fallback.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.packageId = try container.decode(String.self, forKey: .packageId)
+        self.sourceClass = try container.contains(.sourceClass)
+            ? container.decode(AteliaPackageSourceClass.self, forKey: .sourceClass)
+            : .workspaceLocal
+        self.source = try container.decodeIfPresent(
+            AteliaPackageGitHubSourceReference.self,
+            forKey: .source
+        )
+        self.manifest = try container.decodeIfPresent(
+            AteliaPackageManifest.self,
+            forKey: .manifest
+        )
+    }
+}
+
+/// Envelope returned after remix operations.
+public struct AteliaPackageRemixResponse: Sendable, Codable, Equatable {
+    /// JSON keys for remix responses.
+    private enum CodingKeys: String, CodingKey {
+        /// Protocol metadata.
+        case metadata
+        /// Authoring flow details after remix submission.
+        case flow
+    }
+
+    /// Protocol metadata.
+    public var metadata: AteliaProtocolMetadata
+    /// Authoring flow details after remix submission.
+    public var flow: AteliaPackageAuthoringFlow
+}
+
+/// Request payload used to prepare a package publication flow.
+public struct AteliaPackagePublicationRequest: Sendable, Codable, Equatable {
+    /// JSON keys for publication request bodies.
+    private enum CodingKeys: String, CodingKey {
+        /// Package identifier being published.
+        case packageId = "package_id"
+        /// Source class for publication.
+        case sourceClass = "source_class"
+        /// Optional GitHub source reference when publication targets a source artifact.
+        case source
+        /// Publication visibility mode.
+        case visibility
+        /// Planned GitHub action list.
+        case githubActions = "github_actions"
+        /// Whether registry submission is required.
+        case requiresRegistrySubmission = "requires_registry_submission"
+        /// Whether publication artifacts are installable in production.
+        case productionInstallable = "production_installable"
+    }
+
+    /// Package identifier being published.
+    public var packageId: String
+    /// Source class for publication.
+    public var sourceClass: AteliaPackageSourceClass
+    /// Optional GitHub source reference when publication targets a source artifact.
+    public var source: AteliaPackageGitHubSourceReference?
+    /// Publication visibility mode.
+    public var visibility: AteliaPackagePublicationVisibility
+    /// Planned GitHub actions for publication.
+    public var githubActions: [AteliaPackageGitHubPublicationAction]
+    /// Whether publication requires registry submission.
+    public var requiresRegistrySubmission: Bool
+    /// Whether published artifacts are production-installable.
+    public var productionInstallable: Bool
+
+    /// Creates a package publication request.
+    public init(
+        packageId: String,
+        sourceClass: AteliaPackageSourceClass,
+        source: AteliaPackageGitHubSourceReference? = nil,
+        visibility: AteliaPackagePublicationVisibility,
+        githubActions: [AteliaPackageGitHubPublicationAction] = [],
+        requiresRegistrySubmission: Bool,
+        productionInstallable: Bool
+    ) {
+        self.packageId = packageId
+        self.sourceClass = sourceClass
+        self.source = source
+        self.visibility = visibility
+        self.githubActions = githubActions
+        self.requiresRegistrySubmission = requiresRegistrySubmission
+        self.productionInstallable = productionInstallable
+    }
+
+    /// Decodes publication requests while preserving protocol defaults.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.packageId = try container.decode(String.self, forKey: .packageId)
+        self.sourceClass = try container.contains(.sourceClass)
+            ? container.decode(AteliaPackageSourceClass.self, forKey: .sourceClass)
+            : .workspaceLocal
+        self.source = try container.decodeIfPresent(
+            AteliaPackageGitHubSourceReference.self,
+            forKey: .source
+        )
+        self.visibility = try container.decode(AteliaPackagePublicationVisibility.self, forKey: .visibility)
+        self.githubActions = try container.decodeIfPresent(
+            [AteliaPackageGitHubPublicationAction].self,
+            forKey: .githubActions
+        ) ?? []
+        self.requiresRegistrySubmission = try container.contains(.requiresRegistrySubmission)
+            ? container.decode(Bool.self, forKey: .requiresRegistrySubmission)
+            : true
+        self.productionInstallable = try container.contains(.productionInstallable)
+            ? container.decode(Bool.self, forKey: .productionInstallable)
+            : true
+    }
+}
+
+/// Envelope returned after publication preparation.
+public struct AteliaPackagePublicationResponse: Sendable, Codable, Equatable {
+    /// JSON keys for publication responses.
+    private enum CodingKeys: String, CodingKey {
+        /// Protocol metadata.
+        case metadata
+        /// Authoring flow details after publication step.
+        case flow
+    }
+
+    /// Protocol metadata.
+    public var metadata: AteliaProtocolMetadata
+    /// Authoring flow details after publication submission.
+    public var flow: AteliaPackageAuthoringFlow
+}
+
+/// Registry-submission state used by publication contracts.
+public enum AteliaPackageRegistrySubmissionState: Sendable, Codable, Equatable, Hashable, RawRepresentable {
+    /// Registry submission has not been initiated.
+    case notSubmitted
+    /// Registry submission has been submitted and awaits a registry decision.
+    case submitted
+    /// Registry submission has been accepted for indexing.
+    case accepted
+    /// Registry submission has been rejected.
+    case rejected
+    /// Unknown registry submission state retained for forward compatibility.
+    case unknown(String)
+
+    /// Creates state from its Secretary wire value.
+    public init(rawValue: String) {
+        switch rawValue {
+        case "not_submitted":
+            self = .notSubmitted
+        case "submitted":
+            self = .submitted
+        case "accepted":
+            self = .accepted
+        case "rejected":
+            self = .rejected
+        default:
+            self = .unknown(rawValue)
+        }
+    }
+
+    /// Secretary wire value for state.
+    public var rawValue: String {
+        switch self {
+        case .notSubmitted:
+            return "not_submitted"
+        case .submitted:
+            return "submitted"
+        case .accepted:
+            return "accepted"
+        case .rejected:
+            return "rejected"
+        case .unknown(let rawValue):
+            return rawValue
+        }
+    }
+
+    /// Decodes registry submission state from wire value.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self))
+    }
+
+    /// Encodes the registry submission state as wire value.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// Request payload for updating publication-to-registry state.
+public struct AteliaPackageRegistrySubmissionRequest: Sendable, Codable, Equatable {
+    /// JSON keys for registry-submission request bodies.
+    private enum CodingKeys: String, CodingKey {
+        /// Package identifier.
+        case packageId = "package_id"
+        /// Requested registry-submission state.
+        case state
+        /// Optional human-readable note for submission requests.
+        case note
+    }
+
+    /// Package identifier.
+    public var packageId: String
+    /// Requested registry-submission state.
+    public var state: AteliaPackageRegistrySubmissionState
+    /// Optional human-readable note.
+    public var note: String?
+
+    /// Creates a registry-submission request.
+    public init(
+        packageId: String,
+        state: AteliaPackageRegistrySubmissionState,
+        note: String? = nil
+    ) {
+        self.packageId = packageId
+        self.state = state
+        self.note = note
+    }
+
+    /// Decodes registry-submission requests while preserving defaults.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.packageId = try container.decode(String.self, forKey: .packageId)
+        self.state = try container.contains(.state)
+            ? container.decode(AteliaPackageRegistrySubmissionState.self, forKey: .state)
+            : .submitted
+        self.note = try container.decodeIfPresent(String.self, forKey: .note)
+    }
+}
+
+/// Envelope returned by registry-submission operations.
+public struct AteliaPackageRegistrySubmissionResponse: Sendable, Codable, Equatable {
+    /// JSON keys for registry-submission responses.
+    private enum CodingKeys: String, CodingKey {
+        /// Protocol metadata.
+        case metadata
+        /// Package identifier.
+        case packageId = "package_id"
+        /// Current registry-submission state.
+        case state
+        /// Optional submission note returned by the daemon.
+        case message
+        /// Optional current authoring flow.
+        case flow
+    }
+
+    /// Protocol metadata.
+    public var metadata: AteliaProtocolMetadata
+    /// Package identifier.
+    public var packageId: String
+    /// Current registry-submission state.
+    public var state: AteliaPackageRegistrySubmissionState
+    /// Optional message from the service.
+    public var message: String?
+    /// Optional current authoring flow payload.
+    public var flow: AteliaPackageAuthoringFlow?
+}

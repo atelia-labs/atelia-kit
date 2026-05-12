@@ -34,6 +34,14 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case packageRemoveUnavailable
     /// The conformer does not provide package blocklist operations.
     case packageBlocklistUnavailable
+    /// The conformer does not provide package authoring flow operations.
+    case packageAuthoringFlowUnavailable
+    /// The conformer does not provide package remix operations.
+    case packageRemixUnavailable
+    /// The conformer does not provide package publication operations.
+    case packagePublicationUnavailable
+    /// The conformer does not provide package registry-submission operations.
+    case packageRegistrySubmissionUnavailable
     /// The conformer does not provide tool output render operations.
     case toolOutputRenderUnavailable
 }
@@ -167,6 +175,46 @@ public protocol AteliaClient: Sendable {
     func packageBlocklistList(
         for session: AteliaSession
     ) async throws -> [AteliaPackageBlocklistEntry]
+    /// Returns the authoring flow envelope for the requested package.
+    func packageAuthoringFlowResponse(
+        for session: AteliaSession,
+        request: AteliaPackageAuthoringFlowRequest
+    ) async throws -> AteliaPackageAuthoringFlowResponse
+    /// Returns a simplified package authoring flow payload.
+    func packageAuthoringFlow(
+        for session: AteliaSession,
+        request: AteliaPackageAuthoringFlowRequest
+    ) async throws -> AteliaPackageAuthoringFlow
+    /// Returns the remix response envelope for the package authoring request.
+    func packageRemixResponse(
+        for session: AteliaSession,
+        request: AteliaPackageRemixRequest
+    ) async throws -> AteliaPackageRemixResponse
+    /// Returns the authoring flow payload after a remix request.
+    func packageRemix(
+        for session: AteliaSession,
+        request: AteliaPackageRemixRequest
+    ) async throws -> AteliaPackageAuthoringFlow
+    /// Returns the publication response envelope for the package authoring request.
+    func packagePublicationResponse(
+        for session: AteliaSession,
+        request: AteliaPackagePublicationRequest
+    ) async throws -> AteliaPackagePublicationResponse
+    /// Returns the authoring flow payload after publication setup.
+    func packagePublication(
+        for session: AteliaSession,
+        request: AteliaPackagePublicationRequest
+    ) async throws -> AteliaPackageAuthoringFlow
+    /// Returns the registry-submission response envelope for the package.
+    func packageRegistrySubmissionResponse(
+        for session: AteliaSession,
+        request: AteliaPackageRegistrySubmissionRequest
+    ) async throws -> AteliaPackageRegistrySubmissionResponse
+    /// Returns the registry-submission state for the requested package.
+    func packageRegistrySubmissionState(
+        for session: AteliaSession,
+        request: AteliaPackageRegistrySubmissionRequest
+    ) async throws -> AteliaPackageRegistrySubmissionState
     /// Returns the tool output render response for a canonical tool result.
     func renderToolOutputResponse(
         for session: AteliaSession,
@@ -446,6 +494,78 @@ public extension AteliaClient {
     ) async throws -> AteliaPackageBlocklistListResponse {
         _ = session
         throw AteliaClientError.packageBlocklistUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide authoring flows.
+    func packageAuthoringFlowResponse(
+        for session: AteliaSession,
+        request: AteliaPackageAuthoringFlowRequest
+    ) async throws -> AteliaPackageAuthoringFlowResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.packageAuthoringFlowUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide authoring flows.
+    func packageAuthoringFlow(
+        for session: AteliaSession,
+        request: AteliaPackageAuthoringFlowRequest
+    ) async throws -> AteliaPackageAuthoringFlow {
+        try await packageAuthoringFlowResponse(for: session, request: request).flow
+    }
+
+    /// Returns a compatibility error when the conformer does not provide remix operations.
+    func packageRemixResponse(
+        for session: AteliaSession,
+        request: AteliaPackageRemixRequest
+    ) async throws -> AteliaPackageRemixResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.packageRemixUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide remix operations.
+    func packageRemix(
+        for session: AteliaSession,
+        request: AteliaPackageRemixRequest
+    ) async throws -> AteliaPackageAuthoringFlow {
+        try await packageRemixResponse(for: session, request: request).flow
+    }
+
+    /// Returns a compatibility error when the conformer does not provide publication operations.
+    func packagePublicationResponse(
+        for session: AteliaSession,
+        request: AteliaPackagePublicationRequest
+    ) async throws -> AteliaPackagePublicationResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.packagePublicationUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide publication operations.
+    func packagePublication(
+        for session: AteliaSession,
+        request: AteliaPackagePublicationRequest
+    ) async throws -> AteliaPackageAuthoringFlow {
+        try await packagePublicationResponse(for: session, request: request).flow
+    }
+
+    /// Returns a compatibility error when the conformer does not provide registry-submission operations.
+    func packageRegistrySubmissionResponse(
+        for session: AteliaSession,
+        request: AteliaPackageRegistrySubmissionRequest
+    ) async throws -> AteliaPackageRegistrySubmissionResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.packageRegistrySubmissionUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide registry-submission operations.
+    func packageRegistrySubmissionState(
+        for session: AteliaSession,
+        request: AteliaPackageRegistrySubmissionRequest
+    ) async throws -> AteliaPackageRegistrySubmissionState {
+        try await packageRegistrySubmissionResponse(for: session, request: request).state
     }
 
     /// Returns the default tool output render error when the conformer does not provide render.
