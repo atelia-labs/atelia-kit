@@ -7,6 +7,8 @@ import FoundationNetworking
 public enum HTTPAteliaClientError: Error, Sendable, Equatable {
     /// The configured endpoint and request path could not form a valid URL.
     case invalidURL(path: String)
+    /// The package identifier cannot be used in an operation path.
+    case invalidPackageId(String)
     /// The transport returned a non-HTTP response.
     case invalidHTTPResponse
     /// Secretary returned a non-success HTTP status without a structured API error.
@@ -197,6 +199,19 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Returns the rollback response envelope for a package.
+    public func packageRollbackResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageRollbackResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageOperationPath(packageId: packageId, operation: "rollback"),
+            body: EmptyRequest()
+        )
+    }
+
     /// Fetches the compact project status snapshot for a repository.
     public func projectStatus(
         for session: AteliaSession,
@@ -284,6 +299,19 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         }
 
         return request
+    }
+
+    /// Builds a Secretary path for a package operation after validating the package identifier.
+    private func makePackageOperationPath(packageId: String, operation: String) throws -> String {
+        guard isValidPackageId(packageId) else {
+            throw HTTPAteliaClientError.invalidPackageId(packageId)
+        }
+        return "/v1/extensions/\(packageId)/\(operation)"
+    }
+
+    /// Returns whether a package identifier can be embedded into a path segment.
+    private func isValidPackageId(_ packageId: String) -> Bool {
+        !packageId.isEmpty && !packageId.contains("/") && !packageId.contains("\0")
     }
 }
 

@@ -14,6 +14,8 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case projectStatusUnavailable
     /// The conformer does not provide the package trust index projection.
     case packageTrustIndexUnavailable
+    /// The conformer does not provide the package rollback operation.
+    case packageRollbackUnavailable
 }
 
 /// Protocol for fetching Atelia health, repertoire, and derived secretary status for a session.
@@ -37,6 +39,11 @@ public protocol AteliaClient: Sendable {
     func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry]
     /// Returns the full package trust index envelope, including protocol metadata.
     func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse
+    /// Returns the rollback response envelope for a package.
+    func packageRollbackResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageRollbackResponse
 }
 
 /// Default compatibility implementations for optional client capabilities.
@@ -90,6 +97,24 @@ public extension AteliaClient {
     func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
         throw AteliaClientError.packageTrustIndexUnavailable
+    }
+
+    /// Returns the rollback record from the full response envelope.
+    func packageRollback(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageRollbackRecord {
+        try await packageRollbackResponse(for: session, packageId: packageId).record
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package rollback.
+    func packageRollbackResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageRollbackResponse {
+        _ = session
+        _ = packageId
+        throw AteliaClientError.packageRollbackUnavailable
     }
 }
 
