@@ -1,5 +1,54 @@
 import Foundation
 
+/// Atomic snapshot of package lifecycle store cached state.
+public struct AteliaPackageLifecycleStoreSnapshot: Sendable, Equatable {
+    /// Latest lifecycle response, when one has completed.
+    public var lifecycleResponse: AteliaPackageLifecycleResponse?
+    /// Latest rollback response, when one has completed.
+    public var rollbackResponse: AteliaPackageRollbackResponse?
+    /// Latest package status response, when one has completed.
+    public var statusResponse: AteliaPackageStatusResponse?
+    /// Latest package list response, when one has completed.
+    public var listResponse: AteliaPackageListResponse?
+    /// Latest blocklist apply response, when one has completed.
+    public var blocklistApplyResponse: AteliaPackageBlocklistApplyResponse?
+    /// Latest blocklist list response, when one has completed.
+    public var blocklistListResponse: AteliaPackageBlocklistListResponse?
+    /// Latest protocol metadata from the most recent cached response.
+    public var metadata: AteliaProtocolMetadata?
+    /// Latest lifecycle or rollback record.
+    public var latestRecord: AteliaPackageLifecycleRecord?
+    /// Package statuses currently known to the store.
+    public var packages: [AteliaPackageStatus]
+    /// Latest known blocklist entries.
+    public var blocklistEntries: [AteliaPackageBlocklistEntry]
+
+    /// Creates a package lifecycle store snapshot.
+    public init(
+        lifecycleResponse: AteliaPackageLifecycleResponse?,
+        rollbackResponse: AteliaPackageRollbackResponse?,
+        statusResponse: AteliaPackageStatusResponse?,
+        listResponse: AteliaPackageListResponse?,
+        blocklistApplyResponse: AteliaPackageBlocklistApplyResponse?,
+        blocklistListResponse: AteliaPackageBlocklistListResponse?,
+        metadata: AteliaProtocolMetadata?,
+        latestRecord: AteliaPackageLifecycleRecord?,
+        packages: [AteliaPackageStatus],
+        blocklistEntries: [AteliaPackageBlocklistEntry]
+    ) {
+        self.lifecycleResponse = lifecycleResponse
+        self.rollbackResponse = rollbackResponse
+        self.statusResponse = statusResponse
+        self.listResponse = listResponse
+        self.blocklistApplyResponse = blocklistApplyResponse
+        self.blocklistListResponse = blocklistListResponse
+        self.metadata = metadata
+        self.latestRecord = latestRecord
+        self.packages = packages
+        self.blocklistEntries = blocklistEntries
+    }
+}
+
 /// Actor-backed command/cache surface for package lifecycle operations.
 public actor AteliaPackageLifecycleStore {
     private let client: any AteliaClient
@@ -226,6 +275,22 @@ public actor AteliaPackageLifecycleStore {
     /// Returns the latest known package status for an identifier.
     public func package(id packageId: String) -> AteliaPackageStatus? {
         packagesByID[packageId]
+    }
+
+    /// Returns an atomic snapshot of the cached lifecycle, package, and blocklist state.
+    public func snapshot() -> AteliaPackageLifecycleStoreSnapshot {
+        AteliaPackageLifecycleStoreSnapshot(
+            lifecycleResponse: latestLifecycleResponse,
+            rollbackResponse: latestRollbackResponse,
+            statusResponse: latestStatusResponse,
+            listResponse: latestListResponse,
+            blocklistApplyResponse: latestBlocklistApplyResponse,
+            blocklistListResponse: latestBlocklistListResponse,
+            metadata: latestMetadata,
+            latestRecord: latestRecordValue,
+            packages: packages,
+            blocklistEntries: blocklistEntriesValue
+        )
     }
 
     private func beginOperation() -> Int {
