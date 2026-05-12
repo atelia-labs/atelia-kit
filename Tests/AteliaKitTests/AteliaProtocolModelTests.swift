@@ -318,6 +318,42 @@ import Testing
     #expect(entry.source?.lineage?.relationship == .fork)
 }
 
+/// Verifies tool-output render responses decode known and unknown format wire values.
+@Test func toolOutputRenderResponsePreservesUnknownFormatValues() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["tool_output_render.v1"]
+      },
+      "tool_result": {
+        "tool_result_id": "tool_result_123",
+        "tool_invocation_id": "tool_invocation_123",
+        "job_id": "job_123",
+        "repository_id": "repo_123",
+        "content_type": "application/json"
+      },
+      "format": "toml",
+      "rendered_output": "n/a",
+      "rendered_output_metadata": {
+        "degraded": true,
+        "fallback_reason": null,
+        "truncation": null
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaToolOutputRenderResponse.self, from: data)
+
+    #expect(decoded.format == .unknown("toml"))
+    #expect(decoded.toolResult.toolResultId == "tool_result_123")
+    #expect(decoded.renderedOutputMetadata.degraded == true)
+    #expect(decoded.renderedOutputMetadata.fallbackReason == nil)
+    #expect(decoded.renderedOutputMetadata.truncation == nil)
+}
+
 /// Verifies package trust index entries derive typed inspection attention from status and block data.
 @Test func packageTrustIndexAttentionProjectionMapsStatusBlockAndUnknownValues() {
     let installed = AteliaPackageTrustIndexEntry(

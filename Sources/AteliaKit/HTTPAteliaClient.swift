@@ -328,6 +328,19 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Returns the tool-output render response for a canonical tool result and output format.
+    public func renderToolOutputResponse(
+        for session: AteliaSession,
+        request: AteliaToolOutputRenderRequest
+    ) async throws -> AteliaToolOutputRenderResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/tool-results:render",
+            body: request
+        )
+    }
+
     /// Returns the validation response envelope for an extension manifest.
     public func packageValidationResponse(
         for session: AteliaSession,
