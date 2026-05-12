@@ -34,6 +34,8 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case packageRemoveUnavailable
     /// The conformer does not provide package blocklist operations.
     case packageBlocklistUnavailable
+    /// The conformer does not provide tool output render operations.
+    case toolOutputRenderUnavailable
 }
 
 /// Protocol for fetching Atelia health, repertoire, and derived secretary status for a session.
@@ -155,6 +157,11 @@ public protocol AteliaClient: Sendable {
     func packageBlocklistList(
         for session: AteliaSession
     ) async throws -> [AteliaPackageBlocklistEntry]
+    /// Returns the tool output render response for a canonical tool result.
+    func renderToolOutputResponse(
+        for session: AteliaSession,
+        request: AteliaToolOutputRenderRequest
+    ) async throws -> AteliaToolOutputRenderResponse
 }
 
 /// Default compatibility implementations for optional client capabilities.
@@ -403,6 +410,16 @@ public extension AteliaClient {
     ) async throws -> AteliaPackageBlocklistListResponse {
         _ = session
         throw AteliaClientError.packageBlocklistUnavailable
+    }
+
+    /// Returns the default tool output render error when the conformer does not provide render.
+    func renderToolOutputResponse(
+        for session: AteliaSession,
+        request: AteliaToolOutputRenderRequest
+    ) async throws -> AteliaToolOutputRenderResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.toolOutputRenderUnavailable
     }
 }
 

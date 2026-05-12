@@ -664,6 +664,80 @@ import Testing
     #expect(blocklist.entries[1].reason == .policyViolation)
 }
 
+/// Verifies the HTTP client sends render requests and decodes render responses.
+@Test func httpClientRendersToolOutput() async throws {
+    let request = AteliaToolOutputRenderRequest(
+        toolResult: AteliaToolResultRef(
+            toolResultId: "tool_result_123",
+            toolInvocationId: "tool_invocation_123",
+            jobId: "job_123",
+            repositoryId: "repo_123",
+            contentType: "application/json"
+        ),
+        format: .json
+    )
+
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/tool-results:render")
+        #expect(request.httpMethod == "POST")
+
+        let body = try #require(
+            JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+        )
+        let toolResult = try #require(body["tool_result"] as? [String: Any])
+        #expect(toolResult["tool_result_id"] as? String == "tool_result_123")
+        #expect(toolResult["tool_invocation_id"] as? String == "tool_invocation_123")
+        #expect(toolResult["job_id"] as? String == "job_123")
+        #expect(toolResult["repository_id"] as? String == "repo_123")
+        #expect(toolResult["content_type"] as? String == "application/json")
+        #expect(body["format"] as? String == "json")
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["tool_output_render.v1"]
+            },
+            "tool_result": {
+              "tool_result_id": "tool_result_123",
+              "tool_invocation_id": "tool_invocation_123",
+              "job_id": "job_123",
+              "repository_id": "repo_123",
+              "content_type": "application/json"
+            },
+            "format": "json",
+            "rendered_output": "{\"foo\": \"bar\"}",
+            "rendered_output_metadata": {
+              "degraded": true,
+              "fallback_reason": "render policy compacted output",
+              "truncation": {
+                "original_bytes": 16,
+                "retained_bytes": 8,
+                "reason": "runtime truncate_with_metadata"
+              }
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.renderToolOutputResponse(for: AteliaSession(), request: request)
+
+    #expect(response.metadata.capabilities == ["tool_output_render.v1"])
+    #expect(response.format == .json)
+    #expect(response.toolResult.toolResultId == "tool_result_123")
+    #expect(response.renderedOutput == "{\"foo\": \"bar\"}")
+    #expect(response.renderedOutputMetadata.degraded == true)
+    #expect(response.renderedOutputMetadata.fallbackReason == "render policy compacted output")
+    #expect(response.renderedOutputMetadata.truncation?.originalBytes == 16)
+    #expect(response.renderedOutputMetadata.truncation?.retainedBytes == 8)
+    #expect(response.renderedOutputMetadata.truncation?.reason == "runtime truncate_with_metadata")
+}
+
 /// Verifies the HTTP client calls Secretary's beta rollback endpoint with package-named API.
 @Test func httpClientRollsBackPackage() async throws {
     let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in

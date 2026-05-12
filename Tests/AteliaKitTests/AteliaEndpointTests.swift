@@ -196,6 +196,16 @@ private actor StatusOnlyClient: AteliaClient {
 @Test func localClientExposesTypedProtocolSurface() async throws {
     let client = LocalAteliaClient()
     let session = AteliaSession()
+    let renderRequest = AteliaToolOutputRenderRequest(
+        toolResult: AteliaToolResultRef(
+            toolResultId: "tool_result_123",
+            toolInvocationId: "tool_invocation_123",
+            jobId: "job_123",
+            repositoryId: "repo_123",
+            contentType: "application/json"
+        ),
+        format: .json
+    )
 
     let health = try await client.health(for: session)
     #expect(health.daemonStatus == .starting)
@@ -270,6 +280,10 @@ private actor StatusOnlyClient: AteliaClient {
     await #expect(throws: AteliaClientError.packageBlocklistUnavailable) {
         _ = try await client.packageBlocklistListResponse(for: session)
     }
+
+    await #expect(throws: AteliaClientError.toolOutputRenderUnavailable) {
+        _ = try await client.renderToolOutputResponse(for: session, request: renderRequest)
+    }
 }
 
 /// Verifies default status derives from health when no explicit status exists.
@@ -290,6 +304,16 @@ private actor StatusOnlyClient: AteliaClient {
 @Test func statusOnlyConformerStillCompilesAndUsesLegacyStatusImplementation() async throws {
     let client = StatusOnlyClient()
     let session = AteliaSession()
+    let renderRequest = AteliaToolOutputRenderRequest(
+        toolResult: AteliaToolResultRef(
+            toolResultId: "tool_result_123",
+            toolInvocationId: "tool_invocation_123",
+            jobId: "job_123",
+            repositoryId: "repo_123",
+            contentType: "application/json"
+        ),
+        format: .text
+    )
 
     let status = try await client.status(for: session)
     let callCountBeforeUnavailableChecks = await client.callCount()
@@ -365,6 +389,9 @@ private actor StatusOnlyClient: AteliaClient {
     }
     await #expect(throws: AteliaClientError.packageBlocklistUnavailable) {
         _ = try await client.packageBlocklistList(for: session)
+    }
+    await #expect(throws: AteliaClientError.toolOutputRenderUnavailable) {
+        _ = try await client.renderToolOutputResponse(for: session, request: renderRequest)
     }
 
     let callCountAfterUnavailableChecks = await client.callCount()
