@@ -293,19 +293,23 @@ public actor AteliaPackageLifecycleStore {
         )
     }
 
+    /// Advances and returns the operation generation for a newly started request.
     private func beginOperation() -> Int {
         nextOperationGeneration += 1
         return nextOperationGeneration
     }
 
+    /// Returns whether an operation generation is newer than the last clear.
     private func shouldApply(_ operationGeneration: Int) -> Bool {
         operationGeneration > clearGeneration
     }
 
+    /// Returns whether an operation generation can replace an existing cached generation.
     private func shouldApply(_ operationGeneration: Int, after appliedGeneration: Int) -> Bool {
         shouldApply(operationGeneration) && operationGeneration > appliedGeneration
     }
 
+    /// Applies a lifecycle response to latest response, metadata, record, and package caches.
     private func applyLifecycleResponse(
         _ response: AteliaPackageLifecycleResponse,
         generation operationGeneration: Int
@@ -319,6 +323,7 @@ public actor AteliaPackageLifecycleStore {
         upsertPackageStatus(Self.status(from: response.record), generation: operationGeneration)
     }
 
+    /// Stores metadata when it is from the newest applicable operation.
     private func applyMetadata(_ metadata: AteliaProtocolMetadata, generation operationGeneration: Int) {
         guard shouldApply(operationGeneration, after: latestMetadataGeneration) else {
             return
@@ -327,6 +332,7 @@ public actor AteliaPackageLifecycleStore {
         latestMetadata = metadata
     }
 
+    /// Stores the latest package lifecycle record when it is from the newest applicable operation.
     private func applyRecord(_ record: AteliaPackageLifecycleRecord, generation operationGeneration: Int) {
         guard shouldApply(operationGeneration, after: latestRecordGeneration) else {
             return
@@ -335,6 +341,7 @@ public actor AteliaPackageLifecycleStore {
         latestRecordValue = record
     }
 
+    /// Replaces the package cache with a list response while preserving newer per-package updates.
     private func replacePackageStatuses(
         _ packages: [AteliaPackageStatus],
         generation operationGeneration: Int
@@ -369,6 +376,7 @@ public actor AteliaPackageLifecycleStore {
         }
     }
 
+    /// Builds a package status row from a lifecycle record.
     private static func status(from record: AteliaPackageLifecycleRecord) -> AteliaPackageStatus {
         AteliaPackageStatus(
             packageId: record.packageId,
@@ -376,6 +384,7 @@ public actor AteliaPackageLifecycleStore {
         )
     }
 
+    /// Inserts or updates a package status when it is newer than the cached row.
     private func upsertPackageStatus(_ package: AteliaPackageStatus, generation operationGeneration: Int) {
         let packageGeneration = packageGenerations[package.packageId] ?? 0
         guard shouldApply(operationGeneration, after: packageGeneration) else {
@@ -392,6 +401,7 @@ public actor AteliaPackageLifecycleStore {
         packagesByID[package.packageId] = package
     }
 
+    /// Replaces blocklist entries while preserving entries from newer operations.
     private func replaceBlocklistEntries(
         _ entries: [AteliaPackageBlocklistEntry],
         generation operationGeneration: Int
@@ -411,6 +421,7 @@ public actor AteliaPackageLifecycleStore {
         }
     }
 
+    /// Inserts or updates one blocklist entry when it is newer than the cached entry.
     private func upsertBlocklistEntry(
         _ entry: AteliaPackageBlocklistEntry,
         generation operationGeneration: Int
@@ -431,10 +442,12 @@ public actor AteliaPackageLifecycleStore {
         setBlocklistGeneration(operationGeneration, for: entry.key)
     }
 
+    /// Returns the cached generation for a blocklist key.
     private func blocklistGeneration(for key: AteliaPackageTrustIndexEntry.Block.Key) -> Int {
         blocklistEntryGenerations[key] ?? 0
     }
 
+    /// Records the generation that last wrote a blocklist key.
     private func setBlocklistGeneration(
         _ generation: Int,
         for key: AteliaPackageTrustIndexEntry.Block.Key
