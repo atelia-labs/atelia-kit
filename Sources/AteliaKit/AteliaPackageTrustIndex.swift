@@ -684,6 +684,32 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
         }
     }
 
+    /// Derived inspection state for package-attention surfaces.
+    public enum AttentionState: Sendable, Equatable {
+        /// The package does not require attention.
+        case clear
+        /// The package requires attention, with a typed reason.
+        case attentionNeeded(reason: AttentionReason)
+    }
+
+    /// Stable package-inspection reason clients can map to platform copy.
+    public enum AttentionReason: Sendable, Equatable {
+        /// Package is installed but disabled.
+        case disabled
+        /// Package is blocked without a more specific block reason.
+        case blocked
+        /// Package update is in progress.
+        case updating
+        /// Package rollback is in progress.
+        case rollbackInProgress
+        /// Previous package version is installed after rollback.
+        case installedPreviousVersion
+        /// Package status is unknown to this client version.
+        case unknownStatus(String)
+        /// Package is blocked with a Secretary-provided reason.
+        case blockReason(Block.Reason)
+    }
+
     /// Package id for the trust-index entry.
     public var packageId: String
     /// Revision version, when known.
@@ -703,6 +729,47 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
 
     /// Stable package identity for SwiftUI and collection diffing.
     public var id: String { packageId }
+
+    /// Derived inspection state for package-attention surfaces.
+    public var attentionState: AttentionState {
+        guard let attentionReason else {
+            return .clear
+        }
+        return .attentionNeeded(reason: attentionReason)
+    }
+
+    /// Stable derived reason for why the package requires attention, if any.
+    public var attentionReason: AttentionReason? {
+        if let block {
+            return .blockReason(block.reason)
+        }
+
+        guard let status else {
+            return nil
+        }
+
+        switch status {
+        case .installed:
+            return nil
+        case .disabled:
+            return .disabled
+        case .blocked:
+            return .blocked
+        case .updating:
+            return .updating
+        case .rollbackInProgress:
+            return .rollbackInProgress
+        case .installedPreviousVersion:
+            return .installedPreviousVersion
+        case .unknown(let rawValue):
+            return .unknownStatus(rawValue)
+        }
+    }
+
+    /// Returns whether the package should be surfaced for inspection attention.
+    public var requiresAttention: Bool {
+        attentionReason != nil
+    }
 
     /// Creates a trust-index entry.
     public init(

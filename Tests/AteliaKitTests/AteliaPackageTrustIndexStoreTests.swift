@@ -100,6 +100,52 @@ private let packageTrustIndexFixtureResponse = AteliaPackageTrustIndexResponse(
     ]
 )
 
+/// Shared trust-index response used by attention-filtering tests.
+private let packageTrustIndexAttentionFixtureResponse = AteliaPackageTrustIndexResponse(
+    metadata: AteliaProtocolMetadata(
+        protocolVersion: "1.0.0",
+        daemonVersion: "0.2.0",
+        storageVersion: "0.2.0",
+        capabilities: ["package_trust_index.v1"]
+    ),
+    packages: [
+        AteliaPackageTrustIndexEntry(
+            packageId: "com.example.alpha",
+            version: "1.0.0",
+            status: .installed,
+            boundary: .official
+        ),
+        AteliaPackageTrustIndexEntry(
+            packageId: "com.example.beta",
+            version: "1.0.1",
+            status: .blocked,
+            boundary: .thirdParty,
+            block: AteliaPackageTrustIndexEntry.Block(
+                reason: .policyViolation,
+                key: .extensionId("com.example.beta")
+            )
+        ),
+        AteliaPackageTrustIndexEntry(
+            packageId: "com.example.gamma",
+            version: "1.0.2",
+            status: .updating,
+            boundary: .localDevelopment
+        ),
+        AteliaPackageTrustIndexEntry(
+            packageId: "com.example.delta",
+            version: "1.0.3",
+            status: .unknown("quarantined"),
+            boundary: .official
+        ),
+        AteliaPackageTrustIndexEntry(
+            packageId: "com.example.epsilon",
+            version: "1.0.4",
+            status: .installed,
+            boundary: .official
+        )
+    ]
+)
+
 /// Creates a one-entry trust-index response for race-ordering tests.
 private func packageTrustIndexResponse(packageId: String) -> AteliaPackageTrustIndexResponse {
     AteliaPackageTrustIndexResponse(
@@ -131,6 +177,7 @@ private func packageTrustIndexResponse(packageId: String) -> AteliaPackageTrustI
     #expect(await client.calls() == 1)
     #expect(await store.response == packageTrustIndexFixtureResponse)
     #expect(await store.metadata == packageTrustIndexFixtureResponse.metadata)
+    #expect(await store.packagesRequiringAttention == [packageTrustIndexFixtureResponse.packages[1]])
 }
 
 /// Verifies the store exposes packages and supports package-id lookup.
@@ -145,6 +192,22 @@ private func packageTrustIndexResponse(packageId: String) -> AteliaPackageTrustI
     #expect(await store.package(id: "com.example.alpha") == packageTrustIndexFixtureResponse.packages[0])
     #expect(await store.package(id: "com.example.beta") == packageTrustIndexFixtureResponse.packages[1])
     #expect(await store.package(id: "com.example.missing") == nil)
+}
+
+/// Verifies attention filtering preserves the response order.
+@Test func storeFiltersAttentionPackagesInResponseOrder() async throws {
+    let client = PackageTrustIndexClientFixture(response: packageTrustIndexAttentionFixtureResponse)
+    let store = AteliaPackageTrustIndexStore(client: client, session: AteliaSession())
+
+    try await store.reload()
+
+    let expectedAttentionPackages = [
+        packageTrustIndexAttentionFixtureResponse.packages[1],
+        packageTrustIndexAttentionFixtureResponse.packages[2],
+        packageTrustIndexAttentionFixtureResponse.packages[3]
+    ]
+
+    #expect(await store.packagesRequiringAttention == expectedAttentionPackages)
 }
 
 /// Verifies an older in-flight reload cannot overwrite a newer completed reload.
@@ -218,6 +281,7 @@ private func packageTrustIndexResponse(packageId: String) -> AteliaPackageTrustI
 
     #expect(await store.response == nil)
     #expect(await store.packages.isEmpty)
+    #expect(await store.packagesRequiringAttention.isEmpty)
     #expect(await store.package(id: "com.example.pending") == nil)
 }
 
@@ -233,5 +297,6 @@ private func packageTrustIndexResponse(packageId: String) -> AteliaPackageTrustI
     #expect(await store.response == nil)
     #expect(await store.metadata == nil)
     #expect(await store.packages.isEmpty)
+    #expect(await store.packagesRequiringAttention.isEmpty)
     #expect(await store.package(id: "com.example.alpha") == nil)
 }

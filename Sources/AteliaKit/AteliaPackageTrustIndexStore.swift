@@ -54,6 +54,11 @@ public actor AteliaPackageTrustIndexStore {
         latestResponse?.packages ?? []
     }
 
+    /// Returns the current package trust index entries that require attention.
+    public var packagesRequiringAttention: [AteliaPackageTrustIndexEntry] {
+        packages.filter(\.requiresAttention)
+    }
+
     /// Returns a package trust index entry for the given package identifier.
     public func package(id: String) -> AteliaPackageTrustIndexEntry? {
         packagesByID[id]

@@ -318,6 +318,58 @@ import Testing
     #expect(entry.source?.lineage?.relationship == .fork)
 }
 
+/// Verifies package trust index entries derive typed inspection attention from status and block data.
+@Test func packageTrustIndexAttentionProjectionMapsStatusBlockAndUnknownValues() {
+    let installed = AteliaPackageTrustIndexEntry(
+        packageId: "com.example.active",
+        status: .installed
+    )
+    let disabled = AteliaPackageTrustIndexEntry(
+        packageId: "com.example.disabled",
+        status: .disabled
+    )
+    let blocked = AteliaPackageTrustIndexEntry(
+        packageId: "com.example.blocked",
+        status: .blocked,
+        block: .init(reason: .policyViolation, key: .extensionId("com.example.blocked"))
+    )
+    let blockedWithoutReason = AteliaPackageTrustIndexEntry(
+        packageId: "com.example.blocked.untyped",
+        status: .blocked
+    )
+    let updating = AteliaPackageTrustIndexEntry(
+        packageId: "com.example.updating",
+        status: .updating
+    )
+    let rollingBack = AteliaPackageTrustIndexEntry(
+        packageId: "com.example.rollback",
+        status: .rollbackInProgress
+    )
+    let previousVersion = AteliaPackageTrustIndexEntry(
+        packageId: "com.example.previous",
+        status: .installedPreviousVersion
+    )
+    let future = AteliaPackageTrustIndexEntry(
+        packageId: "com.example.future",
+        status: .unknown("quarantined")
+    )
+
+    #expect(installed.attentionState == .clear)
+    #expect(installed.attentionReason == nil)
+    #expect(installed.requiresAttention == false)
+    #expect(disabled.attentionState == .attentionNeeded(reason: .disabled))
+    #expect(blocked.attentionState == .attentionNeeded(reason: .blockReason(.policyViolation)))
+    #expect(blocked.attentionReason == .blockReason(.policyViolation))
+    #expect(blocked.requiresAttention == true)
+    #expect(blockedWithoutReason.attentionState == .attentionNeeded(reason: .blocked))
+    #expect(updating.attentionState == .attentionNeeded(reason: .updating))
+    #expect(rollingBack.attentionState == .attentionNeeded(reason: .rollbackInProgress))
+    #expect(previousVersion.attentionState == .attentionNeeded(reason: .installedPreviousVersion))
+    #expect(future.attentionState == .attentionNeeded(reason: .unknownStatus("quarantined")))
+    #expect(future.attentionReason == .unknownStatus("quarantined"))
+    #expect(future.requiresAttention == true)
+}
+
 /// Verifies review queue items remain platform-neutral and Codable.
 @Test func reviewQueueItemIsPlatformNeutralAndCodable() throws {
     let data = #"""
