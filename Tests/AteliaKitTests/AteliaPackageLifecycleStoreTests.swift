@@ -148,11 +148,19 @@ private actor ControllablePackageLifecycleClientFixture: AteliaClient {
         case list
         case install
         case status
+        case blocklistApply
+        case blocklistList
     }
 
     private var listContinuations: [CheckedContinuation<AteliaPackageListResponse, any Error>] = []
     private var installContinuations: [CheckedContinuation<AteliaPackageLifecycleResponse, any Error>] = []
     private var statusContinuations: [CheckedContinuation<AteliaPackageStatusResponse, any Error>] = []
+    private var blocklistApplyContinuations: [
+        CheckedContinuation<AteliaPackageBlocklistApplyResponse, any Error>
+    ] = []
+    private var blocklistListContinuations: [
+        CheckedContinuation<AteliaPackageBlocklistListResponse, any Error>
+    ] = []
 
     func packageListResponse(
         for session: AteliaSession,
@@ -187,6 +195,26 @@ private actor ControllablePackageLifecycleClientFixture: AteliaClient {
         }
     }
 
+    func packageBlocklistApplyResponse(
+        for session: AteliaSession,
+        request: AteliaPackageBlocklistRequest
+    ) async throws -> AteliaPackageBlocklistApplyResponse {
+        _ = session
+        _ = request
+        return try await withCheckedThrowingContinuation { continuation in
+            blocklistApplyContinuations.append(continuation)
+        }
+    }
+
+    func packageBlocklistListResponse(
+        for session: AteliaSession
+    ) async throws -> AteliaPackageBlocklistListResponse {
+        _ = session
+        return try await withCheckedThrowingContinuation { continuation in
+            blocklistListContinuations.append(continuation)
+        }
+    }
+
     func waitForRequests(_ kind: RequestKind, count: Int, timeout: Duration = .seconds(2)) async throws {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: timeout)
@@ -217,6 +245,14 @@ private actor ControllablePackageLifecycleClientFixture: AteliaClient {
         statusContinuations[index].resume(returning: response)
     }
 
+    func respondToBlocklistApply(_ index: Int, with response: AteliaPackageBlocklistApplyResponse) {
+        blocklistApplyContinuations[index].resume(returning: response)
+    }
+
+    func respondToBlocklistList(_ index: Int, with response: AteliaPackageBlocklistListResponse) {
+        blocklistListContinuations[index].resume(returning: response)
+    }
+
     private func requestCount(_ kind: RequestKind) -> Int {
         switch kind {
         case .list:
@@ -225,6 +261,10 @@ private actor ControllablePackageLifecycleClientFixture: AteliaClient {
             return installContinuations.count
         case .status:
             return statusContinuations.count
+        case .blocklistApply:
+            return blocklistApplyContinuations.count
+        case .blocklistList:
+            return blocklistListContinuations.count
         }
     }
 }
@@ -274,6 +314,17 @@ private func listResponse(packageIds: [String]) -> AteliaPackageListResponse {
         packages: packageIds.map { packageId in
             AteliaPackageStatus(packageId: packageId, record: lifecycleRecord(packageId: packageId))
         }
+    )
+}
+
+private func blocklistEntry(
+    packageId: String,
+    note: String? = nil
+) -> AteliaPackageBlocklistEntry {
+    AteliaPackageBlocklistEntry(
+        reason: .userBlocked,
+        key: .extensionId(packageId),
+        note: note
     )
 }
 
@@ -392,6 +443,22 @@ private func listResponse(packageIds: [String]) -> AteliaPackageListResponse {
     #expect(await store.metadata == blocklistListResponse.metadata)
 }
 
+/// Verifies applying a blocklist entry updates the public blocklist cache.
+@Test func applyBlocklistUpdatesBlocklistEntries() async throws {
+    let entry = blocklistEntry(packageId: "com.example.blocked", note: "user requested")
+    let response = AteliaPackageBlocklistApplyResponse(
+        metadata: metadata("extensions.blocklist.apply.v1"),
+        entry: entry
+    )
+    let client = PackageLifecycleClientFixture(blocklistApplyResponses: [.success(response)])
+    let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
+
+    try await store.applyBlocklist(request: AteliaPackageBlocklistRequest(entry: entry))
+
+    #expect(await store.blocklistApplyResponse == response)
+    #expect(await store.blocklistEntries == [entry])
+}
+
 /// Verifies an older in-flight list cannot overwrite a newer completed list.
 @Test func staleListDoesNotOverwriteNewerList() async throws {
     let client = ControllablePackageLifecycleClientFixture()
@@ -504,6 +571,41 @@ private func listResponse(packageIds: [String]) -> AteliaPackageListResponse {
     #expect(await store.latestRecord == newerResponse.record)
     #expect(await store.package(id: "com.example.newer")?.record == newerResponse.record)
     #expect(await store.package(id: "com.example.older")?.record == olderResponse.record)
+}
+
+/// Verifies an older blocklist list does not discard a newer applied entry.
+@Test func olderBlocklistListDoesNotDiscardNewerAppliedEntry() async throws {
+    let client = ControllablePackageLifecycleClientFixture()
+    let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
+    let olderEntry = blocklistEntry(packageId: "com.example.older")
+    let appliedEntry = blocklistEntry(packageId: "com.example.applied")
+    let listResponse = AteliaPackageBlocklistListResponse(
+        metadata: metadata("extensions.blocklist.list.v1"),
+        entries: [olderEntry]
+    )
+    let applyResponse = AteliaPackageBlocklistApplyResponse(
+        metadata: metadata("extensions.blocklist.apply.v1"),
+        entry: appliedEntry
+    )
+
+    let list = Task {
+        try await store.listBlocklist()
+    }
+    try await client.waitForRequests(.blocklistList, count: 1)
+
+    let apply = Task {
+        try await store.applyBlocklist(request: AteliaPackageBlocklistRequest(entry: appliedEntry))
+    }
+    try await client.waitForRequests(.blocklistApply, count: 1)
+
+    await client.respondToBlocklistApply(0, with: applyResponse)
+    _ = try await apply.value
+    await client.respondToBlocklistList(0, with: listResponse)
+    _ = try await list.value
+
+    #expect(await store.blocklistApplyResponse == applyResponse)
+    #expect(await store.blocklistListResponse == listResponse)
+    #expect(await store.blocklistEntries == [olderEntry, appliedEntry])
 }
 
 /// Verifies clear prevents older in-flight operations from repopulating state.

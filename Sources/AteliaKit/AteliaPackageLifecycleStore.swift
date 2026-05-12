@@ -14,6 +14,8 @@ public actor AteliaPackageLifecycleStore {
     private var latestRecordValue: AteliaPackageLifecycleRecord?
     private var packageOrder: [String] = []
     private var packagesByID: [String: AteliaPackageStatus] = [:]
+    private var blocklistEntriesValue: [AteliaPackageBlocklistEntry] = []
+    private var blocklistEntryGenerations: [BlocklistEntryGeneration] = []
     private var nextOperationGeneration = 0
     private var latestLifecycleGeneration = 0
     private var latestRollbackGeneration = 0
@@ -129,12 +131,12 @@ public actor AteliaPackageLifecycleStore {
     ) async throws -> AteliaPackageBlocklistEntry {
         let operationGeneration = beginOperation()
         let response = try await client.packageBlocklistApplyResponse(for: session, request: request)
-        guard shouldApply(operationGeneration, after: latestBlocklistApplyGeneration) else {
-            return response.entry
+        if shouldApply(operationGeneration, after: latestBlocklistApplyGeneration) {
+            latestBlocklistApplyGeneration = operationGeneration
+            latestBlocklistApplyResponse = response
+            applyMetadata(response.metadata, generation: operationGeneration)
         }
-        latestBlocklistApplyGeneration = operationGeneration
-        latestBlocklistApplyResponse = response
-        applyMetadata(response.metadata, generation: operationGeneration)
+        upsertBlocklistEntry(response.entry, generation: operationGeneration)
         return response.entry
     }
 
@@ -149,6 +151,7 @@ public actor AteliaPackageLifecycleStore {
         latestBlocklistListGeneration = operationGeneration
         latestBlocklistListResponse = response
         applyMetadata(response.metadata, generation: operationGeneration)
+        replaceBlocklistEntries(response.entries, generation: operationGeneration)
         return response.entries
     }
 
@@ -166,6 +169,8 @@ public actor AteliaPackageLifecycleStore {
         packageOrder.removeAll(keepingCapacity: true)
         packagesByID.removeAll(keepingCapacity: true)
         packageGenerations.removeAll(keepingCapacity: true)
+        blocklistEntriesValue.removeAll(keepingCapacity: true)
+        blocklistEntryGenerations.removeAll(keepingCapacity: true)
     }
 
     /// Returns the latest lifecycle response, if one has completed.
@@ -215,7 +220,7 @@ public actor AteliaPackageLifecycleStore {
 
     /// Returns the latest known blocklist entries.
     public var blocklistEntries: [AteliaPackageBlocklistEntry] {
-        latestBlocklistListResponse?.entries ?? []
+        blocklistEntriesValue
     }
 
     /// Returns the latest known package status for an identifier.
@@ -316,5 +321,60 @@ public actor AteliaPackageLifecycleStore {
         }
         packageGenerations[package.packageId] = operationGeneration
         packagesByID[package.packageId] = package
+    }
+
+    private func replaceBlocklistEntries(
+        _ entries: [AteliaPackageBlocklistEntry],
+        generation operationGeneration: Int
+    ) {
+        let newerEntries = blocklistEntriesValue.filter { entry in
+            blocklistGeneration(for: entry.key) > operationGeneration
+        }
+        let listedKeys = entries.map(\.key)
+        let newerUnlistedEntries = newerEntries.filter { entry in
+            !listedKeys.contains(entry.key)
+        }
+        blocklistEntriesValue = entries.map { entry in
+            newerEntries.first { $0.key == entry.key } ?? entry
+        } + newerUnlistedEntries
+        for entry in entries where blocklistGeneration(for: entry.key) <= operationGeneration {
+            setBlocklistGeneration(operationGeneration, for: entry.key)
+        }
+    }
+
+    private func upsertBlocklistEntry(
+        _ entry: AteliaPackageBlocklistEntry,
+        generation operationGeneration: Int
+    ) {
+        let entryGeneration = blocklistGeneration(for: entry.key)
+        guard shouldApply(operationGeneration, after: entryGeneration) else {
+            return
+        }
+        if let index = blocklistEntriesValue.firstIndex(where: { $0.key == entry.key }) {
+            blocklistEntriesValue[index] = entry
+        } else {
+            blocklistEntriesValue.append(entry)
+        }
+        setBlocklistGeneration(operationGeneration, for: entry.key)
+    }
+
+    private func blocklistGeneration(for key: AteliaPackageTrustIndexEntry.Block.Key) -> Int {
+        blocklistEntryGenerations.first { $0.key == key }?.generation ?? 0
+    }
+
+    private func setBlocklistGeneration(
+        _ generation: Int,
+        for key: AteliaPackageTrustIndexEntry.Block.Key
+    ) {
+        if let index = blocklistEntryGenerations.firstIndex(where: { $0.key == key }) {
+            blocklistEntryGenerations[index].generation = generation
+        } else {
+            blocklistEntryGenerations.append(.init(key: key, generation: generation))
+        }
+    }
+
+    private struct BlocklistEntryGeneration {
+        var key: AteliaPackageTrustIndexEntry.Block.Key
+        var generation: Int
     }
 }
