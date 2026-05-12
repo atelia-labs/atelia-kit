@@ -329,6 +329,59 @@ import Testing
     #expect(decodedUnknown.state == .unknown("awaiting_humane_review"))
 }
 
+/// Verifies request defaults also apply when clients send explicit null values.
+@Test func packageAuthoringRequestsTreatNullDefaultsAsOmitted() throws {
+    let authoring = try JSONDecoder().decode(
+        AteliaPackageAuthoringFlowRequest.self,
+        from: #"""
+        {
+          "package_id": "com.example.review",
+          "include_private_steps": null
+        }
+        """#.data(using: .utf8)!
+    )
+
+    let remix = try JSONDecoder().decode(
+        AteliaPackageRemixRequest.self,
+        from: #"""
+        {
+          "package_id": "com.example.remix",
+          "source_class": null
+        }
+        """#.data(using: .utf8)!
+    )
+
+    let publication = try JSONDecoder().decode(
+        AteliaPackagePublicationRequest.self,
+        from: #"""
+        {
+          "package_id": "com.example.publish",
+          "source_class": null,
+          "visibility": "private",
+          "requires_registry_submission": null,
+          "production_installable": null
+        }
+        """#.data(using: .utf8)!
+    )
+
+    let submission = try JSONDecoder().decode(
+        AteliaPackageRegistrySubmissionRequest.self,
+        from: #"""
+        {
+          "package_id": "com.example.registry",
+          "state": null
+        }
+        """#.data(using: .utf8)!
+    )
+
+    #expect(authoring.includePrivateSteps == true)
+    #expect(remix.sourceClass == .workspaceLocal)
+    #expect(publication.sourceClass == .workspaceLocal)
+    #expect(publication.requiresRegistrySubmission == true)
+    #expect(publication.productionInstallable == true)
+    #expect(submission.state == .submitted)
+}
+
 /// Verifies registry submission responses map package id and state from wire format.
 @Test func packageRegistrySubmissionResponseDecodesCanonicalShape() throws {
     let data = #"""

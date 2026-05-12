@@ -483,9 +483,10 @@ public struct AteliaPackageAuthoringFlowRequest: Sendable, Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.packageId = try container.decode(String.self, forKey: .packageId)
-        self.includePrivateSteps = try container.contains(.includePrivateSteps)
-            ? container.decode(Bool.self, forKey: .includePrivateSteps)
-            : true
+        self.includePrivateSteps = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .includePrivateSteps
+        ) ?? true
     }
 }
 
@@ -545,9 +546,10 @@ public struct AteliaPackageRemixRequest: Sendable, Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.packageId = try container.decode(String.self, forKey: .packageId)
-        self.sourceClass = try container.contains(.sourceClass)
-            ? container.decode(AteliaPackageSourceClass.self, forKey: .sourceClass)
-            : .workspaceLocal
+        self.sourceClass = try container.decodeIfPresent(
+            AteliaPackageSourceClass.self,
+            forKey: .sourceClass
+        ) ?? .workspaceLocal
         self.source = try container.decodeIfPresent(
             AteliaPackageGitHubSourceReference.self,
             forKey: .source
@@ -633,9 +635,10 @@ public struct AteliaPackagePublicationRequest: Sendable, Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.packageId = try container.decode(String.self, forKey: .packageId)
-        self.sourceClass = try container.contains(.sourceClass)
-            ? container.decode(AteliaPackageSourceClass.self, forKey: .sourceClass)
-            : .workspaceLocal
+        self.sourceClass = try container.decodeIfPresent(
+            AteliaPackageSourceClass.self,
+            forKey: .sourceClass
+        ) ?? .workspaceLocal
         self.source = try container.decodeIfPresent(
             AteliaPackageGitHubSourceReference.self,
             forKey: .source
@@ -645,12 +648,14 @@ public struct AteliaPackagePublicationRequest: Sendable, Codable, Equatable {
             [AteliaPackageGitHubPublicationAction].self,
             forKey: .githubActions
         ) ?? []
-        self.requiresRegistrySubmission = try container.contains(.requiresRegistrySubmission)
-            ? container.decode(Bool.self, forKey: .requiresRegistrySubmission)
-            : true
-        self.productionInstallable = try container.contains(.productionInstallable)
-            ? container.decode(Bool.self, forKey: .productionInstallable)
-            : true
+        self.requiresRegistrySubmission = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .requiresRegistrySubmission
+        ) ?? true
+        self.productionInstallable = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .productionInstallable
+        ) ?? true
     }
 }
 
@@ -762,9 +767,10 @@ public struct AteliaPackageRegistrySubmissionRequest: Sendable, Codable, Equatab
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.packageId = try container.decode(String.self, forKey: .packageId)
-        self.state = try container.contains(.state)
-            ? container.decode(AteliaPackageRegistrySubmissionState.self, forKey: .state)
-            : .submitted
+        self.state = try container.decodeIfPresent(
+            AteliaPackageRegistrySubmissionState.self,
+            forKey: .state
+        ) ?? .submitted
         self.note = try container.decodeIfPresent(String.self, forKey: .note)
     }
 }
