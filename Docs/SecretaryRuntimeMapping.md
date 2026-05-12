@@ -25,7 +25,7 @@ replaceable.
 
 ## Model Mapping
 
-| Secretary contract area | Atelia Kit model | Canonical protocol keys |
+| Secretary contract area | Atelia Kit model | Representative canonical protocol keys |
 | --- | --- | --- |
 | protocol metadata | `AteliaProtocolMetadata` | `metadata` |
 | health response | `AteliaHealthResponse` | `daemon_status`, `daemon_version`, `protocol_version`, `storage_status`, `storage_version`, `capabilities` |
@@ -43,6 +43,13 @@ replaceable.
 | project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor`, `daemon_status`, `storage_status` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
 | beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `supported_result_formats` |
+
+The third column is a representative drift guard, not an exhaustive schema
+listing. It includes envelope keys such as `metadata`, collection keys such as
+`packages`, and high-risk model keys that have already drifted across client and
+Secretary implementations. Codable tests cover the exact keys most likely to
+break client/server compatibility; add focused tests before changing any
+protocol-facing model shape.
 
 ## Transport Boundary
 
