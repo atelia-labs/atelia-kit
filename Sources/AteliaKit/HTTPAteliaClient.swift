@@ -311,7 +311,13 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
 
     /// Returns whether a package identifier can be embedded into a path segment.
     private func isValidPackageId(_ packageId: String) -> Bool {
-        !packageId.isEmpty && !packageId.contains("/") && !packageId.contains("\0")
+        guard !packageId.isEmpty, packageId != ".", packageId != ".." else {
+            return false
+        }
+        return packageId.range(
+            of: #"^[A-Za-z0-9._-]+$"#,
+            options: .regularExpression
+        ) != nil
     }
 }
 

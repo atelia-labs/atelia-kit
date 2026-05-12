@@ -308,6 +308,14 @@ import Testing
     await #expect(throws: HTTPAteliaClientError.invalidPackageId("a/b")) {
         _ = try await client.packageRollbackResponse(for: AteliaSession(), packageId: "a/b")
     }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("..")) {
+        _ = try await client.packageRollbackResponse(for: AteliaSession(), packageId: "..")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("com.example package")) {
+        _ = try await client.packageRollbackResponse(for: AteliaSession(), packageId: "com.example package")
+    }
 }
 
 /// Verifies the HTTP client fetches compact project status snapshots.
