@@ -316,6 +316,10 @@ public actor AteliaPackageLifecycleStore {
         guard shouldApply(operationGeneration, after: packageGeneration) else {
             return
         }
+        if packagesByID[package.packageId] == nil,
+           latestPackageListGeneration > operationGeneration {
+            return
+        }
         if packagesByID[package.packageId] == nil {
             packageOrder.append(package.packageId)
         }
@@ -348,6 +352,10 @@ public actor AteliaPackageLifecycleStore {
     ) {
         let entryGeneration = blocklistGeneration(for: entry.key)
         guard shouldApply(operationGeneration, after: entryGeneration) else {
+            return
+        }
+        if !blocklistEntriesValue.contains(where: { $0.key == entry.key }),
+           latestBlocklistListGeneration > operationGeneration {
             return
         }
         if let index = blocklistEntriesValue.firstIndex(where: { $0.key == entry.key }) {

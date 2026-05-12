@@ -561,6 +561,39 @@ private func blocklistEntry(
     #expect(await store.package(id: "com.example.newer") == newerResponse.packages[0])
 }
 
+/// Verifies older focused package upserts cannot reintroduce packages omitted by a newer list.
+@Test func olderStatusDoesNotAppendPackageOmittedByNewerList() async throws {
+    let client = ControllablePackageLifecycleClientFixture()
+    let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
+    let olderStatusResponse = AteliaPackageStatusResponse(
+        metadata: metadata("extensions.status.v1"),
+        package: AteliaPackageStatus(packageId: "com.example.omitted")
+    )
+    let newerListResponse = listResponse(packageIds: ["com.example.listed"])
+
+    let status = Task {
+        try await store.status(packageId: "com.example.omitted")
+    }
+    defer { status.cancel() }
+    try await client.waitForRequests(.status, count: 1)
+
+    let list = Task {
+        try await store.list()
+    }
+    defer { list.cancel() }
+    try await client.waitForRequests(.list, count: 1)
+
+    await client.respondToList(0, with: newerListResponse)
+    _ = try await list.value
+    await client.respondToStatus(0, with: olderStatusResponse)
+    _ = try await status.value
+
+    #expect(await store.listResponse == newerListResponse)
+    #expect(await store.package(id: "com.example.listed") == newerListResponse.packages[0])
+    #expect(await store.package(id: "com.example.omitted") == nil)
+    #expect(await store.packages.map(\.packageId) == ["com.example.listed"])
+}
+
 /// Verifies a failed newer operation does not discard an older successful operation.
 @Test func failedNewerListDoesNotDiscardOlderSuccessfulList() async throws {
     let client = ControllablePackageLifecycleClientFixture()
@@ -689,6 +722,42 @@ private func blocklistEntry(
     #expect(await store.blocklistApplyResponse == applyResponse)
     #expect(await store.blocklistListResponse == listResponse)
     #expect(await store.blocklistEntries == [olderEntry, appliedEntry])
+}
+
+/// Verifies older blocklist applies cannot reintroduce keys omitted by a newer list.
+@Test func olderBlocklistApplyDoesNotAppendEntryOmittedByNewerList() async throws {
+    let client = ControllablePackageLifecycleClientFixture()
+    let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
+    let appliedEntry = blocklistEntry(packageId: "com.example.applied")
+    let listedEntry = blocklistEntry(packageId: "com.example.listed")
+    let applyResponse = AteliaPackageBlocklistApplyResponse(
+        metadata: metadata("extensions.blocklist.apply.v1"),
+        entry: appliedEntry
+    )
+    let listResponse = AteliaPackageBlocklistListResponse(
+        metadata: metadata("extensions.blocklist.list.v1"),
+        entries: [listedEntry]
+    )
+
+    let apply = Task {
+        try await store.applyBlocklist(request: AteliaPackageBlocklistRequest(entry: appliedEntry))
+    }
+    defer { apply.cancel() }
+    try await client.waitForRequests(.blocklistApply, count: 1)
+
+    let list = Task {
+        try await store.listBlocklist()
+    }
+    defer { list.cancel() }
+    try await client.waitForRequests(.blocklistList, count: 1)
+
+    await client.respondToBlocklistList(0, with: listResponse)
+    _ = try await list.value
+    await client.respondToBlocklistApply(0, with: applyResponse)
+    _ = try await apply.value
+
+    #expect(await store.blocklistListResponse == listResponse)
+    #expect(await store.blocklistEntries == [listedEntry])
 }
 
 /// Verifies clear prevents older in-flight operations from repopulating state.
