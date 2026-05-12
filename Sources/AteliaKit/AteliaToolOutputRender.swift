@@ -222,4 +222,3 @@ public struct AteliaRenderedToolOutputTruncation: Sendable, Codable, Equatable {
         self.reason = reason
     }
 }
-
