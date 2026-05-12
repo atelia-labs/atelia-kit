@@ -54,6 +54,57 @@ private actor StatusOnlyClient: AteliaClient {
     }
 }
 
+/// Minimal conformer used to verify trust-index request fallback behavior.
+private actor UnfilteredPackageTrustIndexClient: AteliaClient {
+    /// Number of unfiltered trust-index calls observed by the fixture.
+    private var trustIndexCallCount = 0
+
+    /// Returns an empty package trust index for default-request fallback tests.
+    func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
+        _ = session
+        trustIndexCallCount += 1
+        return AteliaPackageTrustIndexResponse(
+            metadata: AteliaProtocolMetadata(
+                protocolVersion: "0.1.0",
+                daemonVersion: "0.0.0",
+                storageVersion: "0.0.0",
+                capabilities: ["package_trust_index.v1"]
+            ),
+            packages: []
+        )
+    }
+
+    /// Returns the observed unfiltered trust-index call count.
+    func callCount() -> Int {
+        trustIndexCallCount
+    }
+}
+
+/// Minimal conformer used to verify default request fallback through the entry API.
+private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
+    /// Number of entry trust-index calls observed by the fixture.
+    private var trustIndexCallCount = 0
+
+    /// Returns one package trust index entry for default-request fallback tests.
+    func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry] {
+        _ = session
+        trustIndexCallCount += 1
+        return [
+            AteliaPackageTrustIndexEntry(
+                packageId: "com.example.entries",
+                version: "1.0.0",
+                status: .installed,
+                boundary: .official
+            )
+        ]
+    }
+
+    /// Returns the observed entry trust-index call count.
+    func callCount() -> Int {
+        trustIndexCallCount
+    }
+}
+
 /// Verifies endpoint configuration builds the expected base URL.
 @Test func endpointBuildsBaseURL() {
     let endpoint = AteliaEndpoint(host: "127.0.0.1", port: 8787, usesTLS: false)
@@ -192,6 +243,49 @@ private actor StatusOnlyClient: AteliaClient {
     ))
 }
 
+/// Verifies default request fallback does not silently ignore real trust-index filters.
+@Test func defaultTrustIndexRequestFallsBackToUnfilteredConformer() async throws {
+    let client = UnfilteredPackageTrustIndexClient()
+    let session = AteliaSession()
+
+    let response = try await client.packageTrustIndexResponse(
+        for: session,
+        request: AteliaPackageTrustIndexRequest()
+    )
+
+    #expect(response.packages.isEmpty)
+    #expect(response.metadata.capabilities == ["package_trust_index.v1"])
+    #expect(await client.callCount() == 1)
+
+    await #expect(throws: AteliaClientError.packageTrustIndexUnavailable) {
+        _ = try await client.packageTrustIndexResponse(
+            for: session,
+            request: AteliaPackageTrustIndexRequest(includeBlocked: false, discoveryOnly: true)
+        )
+    }
+}
+
+/// Verifies default request fallback reaches conformers that only provide entries.
+@Test func defaultTrustIndexEntryRequestFallsBackToUnfilteredConformer() async throws {
+    let client = EntriesOnlyPackageTrustIndexClient()
+    let session = AteliaSession()
+
+    let entries = try await client.packageTrustIndex(
+        for: session,
+        request: AteliaPackageTrustIndexRequest()
+    )
+
+    #expect(entries.map(\.packageId) == ["com.example.entries"])
+    #expect(await client.callCount() == 1)
+
+    await #expect(throws: AteliaClientError.packageTrustIndexUnavailable) {
+        _ = try await client.packageTrustIndex(
+            for: session,
+            request: AteliaPackageTrustIndexRequest(includeBlocked: false, discoveryOnly: true)
+        )
+    }
+}
+
 /// Verifies the local client exposes placeholder typed protocol surfaces.
 @Test func localClientExposesTypedProtocolSurface() async throws {
     let client = LocalAteliaClient()
@@ -221,6 +315,13 @@ private actor StatusOnlyClient: AteliaClient {
 
     let trustIndexEntries = try await client.packageTrustIndex(for: session)
     #expect(trustIndexEntries.isEmpty)
+
+    let discoveryTrustIndex = try await client.packageTrustIndexResponse(
+        for: session,
+        request: AteliaPackageTrustIndexRequest(includeBlocked: false, discoveryOnly: true)
+    )
+    #expect(discoveryTrustIndex.packages.isEmpty)
+    #expect(discoveryTrustIndex.metadata.capabilities == ["package_trust_index.v1"])
 
     let status = try await client.status(for: session)
     #expect(status.phase == .unknown)

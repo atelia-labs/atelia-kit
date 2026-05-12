@@ -153,7 +153,11 @@ import Testing
         #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
-        #expect(request.httpBody == Data("{}".utf8))
+        let body = try #require(
+            JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+        )
+        #expect(body["include_blocked"] as? Bool == true)
+        #expect(body["discovery_only"] as? Bool == false)
 
         return #"""
         {
@@ -222,6 +226,41 @@ import Testing
 
     let entries = try await client.packageTrustIndex(for: AteliaSession())
     #expect(entries.map(\.packageId) == ["com.example.active", "com.example.blocked"])
+}
+
+/// Verifies the package trust index endpoint receives explicit trust-index request filters.
+@Test func httpClientFiltersPackageTrustIndexRequest() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        let body = try #require(
+            JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+        )
+        #expect(request.url?.path == "/v1/package-trust-index:list")
+        #expect(body["include_blocked"] as? Bool == false)
+        #expect(body["discovery_only"] as? Bool == true)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["package_trust_index.v1"]
+            },
+            "packages": []
+          }
+        }
+        """#
+    })
+
+    let response = try await client.packageTrustIndexResponse(
+        for: AteliaSession(),
+        request: AteliaPackageTrustIndexRequest(includeBlocked: false, discoveryOnly: true)
+    )
+
+    #expect(response.packages.isEmpty)
+    #expect(response.metadata.capabilities == ["package_trust_index.v1"])
 }
 
 /// Verifies package install requests hit the extension install route and decode the lifecycle envelope.

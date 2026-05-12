@@ -5,6 +5,7 @@ import Testing
 private actor PackageTrustIndexClientFixture: AteliaClient {
     private let response: AteliaPackageTrustIndexResponse
     private var callCount = 0
+    private var lastRequestPayload: AteliaPackageTrustIndexRequest?
 
     /// Creates a fixture client that returns the supplied trust-index response.
     init(response: AteliaPackageTrustIndexResponse) {
@@ -12,15 +13,24 @@ private actor PackageTrustIndexClientFixture: AteliaClient {
     }
 
     /// Returns the fixture trust-index response and records one client call.
-    func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
+    func packageTrustIndexResponse(
+        for session: AteliaSession,
+        request: AteliaPackageTrustIndexRequest
+    ) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
         callCount += 1
+        lastRequestPayload = request
         return response
     }
 
     /// Returns how many trust-index calls reached the fixture.
     func calls() -> Int {
         callCount
+    }
+
+    /// Returns the last request payload sent to the fixture.
+    func getLastRequest() -> AteliaPackageTrustIndexRequest? {
+        lastRequestPayload
     }
 }
 
@@ -35,7 +45,10 @@ private actor ControllablePackageTrustIndexClient: AteliaClient {
     private var continuations: [CheckedContinuation<AteliaPackageTrustIndexResponse, any Error>] = []
 
     /// Suspends until the test explicitly responds to the captured request.
-    func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
+    func packageTrustIndexResponse(
+        for session: AteliaSession,
+        request: AteliaPackageTrustIndexRequest
+    ) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
         return try await withCheckedThrowingContinuation { continuation in
             continuations.append(continuation)
@@ -192,6 +205,21 @@ private func packageTrustIndexResponse(packageId: String) -> AteliaPackageTrustI
     #expect(await store.package(id: "com.example.alpha") == packageTrustIndexFixtureResponse.packages[0])
     #expect(await store.package(id: "com.example.beta") == packageTrustIndexFixtureResponse.packages[1])
     #expect(await store.package(id: "com.example.missing") == nil)
+}
+
+/// Verifies reload forwards trust-index filter request payloads to the client.
+@Test func reloadForwardsRequestToClient() async throws {
+    let client = PackageTrustIndexClientFixture(response: packageTrustIndexFixtureResponse)
+    let store = AteliaPackageTrustIndexStore(
+        client: client,
+        session: AteliaSession()
+    )
+    let request = AteliaPackageTrustIndexRequest(includeBlocked: false, discoveryOnly: true)
+
+    try await store.reload(request: request)
+
+    #expect(await client.calls() == 1)
+    #expect(await client.getLastRequest() == request)
 }
 
 /// Verifies attention filtering preserves the response order.
