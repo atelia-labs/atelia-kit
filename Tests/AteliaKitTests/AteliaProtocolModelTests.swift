@@ -352,6 +352,10 @@ import Testing
     #expect(decoded.renderedOutputMetadata.degraded == true)
     #expect(decoded.renderedOutputMetadata.fallbackReason == nil)
     #expect(decoded.renderedOutputMetadata.truncation == nil)
+
+    let encoded = try JSONEncoder().encode(decoded)
+    let redecoded = try JSONDecoder().decode(AteliaToolOutputRenderResponse.self, from: encoded)
+    #expect(redecoded.format == decoded.format)
 }
 
 /// Verifies package trust index entries derive typed inspection attention from status and block data.
