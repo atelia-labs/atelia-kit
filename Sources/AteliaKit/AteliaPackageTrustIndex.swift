@@ -589,7 +589,7 @@ public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identi
         }
 
         /// Blocklist key matched by Secretary.
-        public enum Key: Sendable, Codable, Equatable {
+        public enum Key: Sendable, Codable, Equatable, Hashable {
             /// Block matched by package id.
             case extensionId(String)
             /// Block matched by package id and version.

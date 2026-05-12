@@ -15,7 +15,7 @@ public actor AteliaPackageLifecycleStore {
     private var packageOrder: [String] = []
     private var packagesByID: [String: AteliaPackageStatus] = [:]
     private var blocklistEntriesValue: [AteliaPackageBlocklistEntry] = []
-    private var blocklistEntryGenerations: [BlocklistEntryGeneration] = []
+    private var blocklistEntryGenerations: [AteliaPackageTrustIndexEntry.Block.Key: Int] = [:]
     private var nextOperationGeneration = 0
     private var latestLifecycleGeneration = 0
     private var latestRollbackGeneration = 0
@@ -359,22 +359,13 @@ public actor AteliaPackageLifecycleStore {
     }
 
     private func blocklistGeneration(for key: AteliaPackageTrustIndexEntry.Block.Key) -> Int {
-        blocklistEntryGenerations.first { $0.key == key }?.generation ?? 0
+        blocklistEntryGenerations[key] ?? 0
     }
 
     private func setBlocklistGeneration(
         _ generation: Int,
         for key: AteliaPackageTrustIndexEntry.Block.Key
     ) {
-        if let index = blocklistEntryGenerations.firstIndex(where: { $0.key == key }) {
-            blocklistEntryGenerations[index].generation = generation
-        } else {
-            blocklistEntryGenerations.append(.init(key: key, generation: generation))
-        }
-    }
-
-    private struct BlocklistEntryGeneration {
-        var key: AteliaPackageTrustIndexEntry.Block.Key
-        var generation: Int
+        blocklistEntryGenerations[key] = generation
     }
 }
