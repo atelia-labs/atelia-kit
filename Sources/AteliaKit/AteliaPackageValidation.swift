@@ -1,6 +1,6 @@
 import Foundation
 
-/// Product-facing representation of an extension manifest payload for package validation.
+/// Product-facing representation of a package manifest payload for validation.
 public struct AteliaPackageManifest: Sendable, Codable, Equatable {
     /// Dynamic manifest fields decoded from or encoded to a protocol manifest object.
     public var fields: [String: AteliaPackageManifestValue]
@@ -102,11 +102,11 @@ public indirect enum AteliaPackageManifestValue: Sendable, Codable, Equatable {
     }
 }
 
-/// Request body for POST `/v1/extensions/validate`.
+/// Request body for POST `/v1/packages/validate`.
 public struct AteliaPackageValidationRequest: Sendable, Codable, Equatable {
     /// JSON keys for validation request fields.
     private enum CodingKeys: String, CodingKey {
-        /// Extension manifest to validate.
+        /// Package manifest to validate.
         case manifest
         /// Whether to allow locally unsigned packages.
         case approveLocalUnsigned = "approve_local_unsigned"
@@ -116,7 +116,7 @@ public struct AteliaPackageValidationRequest: Sendable, Codable, Equatable {
         case approveSourceChange = "approve_source_change"
     }
 
-    /// Extension manifest payload to validate.
+    /// Package manifest payload to validate.
     public var manifest: AteliaPackageManifest
     /// Accepts local unsigned package manifests.
     public var approveLocalUnsigned: Bool
@@ -154,7 +154,7 @@ public struct AteliaPackageValidationRequest: Sendable, Codable, Equatable {
     }
 }
 
-/// Response envelope returned from POST `/v1/extensions/validate`.
+/// Response envelope returned from POST `/v1/packages/validate`.
 public struct AteliaPackageValidationResponse: Sendable, Codable, Equatable {
     /// JSON keys for validation response fields.
     private enum CodingKeys: String, CodingKey {

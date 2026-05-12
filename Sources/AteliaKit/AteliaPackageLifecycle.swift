@@ -4,7 +4,7 @@ import Foundation
 public struct AteliaPackageLifecycleRequest: Sendable, Codable, Equatable {
     /// JSON keys for package install/update requests.
     private enum CodingKeys: String, CodingKey {
-        /// Extension manifest payload.
+        /// Package manifest payload.
         case manifest
         /// Whether local unsigned manifests are accepted.
         case approveLocalUnsigned = "approve_local_unsigned"
