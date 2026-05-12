@@ -272,6 +272,58 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Returns the authoring flow response for the requested package.
+    public func packageAuthoringFlowResponse(
+        for session: AteliaSession,
+        request: AteliaPackageAuthoringFlowRequest
+    ) async throws -> AteliaPackageAuthoringFlowResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageAuthoringPath(packageId: request.packageId, operation: "authoring-flow"),
+            body: request
+        )
+    }
+
+    /// Returns the package remix response for the requested package.
+    public func packageRemixResponse(
+        for session: AteliaSession,
+        request: AteliaPackageRemixRequest
+    ) async throws -> AteliaPackageRemixResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageAuthoringPath(packageId: request.packageId, operation: "remix"),
+            body: request
+        )
+    }
+
+    /// Returns the package publication response for the requested package.
+    public func packagePublicationResponse(
+        for session: AteliaSession,
+        request: AteliaPackagePublicationRequest
+    ) async throws -> AteliaPackagePublicationResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageAuthoringPath(packageId: request.packageId, operation: "publication"),
+            body: request
+        )
+    }
+
+    /// Returns the registry-submission response for the requested package.
+    public func packageRegistrySubmissionResponse(
+        for session: AteliaSession,
+        request: AteliaPackageRegistrySubmissionRequest
+    ) async throws -> AteliaPackageRegistrySubmissionResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageAuthoringPath(packageId: request.packageId, operation: "registry-submission"),
+            body: request
+        )
+    }
+
     /// Returns the disable response envelope for a package identifier.
     public func packageDisableResponse(
         for session: AteliaSession,
@@ -453,10 +505,32 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
 
     /// Builds a Secretary path for a package operation after validating the package identifier.
     private func makePackageOperationPath(packageId: String, operation: String) throws -> String {
+        try makePackageOperationPath(
+            baseSegment: "extensions",
+            packageId: packageId,
+            operation: operation
+        )
+    }
+
+    /// Builds a Secretary path for package-authoring operations after validating the package identifier.
+    private func makePackageAuthoringPath(packageId: String, operation: String) throws -> String {
+        try makePackageOperationPath(
+            baseSegment: "extensions",
+            packageId: packageId,
+            operation: operation
+        )
+    }
+
+    /// Builds a Secretary extension path after validating the package identifier.
+    private func makePackageOperationPath(
+        baseSegment: String,
+        packageId: String,
+        operation: String
+    ) throws -> String {
         guard isValidPackageId(packageId) else {
             throw HTTPAteliaClientError.invalidPackageId(packageId)
         }
-        return "/v1/extensions/\(packageId)/\(operation)"
+        return "/v1/\(baseSegment)/\(packageId)/\(operation)"
     }
 
     /// Returns whether a package identifier can be embedded into a path segment.

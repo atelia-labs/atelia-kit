@@ -381,6 +381,42 @@ private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
     await #expect(throws: AteliaClientError.packageBlocklistUnavailable) {
         _ = try await client.packageBlocklistListResponse(for: session)
     }
+    await #expect(throws: AteliaClientError.packageAuthoringFlowUnavailable) {
+        _ = try await client.packageAuthoringFlowResponse(
+            for: session,
+            request: AteliaPackageAuthoringFlowRequest(packageId: "com.example.package")
+        )
+    }
+    await #expect(throws: AteliaClientError.packageRemixUnavailable) {
+        _ = try await client.packageRemixResponse(
+            for: session,
+            request: AteliaPackageRemixRequest(
+                packageId: "com.example.package",
+                sourceClass: .workspaceLocal
+            )
+        )
+    }
+    await #expect(throws: AteliaClientError.packagePublicationUnavailable) {
+        _ = try await client.packagePublicationResponse(
+            for: session,
+            request: AteliaPackagePublicationRequest(
+                packageId: "com.example.package",
+                sourceClass: .workspaceLocal,
+                visibility: .privateRemix,
+                requiresRegistrySubmission: false,
+                productionInstallable: false
+            )
+        )
+    }
+    await #expect(throws: AteliaClientError.packageRegistrySubmissionUnavailable) {
+        _ = try await client.packageRegistrySubmissionResponse(
+            for: session,
+            request: AteliaPackageRegistrySubmissionRequest(
+                packageId: "com.example.package",
+                state: .submitted
+            )
+        )
+    }
 
     await #expect(throws: AteliaClientError.toolOutputRenderUnavailable) {
         _ = try await client.renderToolOutputResponse(for: session, request: renderRequest)
@@ -490,6 +526,42 @@ private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
     }
     await #expect(throws: AteliaClientError.packageBlocklistUnavailable) {
         _ = try await client.packageBlocklistList(for: session)
+    }
+    await #expect(throws: AteliaClientError.packageAuthoringFlowUnavailable) {
+        _ = try await client.packageAuthoringFlow(
+            for: session,
+            request: AteliaPackageAuthoringFlowRequest(packageId: "com.example.package")
+        )
+    }
+    await #expect(throws: AteliaClientError.packageRemixUnavailable) {
+        _ = try await client.packageRemix(
+            for: session,
+            request: AteliaPackageRemixRequest(
+                packageId: "com.example.package",
+                sourceClass: .workspaceLocal
+            )
+        )
+    }
+    await #expect(throws: AteliaClientError.packagePublicationUnavailable) {
+        _ = try await client.packagePublication(
+            for: session,
+            request: AteliaPackagePublicationRequest(
+                packageId: "com.example.package",
+                sourceClass: .workspaceLocal,
+                visibility: .privateRemix,
+                requiresRegistrySubmission: false,
+                productionInstallable: false
+            )
+        )
+    }
+    await #expect(throws: AteliaClientError.packageRegistrySubmissionUnavailable) {
+        _ = try await client.packageRegistrySubmissionState(
+            for: session,
+            request: AteliaPackageRegistrySubmissionRequest(
+                packageId: "com.example.package",
+                state: .submitted
+            )
+        )
     }
     await #expect(throws: AteliaClientError.toolOutputRenderUnavailable) {
         _ = try await client.renderToolOutputResponse(for: session, request: renderRequest)

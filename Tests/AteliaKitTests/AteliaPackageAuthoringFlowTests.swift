@@ -234,3 +234,174 @@ import Testing
     #expect(object["visibility"] as? String == "official")
     #expect(try JSONDecoder().decode(AteliaPackagePublicationPlan.self, from: data).visibility == .official)
 }
+
+/// Verifies authoring-flow request defaults keep private-step visibility by default.
+@Test func packageAuthoringFlowRequestDefaultsPrivateSteps() throws {
+    let data = #"""
+    {
+      "package_id": "com.example.review"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageAuthoringFlowRequest.self, from: data)
+    let encoded = try JSONEncoder().encode(decoded)
+
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+    #expect(decoded.packageId == "com.example.review")
+    #expect(decoded.includePrivateSteps == true)
+    #expect(object["include_private_steps"] as? Bool == true)
+}
+
+/// Verifies remix request decoding applies default source class semantics.
+@Test func packageRemixRequestDefaultsSourceClass() throws {
+    let data = #"""
+    {
+      "package_id": "com.example.remix",
+      "source": {
+        "repository": "atelia-labs/atelia",
+        "manifest_path": "packages/review/package.yml"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageRemixRequest.self, from: data)
+    #expect(decoded.packageId == "com.example.remix")
+    #expect(decoded.sourceClass == .workspaceLocal)
+    #expect(decoded.source?.repository == "atelia-labs/atelia")
+}
+
+/// Verifies publication request defaults preserve compatibility-oriented behavior.
+@Test func packagePublicationRequestDefaults() throws {
+    let data = #"""
+    {
+      "package_id": "com.example.publish",
+      "visibility": "public_searchable"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackagePublicationRequest.self, from: data)
+    let object = try #require(
+        JSONSerialization.jsonObject(with: try JSONEncoder().encode(decoded)) as? [String: Any]
+    )
+
+    #expect(decoded.packageId == "com.example.publish")
+    #expect(decoded.sourceClass == .workspaceLocal)
+    #expect(decoded.requiresRegistrySubmission == true)
+    #expect(decoded.productionInstallable == true)
+    #expect(object["requires_registry_submission"] as? Bool == true)
+    #expect(object["production_installable"] as? Bool == true)
+}
+
+/// Verifies registry submission requests preserve unknown states and use submitted defaults.
+@Test func packageRegistrySubmissionRequestDefaultsAndUnknownState() throws {
+    let data = #"""
+    {
+      "package_id": "com.example.registry",
+      "state": "submitted"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageRegistrySubmissionRequest.self, from: data)
+    let encoded = try JSONEncoder().encode(decoded)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    let fallback = try JSONDecoder().decode(
+        AteliaPackageRegistrySubmissionRequest.self,
+        from: #"""
+        {
+          "package_id": "com.example.registry"
+        }
+        """#.data(using: .utf8)!
+    )
+
+    #expect(decoded.state == .submitted)
+    #expect(object["state"] as? String == "submitted")
+    #expect(fallback.state == .submitted)
+
+    let unknownData = #"""
+    {
+      "package_id": "com.example.registry",
+      "state": "awaiting_humane_review"
+    }
+    """#.data(using: .utf8)!
+    let decodedUnknown = try JSONDecoder().decode(AteliaPackageRegistrySubmissionRequest.self, from: unknownData)
+
+    #expect(decodedUnknown.state == .unknown("awaiting_humane_review"))
+}
+
+/// Verifies request defaults also apply when clients send explicit null values.
+@Test func packageAuthoringRequestsTreatNullDefaultsAsOmitted() throws {
+    let authoring = try JSONDecoder().decode(
+        AteliaPackageAuthoringFlowRequest.self,
+        from: #"""
+        {
+          "package_id": "com.example.review",
+          "include_private_steps": null
+        }
+        """#.data(using: .utf8)!
+    )
+
+    let remix = try JSONDecoder().decode(
+        AteliaPackageRemixRequest.self,
+        from: #"""
+        {
+          "package_id": "com.example.remix",
+          "source_class": null
+        }
+        """#.data(using: .utf8)!
+    )
+
+    let publication = try JSONDecoder().decode(
+        AteliaPackagePublicationRequest.self,
+        from: #"""
+        {
+          "package_id": "com.example.publish",
+          "source_class": null,
+          "visibility": "private",
+          "requires_registry_submission": null,
+          "production_installable": null
+        }
+        """#.data(using: .utf8)!
+    )
+
+    let submission = try JSONDecoder().decode(
+        AteliaPackageRegistrySubmissionRequest.self,
+        from: #"""
+        {
+          "package_id": "com.example.registry",
+          "state": null
+        }
+        """#.data(using: .utf8)!
+    )
+
+    #expect(authoring.includePrivateSteps == true)
+    #expect(remix.sourceClass == .workspaceLocal)
+    #expect(publication.sourceClass == .workspaceLocal)
+    #expect(publication.requiresRegistrySubmission == true)
+    #expect(publication.productionInstallable == true)
+    #expect(submission.state == .submitted)
+}
+
+/// Verifies registry submission responses map package id and state from wire format.
+@Test func packageRegistrySubmissionResponseDecodesCanonicalShape() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["extensions.registry-submission.v1"]
+      },
+      "package_id": "com.example.review",
+      "state": "rejected",
+      "message": "awaiting manual review"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageRegistrySubmissionResponse.self, from: data)
+
+    #expect(decoded.packageId == "com.example.review")
+    #expect(decoded.state == .rejected)
+    #expect(decoded.message == "awaiting manual review")
+    #expect(decoded.flow == nil)
+}

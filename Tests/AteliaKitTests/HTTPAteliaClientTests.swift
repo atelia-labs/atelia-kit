@@ -565,6 +565,243 @@ import Testing
     #expect(enabled.status == .installed)
 }
 
+/// Verifies package authoring-flow requests hit the identifier-scoped endpoint and decode.
+@Test func httpClientFetchesPackageAuthoringFlow() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/authoring-flow")
+        #expect(request.httpMethod == "POST")
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["package_id"] as? String == "com.example.review.extension")
+        #expect(body["include_private_steps"] as? Bool == true)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.authoring-flow.v1"]
+            },
+            "flow": {
+              "package_id": "com.example.review.extension",
+              "source_class": "workspace-local",
+              "steps": [
+                {
+                  "id": "inspect",
+                  "title": "Inspect package",
+                  "state": "complete",
+                  "requires_explicit_consent": false,
+                  "policy_notes": []
+                }
+              ],
+              "publication_plan": {
+                "visibility": "public_searchable",
+                "source_class": "workspace-local",
+                "requires_registry_submission": false,
+                "production_installable": true
+              }
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.packageAuthoringFlowResponse(
+        for: AteliaSession(),
+        request: AteliaPackageAuthoringFlowRequest(
+            packageId: "com.example.review.extension",
+            includePrivateSteps: true
+        )
+    )
+
+    #expect(response.metadata.capabilities == ["extensions.authoring-flow.v1"])
+    #expect(response.flow.id == "com.example.review.extension")
+    #expect(response.flow.steps.map(\.id) == [.inspect])
+}
+
+/// Verifies package remix requests hit the identifier-scoped endpoint and decode.
+@Test func httpClientStartsPackageRemix() async throws {
+    let request = AteliaPackageRemixRequest(
+        packageId: "com.example.review.extension",
+        sourceClass: .workspaceLocal,
+        source: AteliaPackageGitHubSourceReference(
+            repository: "atelia-labs/atelia",
+            manifestPath: "packages/review/package.yml"
+        ),
+        manifest: nil
+    )
+
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/remix")
+        #expect(request.httpMethod == "POST")
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["package_id"] as? String == "com.example.review.extension")
+        #expect(body["source_class"] as? String == "workspace-local")
+        let source = try #require(body["source"] as? [String: Any])
+        #expect(source["repository"] as? String == "atelia-labs/atelia")
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.remix.v1"]
+            },
+            "flow": {
+              "package_id": "com.example.review.extension",
+              "source_class": "workspace-local",
+              "steps": [
+                {
+                  "id": "remix",
+                  "title": "Remix package",
+                  "state": "available",
+                  "requires_explicit_consent": false,
+                  "policy_notes": []
+                }
+              ]
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.packageRemixResponse(for: AteliaSession(), request: request)
+    let flow = try await client.packageRemix(for: AteliaSession(), request: request)
+
+    #expect(response.metadata.capabilities == ["extensions.remix.v1"])
+    #expect(response.flow.id == "com.example.review.extension")
+    #expect(response.flow == flow)
+}
+
+/// Verifies publication requests hit the identifier-scoped endpoint and decode.
+@Test func httpClientStartsPackagePublication() async throws {
+    let request = AteliaPackagePublicationRequest(
+        packageId: "com.example.review.extension",
+        sourceClass: .verifiedRegistry,
+        visibility: .publicSearchable,
+        githubActions: [.prepareReleaseMetadata, .submitRegistryMetadata],
+        requiresRegistrySubmission: true,
+        productionInstallable: true
+    )
+
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/publication")
+        #expect(request.httpMethod == "POST")
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["package_id"] as? String == "com.example.review.extension")
+        #expect(body["source_class"] as? String == "verified-registry")
+        #expect(body["visibility"] as? String == "public_searchable")
+        #expect(body["requires_registry_submission"] as? Bool == true)
+        #expect(body["production_installable"] as? Bool == true)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.publication.v1"]
+            },
+            "flow": {
+              "package_id": "com.example.review.extension",
+              "source_class": "verified-registry",
+              "steps": [
+                {
+                  "id": "publish",
+                  "title": "Publish package",
+                  "state": "blocked",
+                  "requires_explicit_consent": true,
+                  "policy_notes": ["Registry submission required"]
+                }
+              ],
+              "publication_plan": {
+                "visibility": "public_searchable",
+                "source_class": "verified-registry",
+                "github_actions": ["prepare_release_metadata", "submit_registry_metadata"],
+                "requires_registry_submission": true,
+                "production_installable": true
+              }
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.packagePublicationResponse(for: AteliaSession(), request: request)
+    let flow = try await client.packagePublication(for: AteliaSession(), request: request)
+
+    #expect(response.metadata.capabilities == ["extensions.publication.v1"])
+    #expect(response.flow == flow)
+    #expect(response.flow.id == "com.example.review.extension")
+}
+
+/// Verifies registry-submission requests hit the identifier-scoped endpoint and decode state.
+@Test func httpClientSubmitsRegistrySubmissionState() async throws {
+    let request = AteliaPackageRegistrySubmissionRequest(
+        packageId: "com.example.review.extension",
+        state: .accepted,
+        note: "approved by release"
+    )
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/registry-submission")
+        #expect(request.httpMethod == "POST")
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["package_id"] as? String == "com.example.review.extension")
+        #expect(body["state"] as? String == "accepted")
+        #expect(body["note"] as? String == "approved by release")
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.registry-submission.v1"]
+            },
+            "package_id": "com.example.review.extension",
+            "state": "accepted",
+            "message": "queued",
+            "flow": {
+              "package_id": "com.example.review.extension",
+              "source_class": "workspace-local",
+              "steps": [
+                {
+                  "id": "registry_search",
+                  "title": "Check registry state",
+                  "state": "blocked",
+                  "requires_explicit_consent": false,
+                  "policy_notes": []
+                }
+              ]
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.packageRegistrySubmissionResponse(for: AteliaSession(), request: request)
+    let state = try await client.packageRegistrySubmissionState(
+        for: AteliaSession(),
+        request: request
+    )
+
+    #expect(response.metadata.capabilities == ["extensions.registry-submission.v1"])
+    #expect(response.packageId == "com.example.review.extension")
+    #expect(response.state == .accepted)
+    #expect(response.flow?.id == "com.example.review.extension")
+    #expect(response.message == "queued")
+    #expect(state == .accepted)
+}
+
 /// Verifies package removals use the identifier-scoped remove endpoint.
 @Test func httpClientRemovesPackage() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
@@ -1003,6 +1240,46 @@ import Testing
 
     await #expect(throws: HTTPAteliaClientError.invalidPackageId("a/b")) {
         _ = try await client.packageRemoveResponse(for: AteliaSession(), packageId: "a/b")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("a/b")) {
+        _ = try await client.packageAuthoringFlowResponse(
+            for: AteliaSession(),
+            request: AteliaPackageAuthoringFlowRequest(packageId: "a/b")
+        )
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("..")) {
+        _ = try await client.packageRemixResponse(
+            for: AteliaSession(),
+            request: AteliaPackageRemixRequest(
+                packageId: "..",
+                sourceClass: .workspaceLocal
+            )
+        )
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId(" ")) {
+        _ = try await client.packagePublicationResponse(
+            for: AteliaSession(),
+            request: AteliaPackagePublicationRequest(
+                packageId: " ",
+                sourceClass: .workspaceLocal,
+                visibility: .publicSearchable,
+                requiresRegistrySubmission: false,
+                productionInstallable: false
+            )
+        )
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("a/b")) {
+        _ = try await client.packageRegistrySubmissionResponse(
+            for: AteliaSession(),
+            request: AteliaPackageRegistrySubmissionRequest(
+                packageId: "a/b",
+                state: .submitted
+            )
+        )
     }
 }
 
