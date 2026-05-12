@@ -228,6 +228,48 @@ private actor StatusOnlyClient: AteliaClient {
             request: AteliaPackageValidationRequest(manifest: AteliaPackageManifest())
         )
     }
+
+    await #expect(throws: AteliaClientError.packageInstallUnavailable) {
+        _ = try await client.packageInstallResponse(
+            for: session,
+            request: AteliaPackageLifecycleRequest(manifest: AteliaPackageManifest())
+        )
+    }
+    await #expect(throws: AteliaClientError.packageUpdateUnavailable) {
+        _ = try await client.packageUpdateResponse(
+            for: session,
+            request: AteliaPackageLifecycleRequest(manifest: AteliaPackageManifest())
+        )
+    }
+    await #expect(throws: AteliaClientError.packageStatusUnavailable) {
+        _ = try await client.packageStatusResponse(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageListUnavailable) {
+        _ = try await client.packageListResponse(for: session, request: AteliaPackageListRequest())
+    }
+    await #expect(throws: AteliaClientError.packageDisableUnavailable) {
+        _ = try await client.packageDisableResponse(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageEnableUnavailable) {
+        _ = try await client.packageEnableResponse(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageRemoveUnavailable) {
+        _ = try await client.packageRemoveResponse(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageBlocklistUnavailable) {
+        _ = try await client.packageBlocklistApplyResponse(
+            for: session,
+            request: AteliaPackageBlocklistRequest(
+                entry: AteliaPackageBlocklistEntry(
+                    reason: .userBlocked,
+                    key: .extensionId("com.example.package")
+                )
+            )
+        )
+    }
+    await #expect(throws: AteliaClientError.packageBlocklistUnavailable) {
+        _ = try await client.packageBlocklistListResponse(for: session)
+    }
 }
 
 /// Verifies default status derives from health when no explicit status exists.
@@ -282,6 +324,47 @@ private actor StatusOnlyClient: AteliaClient {
             for: session,
             request: AteliaPackageValidationRequest(manifest: AteliaPackageManifest())
         )
+    }
+    await #expect(throws: AteliaClientError.packageInstallUnavailable) {
+        _ = try await client.packageInstall(
+            for: session,
+            request: AteliaPackageLifecycleRequest(manifest: AteliaPackageManifest())
+        )
+    }
+    await #expect(throws: AteliaClientError.packageUpdateUnavailable) {
+        _ = try await client.packageUpdate(
+            for: session,
+            request: AteliaPackageLifecycleRequest(manifest: AteliaPackageManifest())
+        )
+    }
+    await #expect(throws: AteliaClientError.packageStatusUnavailable) {
+        _ = try await client.packageStatus(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageListUnavailable) {
+        _ = try await client.packageList(for: session, request: AteliaPackageListRequest())
+    }
+    await #expect(throws: AteliaClientError.packageDisableUnavailable) {
+        _ = try await client.packageDisable(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageEnableUnavailable) {
+        _ = try await client.packageEnable(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageRemoveUnavailable) {
+        _ = try await client.packageRemove(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageBlocklistUnavailable) {
+        _ = try await client.packageBlocklistApply(
+            for: session,
+            request: AteliaPackageBlocklistRequest(
+                entry: AteliaPackageBlocklistEntry(
+                    reason: .userBlocked,
+                    key: .extensionId("com.example.package")
+                )
+            )
+        )
+    }
+    await #expect(throws: AteliaClientError.packageBlocklistUnavailable) {
+        _ = try await client.packageBlocklistList(for: session)
     }
 
     let callCountAfterUnavailableChecks = await client.callCount()

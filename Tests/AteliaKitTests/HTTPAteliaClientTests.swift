@@ -224,6 +224,446 @@ import Testing
     #expect(entries.map(\.packageId) == ["com.example.active", "com.example.blocked"])
 }
 
+/// Verifies package install requests hit the extension install route and decode the lifecycle envelope.
+@Test func httpClientInstallsPackage() async throws {
+    let manifestFixture = try JSONDecoder().decode(
+        AteliaPackageManifest.self,
+        from: #"""
+        {
+          "schema": "atelia.extension.v1",
+          "id": "com.example.review.extension",
+          "name": "Review extension",
+          "version": "1.0.0"
+        }
+        """#.data(using: .utf8)!
+    )
+    let request = AteliaPackageLifecycleRequest(
+        manifest: manifestFixture,
+        approveLocalUnsigned: true,
+        allowLocalProcessRuntime: true,
+        approveSourceChange: true
+    )
+
+    let client = HTTPAteliaClient(
+        bearerToken: "token-123",
+        transport: .fixture { request in
+            #expect(request.url?.path == "/v1/extensions/install")
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
+
+            let body = try #require(
+                JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+            )
+            let manifestObject = try #require(body["manifest"] as? [String: Any])
+            #expect(manifestObject["id"] as? String == "com.example.review.extension")
+            #expect(body["approve_local_unsigned"] as? Bool == true)
+            #expect(body["allow_local_process_runtime"] as? Bool == true)
+            #expect(body["approve_source_change"] as? Bool == true)
+
+            return #"""
+            {
+              "status": "ok",
+              "data": {
+                "metadata": {
+                  "protocol_version": "1.0.0",
+                  "daemon_version": "0.1.0",
+                  "storage_version": "0.1.0",
+                  "capabilities": ["extensions.install.v1"]
+                },
+                "record": {
+                  "id": "com.example.review.extension",
+                  "version": "1.0.0",
+                  "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "source": {
+                    "source": "github",
+                    "repository": "atelia-labs/atelia",
+                    "ref": "refs/tags/v1.0.0",
+                    "manifest_path": "packages/review/package.yml",
+                    "commit": "deadbeef"
+                  },
+                  "boundary": "third_party",
+                  "status": "installed",
+                  "approved_permissions": ["repo.read"],
+                  "rollback_snapshot": {
+                    "manifest_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                    "artifact_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                  }
+                }
+              }
+            }
+            """#
+        }
+    )
+
+    let response = try await client.packageInstallResponse(for: AteliaSession(), request: request)
+
+    #expect(response.metadata.capabilities == ["extensions.install.v1"])
+    #expect(response.record.packageId == "com.example.review.extension")
+    #expect(response.record.status == .installed)
+}
+
+/// Verifies package updates hit the extension update route and decode the lifecycle envelope.
+@Test func httpClientUpdatesPackage() async throws {
+    let manifestFixture = try JSONDecoder().decode(
+        AteliaPackageManifest.self,
+        from: #"""
+        {
+          "schema": "atelia.extension.v1",
+          "id": "com.example.review.extension",
+          "name": "Review extension",
+          "version": "1.1.0"
+        }
+        """#.data(using: .utf8)!
+    )
+    let request = AteliaPackageLifecycleRequest(
+        manifest: manifestFixture,
+        approveLocalUnsigned: false,
+        allowLocalProcessRuntime: false,
+        approveSourceChange: false
+    )
+
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/update")
+        #expect(request.httpMethod == "POST")
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["manifest"] != nil)
+        #expect(body["approve_local_unsigned"] as? Bool == false)
+        #expect(body["allow_local_process_runtime"] as? Bool == false)
+        #expect(body["approve_source_change"] as? Bool == false)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.update.v1"]
+            },
+            "record": {
+              "id": "com.example.review.extension",
+              "version": "1.1.0",
+              "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source": {
+                "source": "github",
+                "repository": "atelia-labs/atelia",
+                "ref": "refs/tags/v1.1.0",
+                "manifest_path": "packages/review/package.yml",
+                "commit": "feedface"
+              },
+              "boundary": "third_party",
+              "status": "installed",
+              "approved_permissions": ["repo.read"]
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.packageUpdateResponse(for: AteliaSession(), request: request)
+
+    #expect(response.metadata.capabilities == ["extensions.update.v1"])
+    #expect(response.record.version == "1.1.0")
+}
+
+/// Verifies package status checks the extension status endpoint and decodes extension naming.
+@Test func httpClientGetsPackageStatus() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/status")
+        #expect(request.httpMethod == "POST")
+        #expect(request.httpBody == Data("{}".utf8))
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.status.v1"]
+            },
+            "extension": {
+              "extension_id": "com.example.review.extension",
+              "record": {
+                "id": "com.example.review.extension",
+                "version": "1.0.0",
+                "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source": {
+                  "source": "github",
+                  "repository": "atelia-labs/atelia",
+                  "ref": "refs/tags/v1.0.0",
+                  "manifest_path": "packages/review/package.yml",
+                  "commit": "deadbeef"
+                },
+                "boundary": "official",
+                "status": "installed",
+                "approved_permissions": ["repo.read"],
+                "rollback_snapshot": {
+                  "manifest_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "artifact_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                }
+              },
+              "block": null
+            }
+          }
+        }
+        """#
+    })
+
+    let status = try await client.packageStatus(for: AteliaSession(), packageId: "com.example.review.extension")
+    #expect(status.packageId == "com.example.review.extension")
+    #expect(status.record?.status == .installed)
+}
+
+/// Verifies package list calls the extensions list endpoint with list filters.
+@Test func httpClientListsPackages() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/list")
+        #expect(request.httpMethod == "POST")
+        let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+        #expect(body?["include_blocked"] as? Bool == false)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.list.v1"]
+            },
+            "extensions": [
+              {
+                "extension_id": "com.example.active",
+                "record": {
+                  "id": "com.example.active",
+                  "version": "1.2.3",
+                  "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "source": {
+                    "source": "github",
+                    "repository": "atelia-labs/atelia",
+                    "ref": "refs/tags/v1.2.3"
+                  },
+                  "boundary": "official",
+                  "status": "installed",
+                  "approved_permissions": ["repo.read"]
+                }
+              },
+              {
+                "extension_id": "com.example.blocked",
+                "record": {
+                  "id": "com.example.blocked",
+                  "version": "1.0.0",
+                  "manifest_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "artifact_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                  "source": {
+                    "source": "github",
+                    "repository": "atelia-labs/atelia",
+                    "ref": "refs/tags/v1.0.0"
+                  },
+                  "boundary": "third_party",
+                  "status": "blocked",
+                  "approved_permissions": []
+                },
+                "block": {
+                  "reason": "policy_violation",
+                  "key": {
+                    "extension_id": "com.example.blocked"
+                  }
+                }
+              }
+            ]
+          }
+        }
+        """#
+    })
+
+    let packages = try await client.packageList(for: AteliaSession(), request: AteliaPackageListRequest(includeBlocked: false))
+
+    #expect(packages.map(\.packageId) == ["com.example.active", "com.example.blocked"])
+    #expect(packages[1].block?.reason == .policyViolation)
+}
+
+/// Verifies package disable and enable use identifier-scoped lifecycle endpoints.
+@Test func httpClientDisablesAndEnablesPackage() async throws {
+    let disableClient = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/disable")
+        #expect(request.httpMethod == "POST")
+        #expect(request.httpBody == Data("{}".utf8))
+
+        return lifecycleRecordResponse(capability: "extensions.disable.v1", status: "disabled")
+    })
+
+    let disabled = try await disableClient.packageDisable(
+        for: AteliaSession(),
+        packageId: "com.example.review.extension"
+    )
+
+    #expect(disabled.packageId == "com.example.review.extension")
+    #expect(disabled.status == .disabled)
+
+    let enableClient = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/enable")
+        #expect(request.httpMethod == "POST")
+        #expect(request.httpBody == Data("{}".utf8))
+
+        return lifecycleRecordResponse(capability: "extensions.enable.v1", status: "installed")
+    })
+
+    let enabled = try await enableClient.packageEnable(
+        for: AteliaSession(),
+        packageId: "com.example.review.extension"
+    )
+
+    #expect(enabled.packageId == "com.example.review.extension")
+    #expect(enabled.status == .installed)
+}
+
+/// Verifies package removals use the identifier-scoped remove endpoint.
+@Test func httpClientRemovesPackage() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/remove")
+        #expect(request.httpMethod == "POST")
+        #expect(request.httpBody == Data("{}".utf8))
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.remove.v1"]
+            },
+            "record": {
+              "id": "com.example.review.extension",
+              "version": "1.0.0",
+              "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source": {
+                "source": "github",
+                "repository": "atelia-labs/atelia",
+                "ref": "refs/tags/v1.0.0"
+              },
+              "boundary": "official",
+              "status": "installed_previous_version",
+              "previous_version": "2.0.0",
+              "approved_permissions": ["repo.read"]
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.packageRemoveResponse(for: AteliaSession(), packageId: "com.example.review.extension")
+
+    #expect(response.record.packageId == "com.example.review.extension")
+    #expect(response.record.previousVersion == "2.0.0")
+    #expect(response.record.status == .installedPreviousVersion)
+}
+
+/// Verifies package blocklist apply/list endpoints round-trip their payloads.
+@Test func httpClientAppliesAndListsPackageBlocklist() async throws {
+    let applyClient = HTTPAteliaClient(
+        bearerToken: "token-123",
+        transport: .fixture { request in
+            #expect(request.url?.path == "/v1/extensions/blocklist/apply")
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
+
+            let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+            let entry = try #require(body?["entry"] as? [String: Any])
+            #expect((entry["reason"] as? String) == "user_blocked")
+            let key = try #require(entry["key"] as? [String: Any])
+            #expect(key["extension_id"] as? String == "com.example.review.extension")
+
+            return #"""
+            {
+              "status": "ok",
+              "data": {
+                "metadata": {
+                  "protocol_version": "1.0.0",
+                  "daemon_version": "0.1.0",
+                  "storage_version": "0.1.0",
+                  "capabilities": ["extensions.blocklist.apply.v1"]
+                },
+                "entry": {
+                  "reason": "user_blocked",
+                  "key": {
+                    "extension_id": "com.example.review.extension"
+                  },
+                  "note": "risk exception"
+                }
+              }
+            }
+            """#
+        }
+    )
+    let applyRequest = AteliaPackageBlocklistRequest(
+        entry: AteliaPackageBlocklistEntry(
+            reason: .userBlocked,
+            key: .extensionId("com.example.review.extension"),
+            note: "risk exception"
+        )
+    )
+    let applyResponse = try await applyClient.packageBlocklistApplyResponse(
+        for: AteliaSession(),
+        request: applyRequest
+    )
+    #expect(applyResponse.metadata.capabilities == ["extensions.blocklist.apply.v1"])
+    #expect(applyResponse.entry.note == "risk exception")
+
+    let listClient = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/blocklist/list")
+        #expect(request.httpMethod == "POST")
+        #expect(request.httpBody == Data("{}".utf8))
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.blocklist.list.v1"]
+            },
+            "entries": [
+              {
+                "reason": "user_blocked",
+                "key": {
+                  "extension_id": "com.example.review.extension"
+                },
+                "note": "risk exception"
+              },
+              {
+                "reason": "policy_violation",
+                "key": {
+                  "artifact_digest": "sha256:cccc"
+                },
+                "note": null
+              }
+            ]
+          }
+        }
+        """#
+    })
+
+    let blocklist = try await listClient.packageBlocklistListResponse(for: AteliaSession())
+    #expect(blocklist.entries.count == 2)
+    #expect(blocklist.entries[0].reason == .userBlocked)
+    #expect(blocklist.entries[0].key == .extensionId("com.example.review.extension"))
+    #expect(blocklist.entries[1].reason == .policyViolation)
+}
+
 /// Verifies the HTTP client calls Secretary's beta rollback endpoint with package-named API.
 @Test func httpClientRollsBackPackage() async throws {
     let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
@@ -435,6 +875,22 @@ import Testing
     await #expect(throws: HTTPAteliaClientError.invalidPackageId("com.example package")) {
         _ = try await client.packageRollbackResponse(for: AteliaSession(), packageId: "com.example package")
     }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("..")) {
+        _ = try await client.packageStatusResponse(for: AteliaSession(), packageId: "..")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("a/b")) {
+        _ = try await client.packageDisableResponse(for: AteliaSession(), packageId: "a/b")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("..")) {
+        _ = try await client.packageEnableResponse(for: AteliaSession(), packageId: "..")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("a/b")) {
+        _ = try await client.packageRemoveResponse(for: AteliaSession(), packageId: "a/b")
+    }
 }
 
 /// Verifies the HTTP client fetches compact project status snapshots.
@@ -605,6 +1061,37 @@ private enum FixtureError: Error, Equatable {
     case responseBodyEncodingFailed
     /// Foundation could not build the HTTP response fixture.
     case responseConstructionFailed(statusCode: Int)
+}
+
+/// Builds a compact package lifecycle record response.
+private func lifecycleRecordResponse(capability: String, status: String) -> String {
+    #"""
+    {
+      "status": "ok",
+      "data": {
+        "metadata": {
+          "protocol_version": "1.0.0",
+          "daemon_version": "0.1.0",
+          "storage_version": "0.1.0",
+          "capabilities": ["\#(capability)"]
+        },
+        "record": {
+          "id": "com.example.review.extension",
+          "version": "1.0.0",
+          "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source": {
+            "source": "github",
+            "repository": "atelia-labs/atelia",
+            "ref": "refs/tags/v1.0.0"
+          },
+          "boundary": "official",
+          "status": "\#(status)",
+          "approved_permissions": ["repo.read"]
+        }
+      }
+    }
+    """#
 }
 
 /// Records repository pagination requests and returns fixture pages.

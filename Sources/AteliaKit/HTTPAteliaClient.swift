@@ -212,6 +212,122 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Returns the install response envelope for a package manifest.
+    public func packageInstallResponse(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageInstallResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/extensions/install",
+            body: request
+        )
+    }
+
+    /// Returns the update response envelope for a package manifest.
+    public func packageUpdateResponse(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageUpdateResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/extensions/update",
+            body: request
+        )
+    }
+
+    /// Returns the status envelope for a package identifier.
+    public func packageStatusResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageStatusResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageOperationPath(packageId: packageId, operation: "status"),
+            body: EmptyRequest()
+        )
+    }
+
+    /// Returns the package list envelope, with an optional explicit blocked filter.
+    public func packageListResponse(
+        for session: AteliaSession,
+        request: AteliaPackageListRequest
+    ) async throws -> AteliaPackageListResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/extensions/list",
+            body: request
+        )
+    }
+
+    /// Returns the disable response envelope for a package identifier.
+    public func packageDisableResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageDisableResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageOperationPath(packageId: packageId, operation: "disable"),
+            body: EmptyRequest()
+        )
+    }
+
+    /// Returns the enable response envelope for a package identifier.
+    public func packageEnableResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageEnableResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageOperationPath(packageId: packageId, operation: "enable"),
+            body: EmptyRequest()
+        )
+    }
+
+    /// Returns the remove response envelope for a package identifier.
+    public func packageRemoveResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageRemoveResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageOperationPath(packageId: packageId, operation: "remove"),
+            body: EmptyRequest()
+        )
+    }
+
+    /// Returns the blocklist apply response envelope.
+    public func packageBlocklistApplyResponse(
+        for session: AteliaSession,
+        request: AteliaPackageBlocklistRequest
+    ) async throws -> AteliaPackageBlocklistApplyResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/extensions/blocklist/apply",
+            body: request
+        )
+    }
+
+    /// Returns the blocklist list response envelope.
+    public func packageBlocklistListResponse(
+        for session: AteliaSession
+    ) async throws -> AteliaPackageBlocklistListResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/extensions/blocklist/list",
+            body: EmptyRequest()
+        )
+    }
+
     /// Returns the validation response envelope for an extension manifest.
     public func packageValidationResponse(
         for session: AteliaSession,
