@@ -514,6 +514,16 @@ private func blocklistEntry(
     #expect(await store.blocklistListResponse == blocklistListResponse)
     #expect(await store.blocklistEntries == [blocklistEntry])
     #expect(await store.metadata == blocklistListResponse.metadata)
+
+    let snapshot = await store.snapshot()
+    #expect(snapshot.statusResponse == statusResponse)
+    #expect(snapshot.rollbackResponse == rollbackResponse)
+    #expect(snapshot.blocklistApplyResponse == blocklistApplyResponse)
+    #expect(snapshot.blocklistListResponse == blocklistListResponse)
+    #expect(snapshot.metadata == blocklistListResponse.metadata)
+    #expect(snapshot.latestRecord == rollbackResponse.record)
+    #expect(snapshot.packages == [statusResponse.package, AteliaPackageStatus(packageId: "com.example.rollback", record: rollbackResponse.record)])
+    #expect(snapshot.blocklistEntries == [blocklistEntry])
 }
 
 /// Verifies applying a blocklist entry updates the public blocklist cache.
