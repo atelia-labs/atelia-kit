@@ -18,6 +18,22 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case packageRollbackUnavailable
     /// The conformer does not provide package manifest validation.
     case packageValidationUnavailable
+    /// The conformer does not provide package install operations.
+    case packageInstallUnavailable
+    /// The conformer does not provide package update operations.
+    case packageUpdateUnavailable
+    /// The conformer does not provide package status operations.
+    case packageStatusUnavailable
+    /// The conformer does not provide package listing operations.
+    case packageListUnavailable
+    /// The conformer does not provide package disable operations.
+    case packageDisableUnavailable
+    /// The conformer does not provide package enable operations.
+    case packageEnableUnavailable
+    /// The conformer does not provide package remove operations.
+    case packageRemoveUnavailable
+    /// The conformer does not provide package blocklist operations.
+    case packageBlocklistUnavailable
 }
 
 /// Protocol for fetching Atelia health, repertoire, and derived secretary status for a session.
@@ -51,6 +67,94 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         request: AteliaPackageValidationRequest
     ) async throws -> AteliaPackageValidationResponse
+    /// Returns the package install operation envelope.
+    func packageInstallResponse(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageInstallResponse
+    /// Returns the package install operation record.
+    func packageInstall(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageLifecycleRecord
+    /// Returns the package update operation envelope.
+    func packageUpdateResponse(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageUpdateResponse
+    /// Returns the package update operation record.
+    func packageUpdate(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageLifecycleRecord
+    /// Returns the package status envelope.
+    func packageStatusResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageStatusResponse
+    /// Returns the package status payload.
+    func packageStatus(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageStatus
+    /// Returns the package list envelope.
+    func packageListResponse(
+        for session: AteliaSession,
+        request: AteliaPackageListRequest
+    ) async throws -> AteliaPackageListResponse
+    /// Returns package lifecycle records from the package list envelope.
+    func packageList(
+        for session: AteliaSession,
+        request: AteliaPackageListRequest
+    ) async throws -> [AteliaPackageStatus]
+    /// Returns the package disable operation envelope.
+    func packageDisableResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageDisableResponse
+    /// Returns the package disable operation record.
+    func packageDisable(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageLifecycleRecord
+    /// Returns the package enable operation envelope.
+    func packageEnableResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageEnableResponse
+    /// Returns the package enable operation record.
+    func packageEnable(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageLifecycleRecord
+    /// Returns the package remove operation envelope.
+    func packageRemoveResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageRemoveResponse
+    /// Returns the package remove operation record.
+    func packageRemove(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageLifecycleRecord
+    /// Returns the package blocklist apply operation envelope.
+    func packageBlocklistApplyResponse(
+        for session: AteliaSession,
+        request: AteliaPackageBlocklistRequest
+    ) async throws -> AteliaPackageBlocklistApplyResponse
+    /// Returns the package blocklist entry returned by an apply operation.
+    func packageBlocklistApply(
+        for session: AteliaSession,
+        request: AteliaPackageBlocklistRequest
+    ) async throws -> AteliaPackageBlocklistEntry
+    /// Returns the package blocklist list envelope.
+    func packageBlocklistListResponse(
+        for session: AteliaSession
+    ) async throws -> AteliaPackageBlocklistListResponse
+    /// Returns current package blocklist entries.
+    func packageBlocklistList(
+        for session: AteliaSession
+    ) async throws -> [AteliaPackageBlocklistEntry]
 }
 
 /// Default compatibility implementations for optional client capabilities.
@@ -140,6 +244,165 @@ public extension AteliaClient {
         request: AteliaPackageValidationRequest
     ) async throws -> AteliaPackageManifest {
         try await packageValidationResponse(for: session, request: request).manifest
+    }
+
+    /// Returns the package install record from the install response envelope.
+    func packageInstall(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageLifecycleRecord {
+        try await packageInstallResponse(for: session, request: request).record
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package install.
+    func packageInstallResponse(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageInstallResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.packageInstallUnavailable
+    }
+
+    /// Returns the package update record from the update response envelope.
+    func packageUpdate(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageLifecycleRecord {
+        try await packageUpdateResponse(for: session, request: request).record
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package update.
+    func packageUpdateResponse(
+        for session: AteliaSession,
+        request: AteliaPackageLifecycleRequest
+    ) async throws -> AteliaPackageUpdateResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.packageUpdateUnavailable
+    }
+
+    /// Returns the package status from the package status envelope.
+    func packageStatus(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageStatus {
+        try await packageStatusResponse(for: session, packageId: packageId).package
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package status.
+    func packageStatusResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageStatusResponse {
+        _ = session
+        _ = packageId
+        throw AteliaClientError.packageStatusUnavailable
+    }
+
+    /// Returns package list entries from the package list envelope.
+    func packageList(
+        for session: AteliaSession,
+        request: AteliaPackageListRequest = .init()
+    ) async throws -> [AteliaPackageStatus] {
+        try await packageListResponse(for: session, request: request).packages
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package list.
+    func packageListResponse(
+        for session: AteliaSession,
+        request: AteliaPackageListRequest
+    ) async throws -> AteliaPackageListResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.packageListUnavailable
+    }
+
+    /// Returns the package disable record from the disable response envelope.
+    func packageDisable(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageLifecycleRecord {
+        try await packageDisableResponse(for: session, packageId: packageId).record
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package disable.
+    func packageDisableResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageDisableResponse {
+        _ = session
+        _ = packageId
+        throw AteliaClientError.packageDisableUnavailable
+    }
+
+    /// Returns the package enable record from the enable response envelope.
+    func packageEnable(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageLifecycleRecord {
+        try await packageEnableResponse(for: session, packageId: packageId).record
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package enable.
+    func packageEnableResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageEnableResponse {
+        _ = session
+        _ = packageId
+        throw AteliaClientError.packageEnableUnavailable
+    }
+
+    /// Returns the package remove record from the remove response envelope.
+    func packageRemove(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageLifecycleRecord {
+        try await packageRemoveResponse(for: session, packageId: packageId).record
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package remove.
+    func packageRemoveResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageRemoveResponse {
+        _ = session
+        _ = packageId
+        throw AteliaClientError.packageRemoveUnavailable
+    }
+
+    /// Returns the blocklist entry returned by the blocklist apply operation.
+    func packageBlocklistApply(
+        for session: AteliaSession,
+        request: AteliaPackageBlocklistRequest
+    ) async throws -> AteliaPackageBlocklistEntry {
+        try await packageBlocklistApplyResponse(for: session, request: request).entry
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package blocklist apply.
+    func packageBlocklistApplyResponse(
+        for session: AteliaSession,
+        request: AteliaPackageBlocklistRequest
+    ) async throws -> AteliaPackageBlocklistApplyResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.packageBlocklistUnavailable
+    }
+
+    /// Returns package blocklist entries from a package blocklist listing response.
+    func packageBlocklistList(
+        for session: AteliaSession
+    ) async throws -> [AteliaPackageBlocklistEntry] {
+        try await packageBlocklistListResponse(for: session).entries
+    }
+
+    /// Returns a compatibility error when the conformer does not provide package blocklist listing.
+    func packageBlocklistListResponse(
+        for session: AteliaSession
+    ) async throws -> AteliaPackageBlocklistListResponse {
+        _ = session
+        throw AteliaClientError.packageBlocklistUnavailable
     }
 }
 

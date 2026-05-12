@@ -370,6 +370,187 @@ import Testing
     #expect(future.requiresAttention == true)
 }
 
+/// Verifies package lifecycle request decoding uses canonical snake_case keys and default-false booleans.
+@Test func packageLifecycleRequestDecodesCanonicalSnakeCaseProtocolJSON() throws {
+    let data = #"""
+    {
+      "manifest": {
+        "schema": "atelia.extension.v1",
+        "id": "com.example.review.extension",
+        "name": "Review extension"
+      },
+      "approve_local_unsigned": true,
+      "allow_local_process_runtime": false,
+      "approve_source_change": true
+    }
+    """#.data(using: .utf8)!
+
+    let request = try JSONDecoder().decode(AteliaPackageLifecycleRequest.self, from: data)
+
+    #expect(request.manifest["id"] == .string("com.example.review.extension"))
+    #expect(request.approveLocalUnsigned == true)
+    #expect(request.allowLocalProcessRuntime == false)
+    #expect(request.approveSourceChange == true)
+}
+
+/// Verifies package lifecycle request omits booleans only when present in payload.
+@Test func packageLifecycleRequestDefaultsOmittedFlagsToFalse() throws {
+    let data = #"""
+    {
+      "manifest": {
+        "schema": "atelia.extension.v1",
+        "id": "com.example.review.extension",
+        "name": "Review extension"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let request = try JSONDecoder().decode(AteliaPackageLifecycleRequest.self, from: data)
+
+    #expect(request.manifest["id"] == .string("com.example.review.extension"))
+    #expect(request.approveLocalUnsigned == false)
+    #expect(request.allowLocalProcessRuntime == false)
+    #expect(request.approveSourceChange == false)
+}
+
+/// Verifies package list request defaults include_blocked to true.
+@Test func packageListRequestDefaultsIncludeBlockedToTrue() throws {
+    let data = #"{}"#.data(using: .utf8)!
+    let request = try JSONDecoder().decode(AteliaPackageListRequest.self, from: data)
+    #expect(request.includeBlocked == true)
+}
+
+/// Verifies package status/list response models preserve extension wire naming and map to package identifiers.
+@Test func packageStatusAndListDecodesCanonicalProtocolJSON() throws {
+    let statusData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["extensions.status.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.review.extension",
+        "record": {
+          "id": "com.example.review.extension",
+          "version": "1.0.0",
+          "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source": {
+            "source": "github",
+            "repository": "atelia-labs/atelia",
+            "ref": "refs/tags/v1.0.0",
+            "manifest_path": "packages/review/package.yml"
+          },
+          "boundary": "official",
+          "status": "installed",
+          "approved_permissions": []
+        },
+        "block": null
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let listData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["extensions.list.v1"]
+      },
+      "extensions": [
+        {
+          "extension_id": "com.example.review.extension",
+          "record": {
+            "id": "com.example.review.extension",
+            "version": "1.0.0",
+            "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source": {
+              "source": "github",
+              "repository": "atelia-labs/atelia",
+              "ref": "refs/tags/v1.0.0",
+              "manifest_path": "packages/review/package.yml"
+            },
+            "boundary": "official",
+            "status": "installed",
+            "approved_permissions": []
+          },
+          "block": {
+            "reason": "policy_violation",
+            "key": {
+              "extension_id": "com.example.review.extension"
+            }
+          }
+        }
+      ]
+    }
+    """#.data(using: .utf8)!
+
+    let statusResponse = try JSONDecoder().decode(AteliaPackageStatusResponse.self, from: statusData)
+    let listResponse = try JSONDecoder().decode(AteliaPackageListResponse.self, from: listData)
+
+    #expect(statusResponse.metadata.capabilities == ["extensions.status.v1"])
+    #expect(statusResponse.package.packageId == "com.example.review.extension")
+    #expect(statusResponse.package.record?.status == .installed)
+    #expect(listResponse.packages.count == 1)
+    #expect(listResponse.packages.first?.packageId == "com.example.review.extension")
+    #expect(listResponse.packages.first?.block?.reason == .policyViolation)
+
+    let encodedStatus = try #require(
+        JSONSerialization.jsonObject(with: JSONEncoder().encode(statusResponse)) as? [String: Any]
+    )
+    let encodedList = try #require(
+        JSONSerialization.jsonObject(with: JSONEncoder().encode(listResponse)) as? [String: Any]
+    )
+    #expect(encodedStatus["extension"] != nil)
+    #expect(encodedStatus["package"] == nil)
+    #expect(encodedList["extensions"] != nil)
+    #expect(encodedList["packages"] == nil)
+}
+
+/// Verifies package blocklist models round-trip canonical keys and note field.
+@Test func packageBlocklistModelsRoundTrip() throws {
+    let entry = AteliaPackageBlocklistEntry(
+        reason: .userBlocked,
+        key: .artifactDigest("sha256:1111"),
+        note: "admin action"
+    )
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["extensions.blocklist.list.v1"]
+      },
+      "entries": [
+        {
+          "reason": "policy_violation",
+          "key": {
+            "extension_id": "com.example.review.extension"
+          },
+          "note": "policy enforcement"
+        }
+      ]
+    }
+    """#.data(using: .utf8)!
+    let encoded = try JSONEncoder().encode(entry)
+    let encodedObject = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+    #expect(encodedObject["reason"] as? String == "user_blocked")
+    #expect((encodedObject["key"] as? [String: Any])?["artifact_digest"] as? String == "sha256:1111")
+    #expect(encodedObject["note"] as? String == "admin action")
+
+    let listResponse = try JSONDecoder().decode(AteliaPackageBlocklistListResponse.self, from: data)
+    #expect(listResponse.entries.count == 1)
+    #expect(listResponse.entries[0].reason == .policyViolation)
+    #expect(listResponse.entries[0].key == .extensionId("com.example.review.extension"))
+    #expect(listResponse.entries[0].note == "policy enforcement")
+}
+
 /// Verifies package manifests preserve arbitrary JSON shapes through decoding and encoding.
 @Test func packageManifestPreservesArbitraryJSONShape() throws {
     let manifestData = #"""
