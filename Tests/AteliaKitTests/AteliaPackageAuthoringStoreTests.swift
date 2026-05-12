@@ -3,19 +3,32 @@ import Testing
 @testable import AteliaKit
 
 private actor PackageAuthoringStoreClientFixture: AteliaClient {
+    /// Queued authoring-flow responses returned by the fixture.
     private var authoringFlowResponses: [Result<AteliaPackageAuthoringFlowResponse, any Error>]
+    /// Queued remix responses returned by the fixture.
     private var remixResponses: [Result<AteliaPackageRemixResponse, any Error>]
+    /// Queued publication responses returned by the fixture.
     private var publicationResponses: [Result<AteliaPackagePublicationResponse, any Error>]
+    /// Queued registry-submission responses returned by the fixture.
     private var registrySubmissionResponses: [Result<AteliaPackageRegistrySubmissionResponse, any Error>]
+    /// Session observed for the latest authoring-flow request.
     private(set) var authoringFlowSession: AteliaSession?
+    /// Session observed for the latest remix request.
     private(set) var remixSession: AteliaSession?
+    /// Session observed for the latest publication request.
     private(set) var publicationSession: AteliaSession?
+    /// Session observed for the latest registry-submission request.
     private(set) var registrySubmissionSession: AteliaSession?
+    /// Latest authoring-flow request observed by the fixture.
     private(set) var lastAuthoringFlowRequest: AteliaPackageAuthoringFlowRequest?
+    /// Latest remix request observed by the fixture.
     private(set) var lastRemixRequest: AteliaPackageRemixRequest?
+    /// Latest publication request observed by the fixture.
     private(set) var lastPublicationRequest: AteliaPackagePublicationRequest?
+    /// Latest registry-submission request observed by the fixture.
     private(set) var lastRegistrySubmissionRequest: AteliaPackageRegistrySubmissionRequest?
 
+    /// Creates a fixture with per-operation response queues.
     init(
         authoringFlowResponses: [Result<AteliaPackageAuthoringFlowResponse, any Error>] = [],
         remixResponses: [Result<AteliaPackageRemixResponse, any Error>] = [],
@@ -28,6 +41,7 @@ private actor PackageAuthoringStoreClientFixture: AteliaClient {
         self.registrySubmissionResponses = registrySubmissionResponses
     }
 
+    /// Records and returns the next authoring-flow response.
     func packageAuthoringFlowResponse(
         for session: AteliaSession,
         request: AteliaPackageAuthoringFlowRequest
@@ -37,6 +51,7 @@ private actor PackageAuthoringStoreClientFixture: AteliaClient {
         return try nextAuthoringFlowResponse()
     }
 
+    /// Records and returns the next remix response.
     func packageRemixResponse(
         for session: AteliaSession,
         request: AteliaPackageRemixRequest
@@ -46,6 +61,7 @@ private actor PackageAuthoringStoreClientFixture: AteliaClient {
         return try nextRemixResponse()
     }
 
+    /// Records and returns the next publication response.
     func packagePublicationResponse(
         for session: AteliaSession,
         request: AteliaPackagePublicationRequest
@@ -55,6 +71,7 @@ private actor PackageAuthoringStoreClientFixture: AteliaClient {
         return try nextPublicationResponse()
     }
 
+    /// Records and returns the next registry-submission response.
     func packageRegistrySubmissionResponse(
         for session: AteliaSession,
         request: AteliaPackageRegistrySubmissionRequest
@@ -64,6 +81,7 @@ private actor PackageAuthoringStoreClientFixture: AteliaClient {
         return try nextRegistrySubmissionResponse()
     }
 
+    /// Dequeues the next authoring-flow response.
     private func nextAuthoringFlowResponse() throws -> AteliaPackageAuthoringFlowResponse {
         guard !authoringFlowResponses.isEmpty else {
             throw PackageAuthoringStoreFixtureError.unconfiguredResponse
@@ -71,6 +89,7 @@ private actor PackageAuthoringStoreClientFixture: AteliaClient {
         return try authoringFlowResponses.removeFirst().get()
     }
 
+    /// Dequeues the next remix response.
     private func nextRemixResponse() throws -> AteliaPackageRemixResponse {
         guard !remixResponses.isEmpty else {
             throw PackageAuthoringStoreFixtureError.unconfiguredResponse
@@ -78,6 +97,7 @@ private actor PackageAuthoringStoreClientFixture: AteliaClient {
         return try remixResponses.removeFirst().get()
     }
 
+    /// Dequeues the next publication response.
     private func nextPublicationResponse() throws -> AteliaPackagePublicationResponse {
         guard !publicationResponses.isEmpty else {
             throw PackageAuthoringStoreFixtureError.unconfiguredResponse
@@ -85,6 +105,7 @@ private actor PackageAuthoringStoreClientFixture: AteliaClient {
         return try publicationResponses.removeFirst().get()
     }
 
+    /// Dequeues the next registry-submission response.
     private func nextRegistrySubmissionResponse() throws -> AteliaPackageRegistrySubmissionResponse {
         guard !registrySubmissionResponses.isEmpty else {
             throw PackageAuthoringStoreFixtureError.unconfiguredResponse
@@ -93,10 +114,12 @@ private actor PackageAuthoringStoreClientFixture: AteliaClient {
     }
 }
 
+/// Errors thrown by the authoring store test fixture.
 private enum PackageAuthoringStoreFixtureError: Error {
     case unconfiguredResponse
 }
 
+/// Builds protocol metadata for an authoring capability.
 private func packageAuthoringMetadata(_ capability: String) -> AteliaProtocolMetadata {
     AteliaProtocolMetadata(
         protocolVersion: "1.0.0",
@@ -106,6 +129,7 @@ private func packageAuthoringMetadata(_ capability: String) -> AteliaProtocolMet
     )
 }
 
+/// Builds a reusable GitHub source reference fixture.
 private func sourceReference() -> AteliaPackageGitHubSourceReference {
     AteliaPackageGitHubSourceReference(
         repository: "atelia-labs/atelia",
@@ -118,6 +142,7 @@ private func sourceReference() -> AteliaPackageGitHubSourceReference {
     )
 }
 
+/// Builds a reusable authoring flow fixture.
 private func authoringFlow(
     packageId: String = "com.example.review.extension",
     sourceClass: AteliaPackageSourceClass = .workspaceLocal,
