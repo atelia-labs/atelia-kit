@@ -15,7 +15,16 @@ public actor AteliaPackageLifecycleStore {
     private var packageOrder: [String] = []
     private var packagesByID: [String: AteliaPackageStatus] = [:]
     private var nextOperationGeneration = 0
-    private var latestAppliedGeneration = 0
+    private var latestLifecycleGeneration = 0
+    private var latestRollbackGeneration = 0
+    private var latestStatusGeneration = 0
+    private var latestListGeneration = 0
+    private var latestBlocklistApplyGeneration = 0
+    private var latestBlocklistListGeneration = 0
+    private var latestMetadataGeneration = 0
+    private var latestRecordGeneration = 0
+    private var latestPackageListGeneration = 0
+    private var packageGenerations: [String: Int] = [:]
     private var clearGeneration = 0
 
     /// Creates a package lifecycle store for a client/session pair.
@@ -47,14 +56,14 @@ public actor AteliaPackageLifecycleStore {
     public func rollback(packageId: String) async throws -> AteliaPackageRollbackRecord {
         let operationGeneration = beginOperation()
         let response = try await client.packageRollbackResponse(for: session, packageId: packageId)
-        guard shouldApply(operationGeneration) else {
+        guard shouldApply(operationGeneration, after: latestRollbackGeneration) else {
             return response.record
         }
-        latestAppliedGeneration = operationGeneration
+        latestRollbackGeneration = operationGeneration
         latestRollbackResponse = response
-        latestMetadata = response.metadata
-        latestRecordValue = response.record
-        upsertPackageStatus(Self.status(from: response.record))
+        applyMetadata(response.metadata, generation: operationGeneration)
+        applyRecord(response.record, generation: operationGeneration)
+        upsertPackageStatus(Self.status(from: response.record), generation: operationGeneration)
         return response.record
     }
 
@@ -90,13 +99,13 @@ public actor AteliaPackageLifecycleStore {
     public func status(packageId: String) async throws -> AteliaPackageStatus {
         let operationGeneration = beginOperation()
         let response = try await client.packageStatusResponse(for: session, packageId: packageId)
-        guard shouldApply(operationGeneration) else {
+        guard shouldApply(operationGeneration, after: latestStatusGeneration) else {
             return response.package
         }
-        latestAppliedGeneration = operationGeneration
+        latestStatusGeneration = operationGeneration
         latestStatusResponse = response
-        latestMetadata = response.metadata
-        upsertPackageStatus(response.package)
+        applyMetadata(response.metadata, generation: operationGeneration)
+        upsertPackageStatus(response.package, generation: operationGeneration)
         return response.package
     }
 
@@ -105,16 +114,13 @@ public actor AteliaPackageLifecycleStore {
     public func list(request: AteliaPackageListRequest = .init()) async throws -> [AteliaPackageStatus] {
         let operationGeneration = beginOperation()
         let response = try await client.packageListResponse(for: session, request: request)
-        guard shouldApply(operationGeneration) else {
+        guard shouldApply(operationGeneration, after: latestListGeneration) else {
             return response.packages
         }
-        latestAppliedGeneration = operationGeneration
+        latestListGeneration = operationGeneration
         latestListResponse = response
-        latestMetadata = response.metadata
-        packageOrder = response.packages.map(\.packageId)
-        packagesByID = response.packages.reduce(into: [:]) { index, package in
-            index[package.packageId] = package
-        }
+        applyMetadata(response.metadata, generation: operationGeneration)
+        replacePackageStatuses(response.packages, generation: operationGeneration)
         return response.packages
     }
 
@@ -125,12 +131,12 @@ public actor AteliaPackageLifecycleStore {
     ) async throws -> AteliaPackageBlocklistEntry {
         let operationGeneration = beginOperation()
         let response = try await client.packageBlocklistApplyResponse(for: session, request: request)
-        guard shouldApply(operationGeneration) else {
+        guard shouldApply(operationGeneration, after: latestBlocklistApplyGeneration) else {
             return response.entry
         }
-        latestAppliedGeneration = operationGeneration
+        latestBlocklistApplyGeneration = operationGeneration
         latestBlocklistApplyResponse = response
-        latestMetadata = response.metadata
+        applyMetadata(response.metadata, generation: operationGeneration)
         return response.entry
     }
 
@@ -139,12 +145,12 @@ public actor AteliaPackageLifecycleStore {
     public func listBlocklist() async throws -> [AteliaPackageBlocklistEntry] {
         let operationGeneration = beginOperation()
         let response = try await client.packageBlocklistListResponse(for: session)
-        guard shouldApply(operationGeneration) else {
+        guard shouldApply(operationGeneration, after: latestBlocklistListGeneration) else {
             return response.entries
         }
-        latestAppliedGeneration = operationGeneration
+        latestBlocklistListGeneration = operationGeneration
         latestBlocklistListResponse = response
-        latestMetadata = response.metadata
+        applyMetadata(response.metadata, generation: operationGeneration)
         return response.entries
     }
 
@@ -161,6 +167,7 @@ public actor AteliaPackageLifecycleStore {
         latestRecordValue = nil
         packageOrder.removeAll(keepingCapacity: true)
         packagesByID.removeAll(keepingCapacity: true)
+        packageGenerations.removeAll(keepingCapacity: true)
     }
 
     /// Returns the latest lifecycle response, if one has completed.
@@ -224,21 +231,75 @@ public actor AteliaPackageLifecycleStore {
     }
 
     private func shouldApply(_ operationGeneration: Int) -> Bool {
-        operationGeneration > latestAppliedGeneration && operationGeneration > clearGeneration
+        operationGeneration > clearGeneration
+    }
+
+    private func shouldApply(_ operationGeneration: Int, after appliedGeneration: Int) -> Bool {
+        shouldApply(operationGeneration) && operationGeneration > appliedGeneration
     }
 
     private func applyLifecycleResponse(
         _ response: AteliaPackageLifecycleResponse,
         generation operationGeneration: Int
     ) {
-        guard shouldApply(operationGeneration) else {
+        guard shouldApply(operationGeneration, after: latestLifecycleGeneration) else {
             return
         }
-        latestAppliedGeneration = operationGeneration
+        latestLifecycleGeneration = operationGeneration
         latestLifecycleResponse = response
-        latestMetadata = response.metadata
-        latestRecordValue = response.record
-        upsertPackageStatus(Self.status(from: response.record))
+        applyMetadata(response.metadata, generation: operationGeneration)
+        applyRecord(response.record, generation: operationGeneration)
+        upsertPackageStatus(Self.status(from: response.record), generation: operationGeneration)
+    }
+
+    private func applyMetadata(_ metadata: AteliaProtocolMetadata, generation operationGeneration: Int) {
+        guard shouldApply(operationGeneration, after: latestMetadataGeneration) else {
+            return
+        }
+        latestMetadataGeneration = operationGeneration
+        latestMetadata = metadata
+    }
+
+    private func applyRecord(_ record: AteliaPackageLifecycleRecord, generation operationGeneration: Int) {
+        guard shouldApply(operationGeneration, after: latestRecordGeneration) else {
+            return
+        }
+        latestRecordGeneration = operationGeneration
+        latestRecordValue = record
+    }
+
+    private func replacePackageStatuses(
+        _ packages: [AteliaPackageStatus],
+        generation operationGeneration: Int
+    ) {
+        guard shouldApply(operationGeneration, after: latestPackageListGeneration) else {
+            return
+        }
+        latestPackageListGeneration = operationGeneration
+        let newerPackages = packageOrder.reduce(into: [String: AteliaPackageStatus]()) { index, packageId in
+            guard let generation = packageGenerations[packageId],
+                  generation > operationGeneration else {
+                return
+            }
+            index[packageId] = packagesByID[packageId]
+        }
+        let listedPackageIDs = Set(packages.map(\.packageId))
+        let newerUnlistedPackageIDs = packageOrder.filter { packageId in
+            newerPackages[packageId] != nil && !listedPackageIDs.contains(packageId)
+        }
+        packageOrder = packages.map(\.packageId) + newerUnlistedPackageIDs
+        packagesByID.removeAll(keepingCapacity: true)
+        for package in packages {
+            if let newerPackage = newerPackages[package.packageId] {
+                packagesByID[package.packageId] = newerPackage
+            } else {
+                packagesByID[package.packageId] = package
+                packageGenerations[package.packageId] = operationGeneration
+            }
+        }
+        for packageId in newerUnlistedPackageIDs {
+            packagesByID[packageId] = newerPackages[packageId] ?? packagesByID[packageId]
+        }
     }
 
     private static func status(from record: AteliaPackageLifecycleRecord) -> AteliaPackageStatus {
@@ -248,10 +309,15 @@ public actor AteliaPackageLifecycleStore {
         )
     }
 
-    private func upsertPackageStatus(_ package: AteliaPackageStatus) {
+    private func upsertPackageStatus(_ package: AteliaPackageStatus, generation operationGeneration: Int) {
+        let packageGeneration = packageGenerations[package.packageId] ?? 0
+        guard shouldApply(operationGeneration, after: packageGeneration) else {
+            return
+        }
         if packagesByID[package.packageId] == nil {
             packageOrder.append(package.packageId)
         }
+        packageGenerations[package.packageId] = operationGeneration
         packagesByID[package.packageId] = package
     }
 }

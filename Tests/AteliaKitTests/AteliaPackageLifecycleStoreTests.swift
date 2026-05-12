@@ -147,10 +147,12 @@ private actor ControllablePackageLifecycleClientFixture: AteliaClient {
     enum RequestKind {
         case list
         case install
+        case status
     }
 
     private var listContinuations: [CheckedContinuation<AteliaPackageListResponse, any Error>] = []
     private var installContinuations: [CheckedContinuation<AteliaPackageLifecycleResponse, any Error>] = []
+    private var statusContinuations: [CheckedContinuation<AteliaPackageStatusResponse, any Error>] = []
 
     func packageListResponse(
         for session: AteliaSession,
@@ -171,6 +173,17 @@ private actor ControllablePackageLifecycleClientFixture: AteliaClient {
         _ = request
         return try await withCheckedThrowingContinuation { continuation in
             installContinuations.append(continuation)
+        }
+    }
+
+    func packageStatusResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageStatusResponse {
+        _ = session
+        _ = packageId
+        return try await withCheckedThrowingContinuation { continuation in
+            statusContinuations.append(continuation)
         }
     }
 
@@ -200,12 +213,18 @@ private actor ControllablePackageLifecycleClientFixture: AteliaClient {
         installContinuations[index].resume(returning: response)
     }
 
+    func respondToStatus(_ index: Int, with response: AteliaPackageStatusResponse) {
+        statusContinuations[index].resume(returning: response)
+    }
+
     private func requestCount(_ kind: RequestKind) -> Int {
         switch kind {
         case .list:
             return listContinuations.count
         case .install:
             return installContinuations.count
+        case .status:
+            return statusContinuations.count
         }
     }
 }
@@ -425,6 +444,38 @@ private func listResponse(packageIds: [String]) -> AteliaPackageListResponse {
 
     #expect(await store.listResponse == olderResponse)
     #expect(await store.package(id: "com.example.older") == olderResponse.packages[0])
+}
+
+/// Verifies unrelated newer operations do not suppress older focused cache slots.
+@Test func newerStatusDoesNotDiscardOlderInstallResponse() async throws {
+    let client = ControllablePackageLifecycleClientFixture()
+    let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
+    let installResponse = lifecycleResponse(packageId: "com.example.install")
+    let statusResponse = AteliaPackageStatusResponse(
+        metadata: metadata("extensions.status.v1"),
+        package: AteliaPackageStatus(packageId: "com.example.status")
+    )
+
+    let install = Task {
+        try await store.install(request: AteliaPackageLifecycleRequest(manifest: packageManifest()))
+    }
+    try await client.waitForRequests(.install, count: 1)
+
+    let status = Task {
+        try await store.status(packageId: "com.example.status")
+    }
+    try await client.waitForRequests(.status, count: 1)
+
+    await client.respondToStatus(0, with: statusResponse)
+    _ = try await status.value
+    await client.respondToInstall(0, with: installResponse)
+    _ = try await install.value
+
+    #expect(await store.statusResponse == statusResponse)
+    #expect(await store.lifecycleResponse == installResponse)
+    #expect(await store.latestRecord == installResponse.record)
+    #expect(await store.package(id: "com.example.status") == statusResponse.package)
+    #expect(await store.package(id: "com.example.install")?.record == installResponse.record)
 }
 
 /// Verifies clear prevents older in-flight operations from repopulating state.
