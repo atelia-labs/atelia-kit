@@ -79,12 +79,14 @@ private actor ControllableProjectStatusClient: AteliaClient {
 
     /// Resumes one captured request with the supplied project-status response.
     func respond(to index: Int, with response: AteliaProjectStatus) {
-        continuations[index].resume(returning: response)
+        let continuation = continuations.remove(at: index)
+        continuation.resume(returning: response)
     }
 
     /// Resumes one captured request by throwing the supplied error.
     func fail(to index: Int, with error: any Error) {
-        continuations[index].resume(throwing: error)
+        let continuation = continuations.remove(at: index)
+        continuation.resume(throwing: error)
     }
 }
 
