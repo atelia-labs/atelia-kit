@@ -22,6 +22,42 @@ public struct AteliaPackageTrustIndexResponse: Sendable, Codable, Equatable {
     }
 }
 
+/// Filter request body for the package trust index endpoint.
+public struct AteliaPackageTrustIndexRequest: Sendable, Codable, Equatable {
+    /// JSON keys for the package trust index request.
+    private enum CodingKeys: String, CodingKey {
+        /// Whether blocked packages should be included in the result.
+        case includeBlocked = "include_blocked"
+        /// Whether to return only public, registry-searchable and accepted packages.
+        case discoveryOnly = "discovery_only"
+    }
+
+    /// Whether blocked packages should be included in the list.
+    public var includeBlocked: Bool
+    /// Whether only discoverable, accepted packages should be returned.
+    public var discoveryOnly: Bool
+
+    /// Creates a package trust index request.
+    public init(
+        includeBlocked: Bool = true,
+        discoveryOnly: Bool = false
+    ) {
+        self.includeBlocked = includeBlocked
+        self.discoveryOnly = discoveryOnly
+    }
+
+    /// Decodes list requests with Secretary's default contract.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.includeBlocked = try container.contains(.includeBlocked)
+            ? container.decode(Bool.self, forKey: .includeBlocked)
+            : true
+        self.discoveryOnly = try container.contains(.discoveryOnly)
+            ? container.decode(Bool.self, forKey: .discoveryOnly)
+            : false
+    }
+}
+
 /// Trust-index entry for one installed package revision.
 public struct AteliaPackageTrustIndexEntry: Sendable, Codable, Equatable, Identifiable {
     /// JSON keys for a package trust index entry.

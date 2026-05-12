@@ -57,8 +57,18 @@ public protocol AteliaClient: Sendable {
     ) async throws -> AteliaProjectStatus
     /// Returns the package trust index entries visible to the session.
     func packageTrustIndex(for session: AteliaSession) async throws -> [AteliaPackageTrustIndexEntry]
+    /// Returns the package trust index entries visible to the session with filters.
+    func packageTrustIndex(
+        for session: AteliaSession,
+        request: AteliaPackageTrustIndexRequest
+    ) async throws -> [AteliaPackageTrustIndexEntry]
     /// Returns the full package trust index envelope, including protocol metadata.
     func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse
+    /// Returns the full package trust index envelope with filters.
+    func packageTrustIndexResponse(
+        for session: AteliaSession,
+        request: AteliaPackageTrustIndexRequest
+    ) async throws -> AteliaPackageTrustIndexResponse
     /// Returns the rollback response envelope for a package.
     func packageRollbackResponse(
         for session: AteliaSession,
@@ -211,9 +221,28 @@ public extension AteliaClient {
         try await packageTrustIndexResponse(for: session).packages
     }
 
+    /// Returns the package trust index entries from the full envelope with filters.
+    func packageTrustIndex(
+        for session: AteliaSession,
+        request: AteliaPackageTrustIndexRequest
+    ) async throws -> [AteliaPackageTrustIndexEntry] {
+        try await packageTrustIndexResponse(for: session, request: request).packages
+    }
+
     /// Returns a compatibility error when the conformer does not provide the package trust index.
     func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
+        throw AteliaClientError.packageTrustIndexUnavailable
+    }
+
+    /// Returns a compatibility error when the conformer does not provide the package trust index.
+    func packageTrustIndexResponse(
+        for session: AteliaSession,
+        request: AteliaPackageTrustIndexRequest
+    ) async throws -> AteliaPackageTrustIndexResponse {
+        if request == AteliaPackageTrustIndexRequest() {
+            return try await packageTrustIndexResponse(for: session)
+        }
         throw AteliaClientError.packageTrustIndexUnavailable
     }
 
@@ -472,7 +501,16 @@ public actor LocalAteliaClient: AteliaClient {
 
     /// Returns an empty package trust index for the local placeholder client.
     public func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
+        try await packageTrustIndexResponse(for: session, request: .init())
+    }
+
+    /// Returns an empty filtered package trust index for the local placeholder client.
+    public func packageTrustIndexResponse(
+        for session: AteliaSession,
+        request: AteliaPackageTrustIndexRequest
+    ) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
+        _ = request
         return AteliaPackageTrustIndexResponse(
             metadata: AteliaProtocolMetadata(
                 protocolVersion: "0.1.0",

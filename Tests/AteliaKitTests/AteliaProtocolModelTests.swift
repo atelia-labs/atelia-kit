@@ -460,6 +460,28 @@ import Testing
     #expect(request.includeBlocked == true)
 }
 
+/// Verifies package trust-index request defaults use Secretary's contract.
+@Test func packageTrustIndexRequestDefaults() throws {
+    let data = #"{}"#.data(using: .utf8)!
+    let request = try JSONDecoder().decode(AteliaPackageTrustIndexRequest.self, from: data)
+
+    #expect(request.includeBlocked == true)
+    #expect(request.discoveryOnly == false)
+}
+
+/// Verifies package trust-index request round-trips explicit filter flags.
+@Test func packageTrustIndexRequestEncodesAndDecodesFlags() throws {
+    let request = AteliaPackageTrustIndexRequest(includeBlocked: false, discoveryOnly: true)
+    let encoded = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+    #expect(object["include_blocked"] as? Bool == false)
+    #expect(object["discovery_only"] as? Bool == true)
+
+    let decoded = try JSONDecoder().decode(AteliaPackageTrustIndexRequest.self, from: encoded)
+    #expect(decoded == request)
+}
+
 /// Verifies package status/list response models preserve extension wire naming and map to package identifiers.
 @Test func packageStatusAndListDecodesCanonicalProtocolJSON() throws {
     let statusData = #"""

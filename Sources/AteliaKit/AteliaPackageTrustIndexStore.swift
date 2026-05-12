@@ -17,10 +17,12 @@ public actor AteliaPackageTrustIndexStore {
     }
 
     /// Reloads the latest trust index response from the client.
-    public func reload() async throws {
+    public func reload(
+        request: AteliaPackageTrustIndexRequest = .init()
+    ) async throws {
         nextReloadGeneration += 1
         let reloadGeneration = nextReloadGeneration
-        let response = try await client.packageTrustIndexResponse(for: session)
+        let response = try await client.packageTrustIndexResponse(for: session, request: request)
         guard reloadGeneration > latestAppliedGeneration,
               reloadGeneration > clearGeneration else {
             return

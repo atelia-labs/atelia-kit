@@ -191,11 +191,19 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
 
     /// Returns the full Secretary package trust index envelope.
     public func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
+        try await packageTrustIndexResponse(for: session, request: .init())
+    }
+
+    /// Returns the filtered Secretary package trust index envelope.
+    public func packageTrustIndexResponse(
+        for session: AteliaSession,
+        request: AteliaPackageTrustIndexRequest
+    ) async throws -> AteliaPackageTrustIndexResponse {
         try await send(
             session: session,
             method: "POST",
             path: "/v1/package-trust-index:list",
-            body: EmptyRequest()
+            body: request
         )
     }
 
