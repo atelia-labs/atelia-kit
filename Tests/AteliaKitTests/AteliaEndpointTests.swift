@@ -255,6 +255,10 @@ private actor StatusOnlyClient: AteliaClient {
         _ = try await client.packageTrustIndex(for: session)
     }
 
+    await #expect(throws: AteliaClientError.packageRollbackUnavailable) {
+        _ = try await client.packageRollbackResponse(for: session, packageId: "com.example.package")
+    }
+
     let callCountAfterUnavailableChecks = await client.callCount()
     #expect(callCountAfterUnavailableChecks == 1)
 }

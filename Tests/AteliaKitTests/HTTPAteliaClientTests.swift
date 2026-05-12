@@ -224,6 +224,100 @@ import Testing
     #expect(entries.map(\.packageId) == ["com.example.active", "com.example.blocked"])
 }
 
+/// Verifies the HTTP client calls Secretary's beta rollback endpoint with package-named API.
+@Test func httpClientRollsBackPackage() async throws {
+    let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
+        #expect(request.url?.path == "/v1/extensions/com.example.review.extension/rollback")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
+        #expect(request.httpBody == Data("{}".utf8))
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["extensions.rollback.v1"]
+            },
+            "record": {
+              "id": "com.example.review.extension",
+              "version": "1.0.0",
+              "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source": {
+                "source": "github",
+                "repository": "atelia-labs/atelia",
+                "ref": "refs/tags/v1.0.0",
+                "manifest_path": "packages/review/package.yml",
+                "commit": "deadbeef",
+                "registry_identity": "atelia-official"
+              },
+              "boundary": "official",
+              "status": "installed_previous_version",
+              "previous_version": "2.0.0",
+              "approved_permissions": ["repo.read"],
+              "rollback_snapshot": {
+                "manifest_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "artifact_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              }
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.packageRollbackResponse(
+        for: AteliaSession(),
+        packageId: "com.example.review.extension"
+    )
+
+    #expect(response.metadata.capabilities == ["extensions.rollback.v1"])
+    #expect(response.record.packageId == "com.example.review.extension")
+    #expect(response.record.id == "com.example.review.extension")
+    #expect(response.record.version == "1.0.0")
+    #expect(response.record.status == .installedPreviousVersion)
+    #expect(response.record.boundary == .official)
+    #expect(response.record.previousVersion == "2.0.0")
+    #expect(response.record.approvedPermissions == ["repo.read"])
+    #expect(response.record.source.sourceRef == "refs/tags/v1.0.0")
+    #expect(response.record.rollbackSnapshot?.manifestDigest == "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+
+    let record = try await client.packageRollback(
+        for: AteliaSession(),
+        packageId: "com.example.review.extension"
+    )
+    #expect(record.packageId == "com.example.review.extension")
+}
+
+/// Verifies package operation paths reject identifiers that Secretary cannot route.
+@Test func httpClientRejectsInvalidPackageOperationIds() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { _ in
+        Issue.record("Invalid package ids should fail before transport.")
+        return "{}"
+    })
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("")) {
+        _ = try await client.packageRollbackResponse(for: AteliaSession(), packageId: "")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("a/b")) {
+        _ = try await client.packageRollbackResponse(for: AteliaSession(), packageId: "a/b")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("..")) {
+        _ = try await client.packageRollbackResponse(for: AteliaSession(), packageId: "..")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidPackageId("com.example package")) {
+        _ = try await client.packageRollbackResponse(for: AteliaSession(), packageId: "com.example package")
+    }
+}
+
 /// Verifies the HTTP client fetches compact project status snapshots.
 @Test func httpClientFetchesProjectStatus() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
