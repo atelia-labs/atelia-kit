@@ -15,6 +15,15 @@ private actor PackageLifecycleClientFixture: AteliaClient {
     private var listResponses: [Result<AteliaPackageListResponse, any Error>]
     private var blocklistApplyResponses: [Result<AteliaPackageBlocklistApplyResponse, any Error>]
     private var blocklistListResponses: [Result<AteliaPackageBlocklistListResponse, any Error>]
+    private(set) var lastInstallRequest: AteliaPackageLifecycleRequest?
+    private(set) var lastUpdateRequest: AteliaPackageLifecycleRequest?
+    private(set) var lastDisablePackageId: String?
+    private(set) var lastEnablePackageId: String?
+    private(set) var lastRemovePackageId: String?
+    private(set) var lastRollbackPackageId: String?
+    private(set) var lastStatusPackageId: String?
+    private(set) var lastListRequest: AteliaPackageListRequest?
+    private(set) var lastBlocklistApplyRequest: AteliaPackageBlocklistRequest?
 
     init(
         lifecycleResponses: [Result<AteliaPackageLifecycleResponse, any Error>] = [],
@@ -37,7 +46,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         request: AteliaPackageLifecycleRequest
     ) async throws -> AteliaPackageInstallResponse {
         _ = session
-        _ = request
+        lastInstallRequest = request
         return try nextLifecycleResponse()
     }
 
@@ -46,7 +55,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         request: AteliaPackageLifecycleRequest
     ) async throws -> AteliaPackageUpdateResponse {
         _ = session
-        _ = request
+        lastUpdateRequest = request
         return try nextLifecycleResponse()
     }
 
@@ -55,7 +64,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         packageId: String
     ) async throws -> AteliaPackageDisableResponse {
         _ = session
-        _ = packageId
+        lastDisablePackageId = packageId
         return try nextLifecycleResponse()
     }
 
@@ -64,7 +73,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         packageId: String
     ) async throws -> AteliaPackageEnableResponse {
         _ = session
-        _ = packageId
+        lastEnablePackageId = packageId
         return try nextLifecycleResponse()
     }
 
@@ -73,7 +82,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         packageId: String
     ) async throws -> AteliaPackageRemoveResponse {
         _ = session
-        _ = packageId
+        lastRemovePackageId = packageId
         return try nextLifecycleResponse()
     }
 
@@ -82,7 +91,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         packageId: String
     ) async throws -> AteliaPackageRollbackResponse {
         _ = session
-        _ = packageId
+        lastRollbackPackageId = packageId
         guard !rollbackResponses.isEmpty else {
             throw PackageLifecycleFixtureError.unconfiguredResponse
         }
@@ -94,7 +103,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         packageId: String
     ) async throws -> AteliaPackageStatusResponse {
         _ = session
-        _ = packageId
+        lastStatusPackageId = packageId
         guard !statusResponses.isEmpty else {
             throw PackageLifecycleFixtureError.unconfiguredResponse
         }
@@ -106,7 +115,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         request: AteliaPackageListRequest
     ) async throws -> AteliaPackageListResponse {
         _ = session
-        _ = request
+        lastListRequest = request
         guard !listResponses.isEmpty else {
             throw PackageLifecycleFixtureError.unconfiguredResponse
         }
@@ -118,7 +127,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         request: AteliaPackageBlocklistRequest
     ) async throws -> AteliaPackageBlocklistApplyResponse {
         _ = session
-        _ = request
+        lastBlocklistApplyRequest = request
         guard !blocklistApplyResponses.isEmpty else {
             throw PackageLifecycleFixtureError.unconfiguredResponse
         }
@@ -331,16 +340,75 @@ private func blocklistEntry(
 /// Verifies install stores the latest lifecycle envelope and package lookup entry.
 @Test func installStoresLifecycleResponseAndPackageStatus() async throws {
     let response = lifecycleResponse(packageId: "com.example.install")
+    let request = AteliaPackageLifecycleRequest(manifest: packageManifest())
     let client = PackageLifecycleClientFixture(lifecycleResponses: [.success(response)])
     let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
 
-    let record = try await store.install(request: AteliaPackageLifecycleRequest(manifest: packageManifest()))
+    let record = try await store.install(request: request)
 
     #expect(record == response.record)
+    #expect(await client.lastInstallRequest == request)
     #expect(await store.lifecycleResponse == response)
     #expect(await store.latestRecord == response.record)
     #expect(await store.metadata == response.metadata)
     #expect(await store.package(id: "com.example.install")?.record == response.record)
+}
+
+/// Verifies lifecycle mutation operations forward inputs and cache their records.
+@Test func lifecycleMutationsForwardInputsAndUpdateState() async throws {
+    let updateResponse = lifecycleResponse(packageId: "com.example.update", version: "1.0.1")
+    let disableResponse = lifecycleResponse(packageId: "com.example.disable")
+    let enableResponse = lifecycleResponse(packageId: "com.example.enable")
+    let removeResponse = lifecycleResponse(packageId: "com.example.remove")
+    let updateRequest = AteliaPackageLifecycleRequest(manifest: packageManifest(id: "com.example.update"))
+    let client = PackageLifecycleClientFixture(
+        lifecycleResponses: [
+            .success(updateResponse),
+            .success(disableResponse),
+            .success(enableResponse),
+            .success(removeResponse)
+        ]
+    )
+    let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
+
+    let updateRecord = try await store.update(request: updateRequest)
+    let disableRecord = try await store.disable(packageId: "com.example.disable")
+    let enableRecord = try await store.enable(packageId: "com.example.enable")
+    let removeRecord = try await store.remove(packageId: "com.example.remove")
+
+    #expect(updateRecord == updateResponse.record)
+    #expect(disableRecord == disableResponse.record)
+    #expect(enableRecord == enableResponse.record)
+    #expect(removeRecord == removeResponse.record)
+    #expect(await client.lastUpdateRequest == updateRequest)
+    #expect(await client.lastDisablePackageId == "com.example.disable")
+    #expect(await client.lastEnablePackageId == "com.example.enable")
+    #expect(await client.lastRemovePackageId == "com.example.remove")
+    #expect(await store.lifecycleResponse == removeResponse)
+    #expect(await store.latestRecord == removeResponse.record)
+    #expect(await store.package(id: "com.example.update")?.record == updateResponse.record)
+    #expect(await store.package(id: "com.example.disable")?.record == disableResponse.record)
+    #expect(await store.package(id: "com.example.enable")?.record == enableResponse.record)
+    #expect(await store.package(id: "com.example.remove")?.record == removeResponse.record)
+}
+
+/// Verifies lifecycle mutation failures do not populate cached lifecycle state.
+@Test func lifecycleMutationFailureDoesNotCacheState() async throws {
+    let request = AteliaPackageLifecycleRequest(manifest: packageManifest(id: "com.example.update"))
+    let client = PackageLifecycleClientFixture(
+        lifecycleResponses: [.failure(PackageLifecycleFixtureError.requestFailed)]
+    )
+    let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
+
+    await #expect(throws: PackageLifecycleFixtureError.self) {
+        try await store.update(request: request)
+    }
+
+    #expect(await client.lastUpdateRequest == request)
+    #expect(await store.lifecycleResponse == nil)
+    #expect(await store.latestRecord == nil)
+    #expect(await store.metadata == nil)
+    #expect(await store.packages.isEmpty)
 }
 
 /// Verifies list replaces the package index in response order.
@@ -352,6 +420,7 @@ private func blocklistEntry(
     let packages = try await store.list()
 
     #expect(packages == response.packages)
+    #expect(await client.lastListRequest == AteliaPackageListRequest())
     #expect(await store.listResponse == response)
     #expect(await store.packages == response.packages)
     #expect(await store.package(id: "com.example.alpha") == response.packages[0])
@@ -432,9 +501,13 @@ private func blocklistEntry(
 
     try await store.status(packageId: "com.example.status")
     try await store.rollback(packageId: "com.example.rollback")
-    try await store.applyBlocklist(request: AteliaPackageBlocklistRequest(entry: blocklistEntry))
+    let blocklistRequest = AteliaPackageBlocklistRequest(entry: blocklistEntry)
+    try await store.applyBlocklist(request: blocklistRequest)
     try await store.listBlocklist()
 
+    #expect(await client.lastStatusPackageId == "com.example.status")
+    #expect(await client.lastRollbackPackageId == "com.example.rollback")
+    #expect(await client.lastBlocklistApplyRequest == blocklistRequest)
     #expect(await store.statusResponse == statusResponse)
     #expect(await store.rollbackResponse == rollbackResponse)
     #expect(await store.blocklistApplyResponse == blocklistApplyResponse)
@@ -469,11 +542,13 @@ private func blocklistEntry(
     let olderList = Task {
         try await store.list()
     }
+    defer { olderList.cancel() }
     try await client.waitForRequests(.list, count: 1)
 
     let newerList = Task {
         try await store.list()
     }
+    defer { newerList.cancel() }
     try await client.waitForRequests(.list, count: 2)
 
     await client.respondToList(1, with: newerResponse)
@@ -495,11 +570,13 @@ private func blocklistEntry(
     let olderList = Task {
         try await store.list()
     }
+    defer { olderList.cancel() }
     try await client.waitForRequests(.list, count: 1)
 
     let newerList = Task {
         try await store.list()
     }
+    defer { newerList.cancel() }
     try await client.waitForRequests(.list, count: 2)
 
     await client.failList(1, with: PackageLifecycleFixtureError.requestFailed)
@@ -526,11 +603,13 @@ private func blocklistEntry(
     let install = Task {
         try await store.install(request: AteliaPackageLifecycleRequest(manifest: packageManifest()))
     }
+    defer { install.cancel() }
     try await client.waitForRequests(.install, count: 1)
 
     let status = Task {
         try await store.status(packageId: "com.example.status")
     }
+    defer { status.cancel() }
     try await client.waitForRequests(.status, count: 1)
 
     await client.respondToStatus(0, with: statusResponse)
@@ -555,11 +634,13 @@ private func blocklistEntry(
     let olderInstall = Task {
         try await store.install(request: AteliaPackageLifecycleRequest(manifest: packageManifest(id: "com.example.older")))
     }
+    defer { olderInstall.cancel() }
     try await client.waitForRequests(.install, count: 1)
 
     let newerInstall = Task {
         try await store.install(request: AteliaPackageLifecycleRequest(manifest: packageManifest(id: "com.example.newer")))
     }
+    defer { newerInstall.cancel() }
     try await client.waitForRequests(.install, count: 2)
 
     await client.respondToInstall(1, with: newerResponse)
@@ -591,11 +672,13 @@ private func blocklistEntry(
     let list = Task {
         try await store.listBlocklist()
     }
+    defer { list.cancel() }
     try await client.waitForRequests(.blocklistList, count: 1)
 
     let apply = Task {
         try await store.applyBlocklist(request: AteliaPackageBlocklistRequest(entry: appliedEntry))
     }
+    defer { apply.cancel() }
     try await client.waitForRequests(.blocklistApply, count: 1)
 
     await client.respondToBlocklistApply(0, with: applyResponse)
@@ -617,6 +700,7 @@ private func blocklistEntry(
     let install = Task {
         try await store.install(request: AteliaPackageLifecycleRequest(manifest: packageManifest()))
     }
+    defer { install.cancel() }
     try await client.waitForRequests(.install, count: 1)
 
     await store.clear()
@@ -624,6 +708,7 @@ private func blocklistEntry(
     _ = try await install.value
 
     #expect(await store.lifecycleResponse == nil)
+    #expect(await store.latestRecord == nil)
     #expect(await store.metadata == nil)
     #expect(await store.packages.isEmpty)
     #expect(await store.package(id: "com.example.pending") == nil)
