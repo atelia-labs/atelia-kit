@@ -5,6 +5,8 @@ import Testing
 private actor ProjectStatusClientFixture: AteliaClient {
     private let response: AteliaProjectStatus
     private var callCount = 0
+    private var requestedSessions: [AteliaSession] = []
+    private var requestedRepositoryIDs: [String] = []
 
     /// Creates a fixture client that returns the supplied project-status response.
     init(response: AteliaProjectStatus) {
@@ -16,15 +18,25 @@ private actor ProjectStatusClientFixture: AteliaClient {
         for session: AteliaSession,
         repositoryId: String
     ) async throws -> AteliaProjectStatus {
-        _ = session
-        _ = repositoryId
         callCount += 1
+        requestedSessions.append(session)
+        requestedRepositoryIDs.append(repositoryId)
         return response
     }
 
     /// Returns how many project-status calls reached the fixture.
     func calls() -> Int {
         callCount
+    }
+
+    /// Returns the sessions passed to the fixture.
+    func sessions() -> [AteliaSession] {
+        requestedSessions
+    }
+
+    /// Returns the repository identifiers passed to the fixture.
+    func repositoryIDs() -> [String] {
+        requestedRepositoryIDs
     }
 }
 
@@ -227,15 +239,18 @@ private func projectStatusResponse(jobId: String) -> AteliaProjectStatus {
 /// Verifies reload fetches the project status once and keeps the response payload.
 @Test func reloadPopulatesStatusAndDerivedProperties() async throws {
     let client = ProjectStatusClientFixture(response: projectStatusFixtureResponse)
+    let session = AteliaSession(id: UUID(uuidString: "00000000-0000-0000-0000-000000000123")!)
     let store = AteliaProjectStatusStore(
         client: client,
-        session: AteliaSession(),
+        session: session,
         repositoryId: "repo_123"
     )
 
     try await store.reload()
 
     #expect(await client.calls() == 1)
+    #expect(await client.sessions() == [session])
+    #expect(await client.repositoryIDs() == ["repo_123"])
     #expect(await store.status == projectStatusFixtureResponse)
     #expect(await store.metadata == projectStatusFixtureResponse.metadata)
     #expect(await store.repository == projectStatusFixtureResponse.repository)
@@ -312,6 +327,38 @@ private func projectStatusResponse(jobId: String) -> AteliaProjectStatus {
 
     #expect(await store.status == newerResponse)
     #expect(await store.recentJobs == newerResponse.recentJobs)
+    #expect(await store.daemonStatus == Optional(AteliaHealthResponse.DaemonStatus.running))
+}
+
+/// Verifies a newer failed reload does not invalidate an older successful reload.
+@Test func projectStatusFailedNewerReloadDoesNotDiscardOlderSuccessfulReload() async throws {
+    let client = ControllableProjectStatusClient()
+    let store = AteliaProjectStatusStore(
+        client: client,
+        session: AteliaSession(),
+        repositoryId: "repo_123"
+    )
+    let olderResponse = projectStatusResponse(jobId: "job_older")
+
+    let olderReload: Task<Void, Error> = Task {
+        try await store.reload()
+    }
+    try await client.waitForRequests(1)
+
+    let newerReload: Task<Void, Error> = Task {
+        try await store.reload()
+    }
+    try await client.waitForRequests(2)
+
+    await client.fail(to: 1, with: FixtureError.requestFailed)
+    await #expect(throws: FixtureError.self) {
+        try await newerReload.value
+    }
+    await client.respond(to: 0, with: olderResponse)
+    try await olderReload.value
+
+    #expect(await store.status == olderResponse)
+    #expect(await store.recentJobs == olderResponse.recentJobs)
     #expect(await store.daemonStatus == Optional(AteliaHealthResponse.DaemonStatus.running))
 }
 
