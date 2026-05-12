@@ -116,7 +116,7 @@ public struct AteliaPackageValidationRequest: Sendable, Codable, Equatable {
         case approveSourceChange = "approve_source_change"
     }
 
-    /// Extension manifest payload to validate.
+    /// Package manifest payload to validate.
     public var manifest: AteliaPackageManifest
     /// Accepts local unsigned package manifests.
     public var approveLocalUnsigned: Bool
