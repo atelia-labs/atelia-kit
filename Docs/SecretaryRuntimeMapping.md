@@ -42,13 +42,18 @@ replaceable.
 | event cursor | `AteliaEventCursor` | `sequence`, `event_id` |
 | project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor`, `daemon_status`, `storage_status` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
+| package validation | `AteliaPackageValidationRequest`, `AteliaPackageValidationResponse` | `manifest`, `approve_local_unsigned`, `allow_local_process_runtime`, `approve_source_change`, `boundary` |
+| package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `id`, `record`, `extension_id`, `extension`, `extensions`, `previous_version` |
+| package authoring | `AteliaPackageAuthoringFlow`, `AteliaPackagePublicationPlan`, `AteliaPackageRegistrySubmissionState` | `package_id`, `source_class`, `source`, `steps`, `publication_plan`, `state` |
+| package rollback | `AteliaPackageRollbackResponse`, `AteliaPackageRollbackRecord` | `id`, `version`, `previous_version`, `status`, `rollback_snapshot` |
 | beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `supported_result_formats` |
+| tool output rendering | `AteliaToolOutputRenderRequest`, `AteliaToolOutputRenderResponse` | `tool_result`, `format`, `rendered_output`, `rendered_output_metadata`, `truncation` |
 
 The third column is a representative drift guard, not an exhaustive schema
 listing. It includes envelope keys such as `metadata`, collection keys such as
 `packages`, and high-risk model keys that have already drifted across client and
 Secretary implementations. Codable tests cover the exact keys most likely to
-break client/server compatibility; add focused tests before changing any
+break the client/server contract; add focused tests before changing any
 protocol-facing model shape.
 
 ## Transport Boundary
@@ -61,6 +66,22 @@ and iOS operating surfaces:
 - `POST /v1/repertoire:list`
 - `POST /v1/project-status:get`
 - `POST /v1/package-trust-index:list`
+- `POST /v1/packages/validate`
+- `POST /v1/packages/install`
+- `POST /v1/packages/update`
+- `POST /v1/packages/list`
+- `POST /v1/packages/{package_id}/status`
+- `POST /v1/packages/{package_id}/disable`
+- `POST /v1/packages/{package_id}/enable`
+- `POST /v1/packages/{package_id}/remove`
+- `POST /v1/packages/{package_id}/rollback`
+- `POST /v1/packages/blocklist/apply`
+- `POST /v1/packages/blocklist/list`
+- `POST /v1/packages/{package_id}/authoring-flow`
+- `POST /v1/packages/{package_id}/remix`
+- `POST /v1/packages/{package_id}/publication`
+- `POST /v1/packages/{package_id}/registry-submission`
+- `POST /v1/tool-results:render`
 
 The client accepts an `AteliaHTTPTransport`, so tests and future transports do
 not need UI-specific mocking. Bearer authentication is optional at construction
@@ -71,7 +92,7 @@ clients should pass the generated daemon token.
 
 - Treat protocol ids as opaque strings.
 - Do not display ids as primary user-facing labels.
-- Treat unknown capabilities as recoverable compatibility information.
+- Treat unknown capabilities as recoverable protocol information.
 - Keep Mac windowing, iOS navigation, and visual design outside this package.
 - Keep Secretary execution, broker decisions, and package runtime hosting
   outside this package.

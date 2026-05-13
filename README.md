@@ -19,7 +19,7 @@ direct native API access to packages, or render platform-specific UI.
 - Atelia Protocol client
 - session / connection state
 - domain models
-- event stream handling
+- event cursor and refresh-driven flow handling
 - local cache interfaces
 - notification routing
 - platform-neutral view model coordination

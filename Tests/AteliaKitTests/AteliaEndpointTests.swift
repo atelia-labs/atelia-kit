@@ -36,19 +36,19 @@ private actor HealthOnlyClient: AteliaClient {
     }
 }
 
-/// Minimal conformer used to verify default protocol compatibility behavior.
+/// Minimal conformer used to verify default protocol fallback behavior.
 private actor StatusOnlyClient: AteliaClient {
-    /// Number of legacy status calls observed by the fixture.
+    /// Number of local status calls observed by the fixture.
     private var statusCallCount = 0
 
-    /// Returns the legacy status implementation used by compatibility tests.
+    /// Returns the local status implementation used by fallback tests.
     func status(for session: AteliaSession) async throws -> SecretaryStatus {
         _ = session
         statusCallCount += 1
-        return SecretaryStatus(phase: .ready, message: "legacy")
+        return SecretaryStatus(phase: .ready, message: "local placeholder")
     }
 
-    /// Returns the observed legacy status call count.
+    /// Returns the observed local status call count.
     func callCount() -> Int {
         statusCallCount
     }
@@ -339,6 +339,9 @@ private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
             request: AteliaPackageValidationRequest(manifest: AteliaPackageManifest())
         )
     }
+    await #expect(throws: AteliaClientError.packageRollbackUnavailable) {
+        _ = try await client.packageRollback(for: session, packageId: "com.example.package")
+    }
 
     await #expect(throws: AteliaClientError.packageInstallUnavailable) {
         _ = try await client.packageInstallResponse(
@@ -421,6 +424,9 @@ private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
     await #expect(throws: AteliaClientError.toolOutputRenderUnavailable) {
         _ = try await client.renderToolOutputResponse(for: session, request: renderRequest)
     }
+    await #expect(throws: AteliaClientError.toolOutputRenderUnavailable) {
+        _ = try await client.renderToolOutput(for: session, request: renderRequest)
+    }
 }
 
 /// Verifies default status derives from health when no explicit status exists.
@@ -437,8 +443,8 @@ private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
     #expect(status.message == nil)
 }
 
-/// Verifies legacy status-only conformers retain compatibility behavior.
-@Test func statusOnlyConformerStillCompilesAndUsesLegacyStatusImplementation() async throws {
+/// Verifies local placeholder status-only conformers retain fallback behavior.
+@Test func statusOnlyConformerUsesLocalStatusAndUnavailableCapabilityFallbacks() async throws {
     let client = StatusOnlyClient()
     let session = AteliaSession()
     let renderRequest = AteliaToolOutputRenderRequest(
@@ -453,11 +459,11 @@ private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
     )
 
     let status = try await client.status(for: session)
-    let callCountBeforeUnavailableChecks = await client.callCount()
+    let callCountBeforeFallbackChecks = await client.callCount()
 
-    #expect(callCountBeforeUnavailableChecks == 1)
+    #expect(callCountBeforeFallbackChecks == 1)
     #expect(status.phase == .ready)
-    #expect(status.message == "legacy")
+    #expect(status.message == "local placeholder")
 
     await #expect(throws: AteliaClientError.healthUnavailable) {
         _ = try await client.health(for: session)
@@ -567,6 +573,6 @@ private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
         _ = try await client.renderToolOutputResponse(for: session, request: renderRequest)
     }
 
-    let callCountAfterUnavailableChecks = await client.callCount()
-    #expect(callCountAfterUnavailableChecks == 1)
+    let callCountAfterFallbackChecks = await client.callCount()
+    #expect(callCountAfterFallbackChecks == 1)
 }
