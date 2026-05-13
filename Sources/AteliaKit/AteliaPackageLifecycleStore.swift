@@ -8,6 +8,8 @@ public struct AteliaPackageLifecycleStoreSnapshot: Sendable, Equatable {
     public var rollbackResponse: AteliaPackageRollbackResponse?
     /// Latest package status response, when one has completed.
     public var statusResponse: AteliaPackageStatusResponse?
+    /// Latest package inspect response, when one has completed.
+    public var inspectResponse: AteliaPackageInspectResponse?
     /// Latest package list response, when one has completed.
     public var listResponse: AteliaPackageListResponse?
     /// Latest blocklist apply response, when one has completed.
@@ -28,6 +30,7 @@ public struct AteliaPackageLifecycleStoreSnapshot: Sendable, Equatable {
         lifecycleResponse: AteliaPackageLifecycleResponse?,
         rollbackResponse: AteliaPackageRollbackResponse?,
         statusResponse: AteliaPackageStatusResponse?,
+        inspectResponse: AteliaPackageInspectResponse?,
         listResponse: AteliaPackageListResponse?,
         blocklistApplyResponse: AteliaPackageBlocklistApplyResponse?,
         blocklistListResponse: AteliaPackageBlocklistListResponse?,
@@ -39,6 +42,7 @@ public struct AteliaPackageLifecycleStoreSnapshot: Sendable, Equatable {
         self.lifecycleResponse = lifecycleResponse
         self.rollbackResponse = rollbackResponse
         self.statusResponse = statusResponse
+        self.inspectResponse = inspectResponse
         self.listResponse = listResponse
         self.blocklistApplyResponse = blocklistApplyResponse
         self.blocklistListResponse = blocklistListResponse
@@ -56,6 +60,7 @@ public actor AteliaPackageLifecycleStore {
     private var latestLifecycleResponse: AteliaPackageLifecycleResponse?
     private var latestRollbackResponse: AteliaPackageRollbackResponse?
     private var latestStatusResponse: AteliaPackageStatusResponse?
+    private var latestInspectResponse: AteliaPackageInspectResponse?
     private var latestListResponse: AteliaPackageListResponse?
     private var latestBlocklistApplyResponse: AteliaPackageBlocklistApplyResponse?
     private var latestBlocklistListResponse: AteliaPackageBlocklistListResponse?
@@ -69,6 +74,7 @@ public actor AteliaPackageLifecycleStore {
     private var latestLifecycleGeneration = 0
     private var latestRollbackGeneration = 0
     private var latestStatusGeneration = 0
+    private var latestInspectGeneration = 0
     private var latestListGeneration = 0
     private var latestBlocklistApplyGeneration = 0
     private var latestBlocklistListGeneration = 0
@@ -158,6 +164,20 @@ public actor AteliaPackageLifecycleStore {
         return response.package
     }
 
+    /// Loads one package inspect response and caches the inspect payload.
+    @discardableResult
+    public func inspect(packageId: String) async throws -> AteliaPackageInspect {
+        let operationGeneration = beginOperation()
+        let response = try await client.packageInspectResponse(for: session, packageId: packageId)
+        if shouldApply(operationGeneration, after: latestInspectGeneration) {
+            latestInspectGeneration = operationGeneration
+            latestInspectResponse = response
+            applyMetadata(response.metadata, generation: operationGeneration)
+        }
+        upsertPackageStatus(response.package, generation: operationGeneration)
+        return response.inspect
+    }
+
     /// Loads package statuses and replaces the current package index.
     @discardableResult
     public func list(request: AteliaPackageListRequest = .init()) async throws -> [AteliaPackageStatus] {
@@ -210,6 +230,7 @@ public actor AteliaPackageLifecycleStore {
         latestLifecycleResponse = nil
         latestRollbackResponse = nil
         latestStatusResponse = nil
+        latestInspectResponse = nil
         latestListResponse = nil
         latestBlocklistApplyResponse = nil
         latestBlocklistListResponse = nil
@@ -235,6 +256,11 @@ public actor AteliaPackageLifecycleStore {
     /// Returns the latest package status response, if one has completed.
     public var statusResponse: AteliaPackageStatusResponse? {
         latestStatusResponse
+    }
+
+    /// Returns the latest package inspect response, if one has completed.
+    public var inspectResponse: AteliaPackageInspectResponse? {
+        latestInspectResponse
     }
 
     /// Returns the latest package list response, if one has completed.
@@ -283,6 +309,7 @@ public actor AteliaPackageLifecycleStore {
             lifecycleResponse: latestLifecycleResponse,
             rollbackResponse: latestRollbackResponse,
             statusResponse: latestStatusResponse,
+            inspectResponse: latestInspectResponse,
             listResponse: latestListResponse,
             blocklistApplyResponse: latestBlocklistApplyResponse,
             blocklistListResponse: latestBlocklistListResponse,

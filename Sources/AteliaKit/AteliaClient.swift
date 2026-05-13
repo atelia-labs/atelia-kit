@@ -16,6 +16,8 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case packageTrustIndexUnavailable
     /// The conformer does not provide the package rollback operation.
     case packageRollbackUnavailable
+    /// The conformer does not provide package inspection operations.
+    case packageInspectUnavailable
     /// The conformer does not provide package manifest validation.
     case packageValidationUnavailable
     /// The conformer does not provide package install operations.
@@ -128,6 +130,16 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         packageId: String
     ) async throws -> AteliaPackageStatus
+    /// Returns the package inspect envelope.
+    func packageInspectResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageInspectResponse
+    /// Returns the package inspect payload.
+    func packageInspect(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageInspect
     /// Returns the package list envelope.
     func packageListResponse(
         for session: AteliaSession,
@@ -395,6 +407,24 @@ public extension AteliaClient {
         packageId: String
     ) async throws -> AteliaPackageStatus {
         try await packageStatusResponse(for: session, packageId: packageId).package
+    }
+
+    /// Returns the package inspect payload.
+    func packageInspect(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageInspect {
+        try await packageInspectResponse(for: session, packageId: packageId).inspect
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide package inspect.
+    func packageInspectResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageInspectResponse {
+        _ = session
+        _ = packageId
+        throw AteliaClientError.packageInspectUnavailable
     }
 
     /// Returns an unavailable-capability error when the conformer does not provide package status.
