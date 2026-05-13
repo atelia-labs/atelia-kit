@@ -13,7 +13,7 @@ AEP において、Atelia Kit は presentation host が共有する client-side 
 - Atelia Protocol client
 - session / connection state
 - domain models
-- event stream handling
+- event cursor と refresh-driven flow handling
 - local cache interfaces
 - notification routing
 - platform-neutral view model coordination
@@ -34,3 +34,8 @@ AEP において、Atelia Kit は presentation host が共有する client-side 
 ```sh
 swift test
 ```
+
+## Secretary Runtime Mapping
+
+共有 model と transport boundary は Secretary protocol contract に従います。
+[Docs/SecretaryRuntimeMapping.md](Docs/SecretaryRuntimeMapping.md) を参照してください。

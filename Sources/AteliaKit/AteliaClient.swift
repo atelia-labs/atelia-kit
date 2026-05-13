@@ -1,6 +1,6 @@
 import Foundation
 
-/// Errors thrown by the default `AteliaClient` compatibility surface.
+/// Errors thrown by the default `AteliaClient` capability fallback surface.
 public enum AteliaClientError: Error, Sendable, Equatable {
     /// The conformer does not provide a health snapshot implementation.
     case healthUnavailable
@@ -46,7 +46,8 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case toolOutputRenderUnavailable
 }
 
-/// Protocol for fetching Atelia health, repertoire, and derived secretary status for a session.
+/// Session-scoped async client boundary for Secretary health, project state,
+/// package lifecycle, package authoring, and render operations.
 public protocol AteliaClient: Sendable {
     /// Returns the current health snapshot for the given session.
     func health(for session: AteliaSession) async throws -> AteliaHealthResponse
@@ -82,11 +83,21 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         packageId: String
     ) async throws -> AteliaPackageRollbackResponse
+    /// Returns the rollback record for a package.
+    func packageRollback(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageRollbackRecord
     /// Returns the package validation response for a manifest request.
     func packageValidationResponse(
         for session: AteliaSession,
         request: AteliaPackageValidationRequest
     ) async throws -> AteliaPackageValidationResponse
+    /// Returns the validated package manifest from a package validation request.
+    func packageValidation(
+        for session: AteliaSession,
+        request: AteliaPackageValidationRequest
+    ) async throws -> AteliaPackageManifest
     /// Returns the package install operation envelope.
     func packageInstallResponse(
         for session: AteliaSession,
@@ -220,17 +231,22 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         request: AteliaToolOutputRenderRequest
     ) async throws -> AteliaToolOutputRenderResponse
+    /// Returns rendered tool output text for a canonical tool result.
+    func renderToolOutput(
+        for session: AteliaSession,
+        request: AteliaToolOutputRenderRequest
+    ) async throws -> String
 }
 
-/// Default compatibility implementations for optional client capabilities.
+/// Default fallback implementations for optional client capabilities.
 public extension AteliaClient {
-    /// Returns a compatibility error when the conformer does not provide health.
+    /// Returns an unavailable-capability error when the conformer does not provide health.
     func health(for session: AteliaSession) async throws -> AteliaHealthResponse {
         _ = session
         throw AteliaClientError.healthUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide repertoire.
+    /// Returns an unavailable-capability error when the conformer does not provide repertoire.
     func repertoire(for session: AteliaSession) async throws -> [AteliaRepertoireEntry] {
         _ = session
         throw AteliaClientError.repertoireUnavailable
@@ -242,19 +258,19 @@ public extension AteliaClient {
         return health.secretaryStatus
     }
 
-    /// Returns a compatibility error when the conformer does not provide repositories.
+    /// Returns an unavailable-capability error when the conformer does not provide repositories.
     func repositories(for session: AteliaSession) async throws -> [AteliaRepository] {
         _ = session
         throw AteliaClientError.repositoriesUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide tool repertoire.
+    /// Returns an unavailable-capability error when the conformer does not provide tool repertoire.
     func toolRepertoire(for session: AteliaSession) async throws -> [AteliaToolRepertoireEntry] {
         _ = session
         throw AteliaClientError.toolRepertoireUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide project status.
+    /// Returns an unavailable-capability error when the conformer does not provide project status.
     func projectStatus(
         for session: AteliaSession,
         repositoryId: String
@@ -284,13 +300,13 @@ public extension AteliaClient {
         return try await packageTrustIndexResponse(for: session, request: request).packages
     }
 
-    /// Returns a compatibility error when the conformer does not provide the package trust index.
+    /// Returns an unavailable-capability error when the conformer does not provide the package trust index.
     func packageTrustIndexResponse(for session: AteliaSession) async throws -> AteliaPackageTrustIndexResponse {
         _ = session
         throw AteliaClientError.packageTrustIndexUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide the package trust index.
+    /// Returns an unavailable-capability error when the conformer does not provide the package trust index.
     func packageTrustIndexResponse(
         for session: AteliaSession,
         request: AteliaPackageTrustIndexRequest
@@ -309,7 +325,7 @@ public extension AteliaClient {
         try await packageRollbackResponse(for: session, packageId: packageId).record
     }
 
-    /// Returns a compatibility error when the conformer does not provide package rollback.
+    /// Returns an unavailable-capability error when the conformer does not provide package rollback.
     func packageRollbackResponse(
         for session: AteliaSession,
         packageId: String
@@ -345,7 +361,7 @@ public extension AteliaClient {
         try await packageInstallResponse(for: session, request: request).record
     }
 
-    /// Returns a compatibility error when the conformer does not provide package install.
+    /// Returns an unavailable-capability error when the conformer does not provide package install.
     func packageInstallResponse(
         for session: AteliaSession,
         request: AteliaPackageLifecycleRequest
@@ -363,7 +379,7 @@ public extension AteliaClient {
         try await packageUpdateResponse(for: session, request: request).record
     }
 
-    /// Returns a compatibility error when the conformer does not provide package update.
+    /// Returns an unavailable-capability error when the conformer does not provide package update.
     func packageUpdateResponse(
         for session: AteliaSession,
         request: AteliaPackageLifecycleRequest
@@ -381,7 +397,7 @@ public extension AteliaClient {
         try await packageStatusResponse(for: session, packageId: packageId).package
     }
 
-    /// Returns a compatibility error when the conformer does not provide package status.
+    /// Returns an unavailable-capability error when the conformer does not provide package status.
     func packageStatusResponse(
         for session: AteliaSession,
         packageId: String
@@ -399,7 +415,7 @@ public extension AteliaClient {
         try await packageListResponse(for: session, request: request).packages
     }
 
-    /// Returns a compatibility error when the conformer does not provide package list.
+    /// Returns an unavailable-capability error when the conformer does not provide package list.
     func packageListResponse(
         for session: AteliaSession,
         request: AteliaPackageListRequest
@@ -417,7 +433,7 @@ public extension AteliaClient {
         try await packageDisableResponse(for: session, packageId: packageId).record
     }
 
-    /// Returns a compatibility error when the conformer does not provide package disable.
+    /// Returns an unavailable-capability error when the conformer does not provide package disable.
     func packageDisableResponse(
         for session: AteliaSession,
         packageId: String
@@ -435,7 +451,7 @@ public extension AteliaClient {
         try await packageEnableResponse(for: session, packageId: packageId).record
     }
 
-    /// Returns a compatibility error when the conformer does not provide package enable.
+    /// Returns an unavailable-capability error when the conformer does not provide package enable.
     func packageEnableResponse(
         for session: AteliaSession,
         packageId: String
@@ -453,7 +469,7 @@ public extension AteliaClient {
         try await packageRemoveResponse(for: session, packageId: packageId).record
     }
 
-    /// Returns a compatibility error when the conformer does not provide package remove.
+    /// Returns an unavailable-capability error when the conformer does not provide package remove.
     func packageRemoveResponse(
         for session: AteliaSession,
         packageId: String
@@ -471,7 +487,7 @@ public extension AteliaClient {
         try await packageBlocklistApplyResponse(for: session, request: request).entry
     }
 
-    /// Returns a compatibility error when the conformer does not provide package blocklist apply.
+    /// Returns an unavailable-capability error when the conformer does not provide package blocklist apply.
     func packageBlocklistApplyResponse(
         for session: AteliaSession,
         request: AteliaPackageBlocklistRequest
@@ -488,7 +504,7 @@ public extension AteliaClient {
         try await packageBlocklistListResponse(for: session).entries
     }
 
-    /// Returns a compatibility error when the conformer does not provide package blocklist listing.
+    /// Returns an unavailable-capability error when the conformer does not provide package blocklist listing.
     func packageBlocklistListResponse(
         for session: AteliaSession
     ) async throws -> AteliaPackageBlocklistListResponse {
@@ -496,7 +512,7 @@ public extension AteliaClient {
         throw AteliaClientError.packageBlocklistUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide authoring flows.
+    /// Returns an unavailable-capability error when the conformer does not provide authoring flows.
     func packageAuthoringFlowResponse(
         for session: AteliaSession,
         request: AteliaPackageAuthoringFlowRequest
@@ -506,7 +522,7 @@ public extension AteliaClient {
         throw AteliaClientError.packageAuthoringFlowUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide authoring flows.
+    /// Returns an unavailable-capability error when the conformer does not provide authoring flows.
     func packageAuthoringFlow(
         for session: AteliaSession,
         request: AteliaPackageAuthoringFlowRequest
@@ -514,7 +530,7 @@ public extension AteliaClient {
         try await packageAuthoringFlowResponse(for: session, request: request).flow
     }
 
-    /// Returns a compatibility error when the conformer does not provide remix operations.
+    /// Returns an unavailable-capability error when the conformer does not provide remix operations.
     func packageRemixResponse(
         for session: AteliaSession,
         request: AteliaPackageRemixRequest
@@ -524,7 +540,7 @@ public extension AteliaClient {
         throw AteliaClientError.packageRemixUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide remix operations.
+    /// Returns an unavailable-capability error when the conformer does not provide remix operations.
     func packageRemix(
         for session: AteliaSession,
         request: AteliaPackageRemixRequest
@@ -532,7 +548,7 @@ public extension AteliaClient {
         try await packageRemixResponse(for: session, request: request).flow
     }
 
-    /// Returns a compatibility error when the conformer does not provide publication operations.
+    /// Returns an unavailable-capability error when the conformer does not provide publication operations.
     func packagePublicationResponse(
         for session: AteliaSession,
         request: AteliaPackagePublicationRequest
@@ -542,7 +558,7 @@ public extension AteliaClient {
         throw AteliaClientError.packagePublicationUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide publication operations.
+    /// Returns an unavailable-capability error when the conformer does not provide publication operations.
     func packagePublication(
         for session: AteliaSession,
         request: AteliaPackagePublicationRequest
@@ -550,7 +566,7 @@ public extension AteliaClient {
         try await packagePublicationResponse(for: session, request: request).flow
     }
 
-    /// Returns a compatibility error when the conformer does not provide registry-submission operations.
+    /// Returns an unavailable-capability error when the conformer does not provide registry-submission operations.
     func packageRegistrySubmissionResponse(
         for session: AteliaSession,
         request: AteliaPackageRegistrySubmissionRequest
@@ -560,7 +576,7 @@ public extension AteliaClient {
         throw AteliaClientError.packageRegistrySubmissionUnavailable
     }
 
-    /// Returns a compatibility error when the conformer does not provide registry-submission operations.
+    /// Returns an unavailable-capability error when the conformer does not provide registry-submission operations.
     func packageRegistrySubmissionState(
         for session: AteliaSession,
         request: AteliaPackageRegistrySubmissionRequest
@@ -576,6 +592,14 @@ public extension AteliaClient {
         _ = session
         _ = request
         throw AteliaClientError.toolOutputRenderUnavailable
+    }
+
+    /// Returns rendered tool output text from the render response envelope.
+    func renderToolOutput(
+        for session: AteliaSession,
+        request: AteliaToolOutputRenderRequest
+    ) async throws -> String {
+        try await renderToolOutputResponse(for: session, request: request).renderedOutput
     }
 }
 
@@ -616,7 +640,7 @@ public actor LocalAteliaClient: AteliaClient {
         return []
     }
 
-    /// Returns a compatibility error until a project status fixture is supplied.
+    /// Returns an unavailable-capability error until a project status fixture is supplied.
     public func projectStatus(
         for session: AteliaSession,
         repositoryId: String
@@ -649,7 +673,7 @@ public actor LocalAteliaClient: AteliaClient {
         )
     }
 
-    /// Returns the legacy local status placeholder for compatibility with older clients.
+    /// Returns the local status placeholder used when no transport is configured.
     public func status(for session: AteliaSession) async throws -> SecretaryStatus {
         _ = session
         return SecretaryStatus(phase: .unknown, message: "Protocol transport is not implemented yet.")
