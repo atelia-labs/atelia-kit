@@ -43,7 +43,7 @@ replaceable.
 | project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor`, `daemon_status`, `storage_status` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
 | package validation | `AteliaPackageValidationRequest`, `AteliaPackageValidationResponse` | `manifest`, `approve_local_unsigned`, `allow_local_process_runtime`, `approve_source_change`, `boundary` |
-| package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `package_id`, `record`, `status`, `previous_version` |
+| package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `id`, `record`, `extension_id`, `extension`, `extensions`, `previous_version` |
 | package authoring | `AteliaPackageAuthoringFlow`, `AteliaPackagePublicationPlan`, `AteliaPackageRegistrySubmissionState` | `package_id`, `source_class`, `source`, `steps`, `publication_plan`, `state` |
 | package rollback | `AteliaPackageRollbackResponse`, `AteliaPackageRollbackRecord` | `id`, `version`, `previous_version`, `status`, `rollback_snapshot` |
 | beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `supported_result_formats` |
