@@ -12,6 +12,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
     private var lifecycleResponses: [Result<AteliaPackageLifecycleResponse, any Error>]
     private var rollbackResponses: [Result<AteliaPackageRollbackResponse, any Error>]
     private var statusResponses: [Result<AteliaPackageStatusResponse, any Error>]
+    private var inspectResponses: [Result<AteliaPackageInspectResponse, any Error>]
     private var listResponses: [Result<AteliaPackageListResponse, any Error>]
     private var blocklistApplyResponses: [Result<AteliaPackageBlocklistApplyResponse, any Error>]
     private var blocklistListResponses: [Result<AteliaPackageBlocklistListResponse, any Error>]
@@ -22,6 +23,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
     private(set) var lastRemovePackageId: String?
     private(set) var lastRollbackPackageId: String?
     private(set) var lastStatusPackageId: String?
+    private(set) var lastInspectPackageId: String?
     private(set) var lastListRequest: AteliaPackageListRequest?
     private(set) var lastBlocklistApplyRequest: AteliaPackageBlocklistRequest?
 
@@ -29,6 +31,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         lifecycleResponses: [Result<AteliaPackageLifecycleResponse, any Error>] = [],
         rollbackResponses: [Result<AteliaPackageRollbackResponse, any Error>] = [],
         statusResponses: [Result<AteliaPackageStatusResponse, any Error>] = [],
+        inspectResponses: [Result<AteliaPackageInspectResponse, any Error>] = [],
         listResponses: [Result<AteliaPackageListResponse, any Error>] = [],
         blocklistApplyResponses: [Result<AteliaPackageBlocklistApplyResponse, any Error>] = [],
         blocklistListResponses: [Result<AteliaPackageBlocklistListResponse, any Error>] = []
@@ -36,6 +39,7 @@ private actor PackageLifecycleClientFixture: AteliaClient {
         self.lifecycleResponses = lifecycleResponses
         self.rollbackResponses = rollbackResponses
         self.statusResponses = statusResponses
+        self.inspectResponses = inspectResponses
         self.listResponses = listResponses
         self.blocklistApplyResponses = blocklistApplyResponses
         self.blocklistListResponses = blocklistListResponses
@@ -108,6 +112,18 @@ private actor PackageLifecycleClientFixture: AteliaClient {
             throw PackageLifecycleFixtureError.unconfiguredResponse
         }
         return try statusResponses.removeFirst().get()
+    }
+
+    func packageInspectResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageInspectResponse {
+        _ = session
+        lastInspectPackageId = packageId
+        guard !inspectResponses.isEmpty else {
+            throw PackageLifecycleFixtureError.unconfiguredResponse
+        }
+        return try inspectResponses.removeFirst().get()
     }
 
     func packageListResponse(
@@ -317,6 +333,19 @@ private func lifecycleResponse(packageId: String, version: String = "1.0.0") -> 
     )
 }
 
+private func inspectResponse(packageId: String, version: String = "1.0.0") -> AteliaPackageInspectResponse {
+    let record = lifecycleRecord(packageId: packageId, version: version)
+    return AteliaPackageInspectResponse(
+        metadata: metadata("package_inspect.v1"),
+        packageId: packageId,
+        package: AteliaPackageStatus(packageId: packageId, record: record),
+        manifest: packageManifest(id: packageId),
+        permissions: record.approvedPermissions,
+        rollbackAvailable: false,
+        source: record.source
+    )
+}
+
 private func listResponse(packageIds: [String]) -> AteliaPackageListResponse {
     AteliaPackageListResponse(
         metadata: metadata("extensions.list.v1"),
@@ -474,6 +503,7 @@ private func blocklistEntry(
         metadata: metadata("extensions.status.v1"),
         package: AteliaPackageStatus(packageId: "com.example.status")
     )
+    let inspectResponse = inspectResponse(packageId: "com.example.inspect", version: "2.0.0")
     let rollbackResponse = AteliaPackageRollbackResponse(
         metadata: metadata("extensions.rollback.v1"),
         record: lifecycleRecord(packageId: "com.example.rollback", status: .installedPreviousVersion)
@@ -494,21 +524,25 @@ private func blocklistEntry(
     let client = PackageLifecycleClientFixture(
         rollbackResponses: [.success(rollbackResponse)],
         statusResponses: [.success(statusResponse)],
+        inspectResponses: [.success(inspectResponse)],
         blocklistApplyResponses: [.success(blocklistApplyResponse)],
         blocklistListResponses: [.success(blocklistListResponse)]
     )
     let store = AteliaPackageLifecycleStore(client: client, session: AteliaSession())
 
     try await store.status(packageId: "com.example.status")
+    try await store.inspect(packageId: "com.example.inspect")
     try await store.rollback(packageId: "com.example.rollback")
     let blocklistRequest = AteliaPackageBlocklistRequest(entry: blocklistEntry)
     try await store.applyBlocklist(request: blocklistRequest)
     try await store.listBlocklist()
 
     #expect(await client.lastStatusPackageId == "com.example.status")
+    #expect(await client.lastInspectPackageId == "com.example.inspect")
     #expect(await client.lastRollbackPackageId == "com.example.rollback")
     #expect(await client.lastBlocklistApplyRequest == blocklistRequest)
     #expect(await store.statusResponse == statusResponse)
+    #expect(await store.inspectResponse == inspectResponse)
     #expect(await store.rollbackResponse == rollbackResponse)
     #expect(await store.blocklistApplyResponse == blocklistApplyResponse)
     #expect(await store.blocklistListResponse == blocklistListResponse)
@@ -517,12 +551,17 @@ private func blocklistEntry(
 
     let snapshot = await store.snapshot()
     #expect(snapshot.statusResponse == statusResponse)
+    #expect(snapshot.inspectResponse == inspectResponse)
     #expect(snapshot.rollbackResponse == rollbackResponse)
     #expect(snapshot.blocklistApplyResponse == blocklistApplyResponse)
     #expect(snapshot.blocklistListResponse == blocklistListResponse)
     #expect(snapshot.metadata == blocklistListResponse.metadata)
     #expect(snapshot.latestRecord == rollbackResponse.record)
-    #expect(snapshot.packages == [statusResponse.package, AteliaPackageStatus(packageId: "com.example.rollback", record: rollbackResponse.record)])
+    #expect(snapshot.packages == [
+        statusResponse.package,
+        inspectResponse.package,
+        AteliaPackageStatus(packageId: "com.example.rollback", record: rollbackResponse.record)
+    ])
     #expect(snapshot.blocklistEntries == [blocklistEntry])
 }
 

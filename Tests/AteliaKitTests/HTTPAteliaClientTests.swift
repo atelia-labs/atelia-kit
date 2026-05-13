@@ -459,6 +459,88 @@ import Testing
     #expect(status.record?.status == .installed)
 }
 
+/// Verifies package inspect checks the package inspect endpoint and decodes detail-only fields.
+@Test func httpClientInspectsPackage() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/packages/com.example.review.extension/inspect")
+        #expect(request.httpMethod == "POST")
+        #expect(request.httpBody == Data("{}".utf8))
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["package_inspect.v1"]
+            },
+            "package_id": "com.example.review.extension",
+            "extension": {
+              "extension_id": "com.example.review.extension",
+              "record": {
+                "id": "com.example.review.extension",
+                "version": "2.0.0",
+                "manifest_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source": {
+                  "source": "github",
+                  "repository": "atelia-labs/review-package",
+                  "ref": "refs/tags/v2.0.0",
+                  "manifest_path": "package.yml",
+                  "commit": "deadbeef"
+                },
+                "boundary": "third_party",
+                "status": "installed",
+                "previous_version": "1.0.0",
+                "approved_permissions": ["service.review.comments"]
+              },
+              "block": null
+            },
+            "manifest": {
+              "schema": "atelia.extension.v1",
+              "id": "com.example.review.extension",
+              "name": "Review Package",
+              "version": "2.0.0"
+            },
+            "block": null,
+            "permissions": ["service.review.comments"],
+            "services": {
+              "provides": [],
+              "consumes": []
+            },
+            "rollback_available": true,
+            "rollback_snapshot": {
+              "manifest_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+              "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "source": {
+              "source": "github",
+              "repository": "atelia-labs/review-package",
+              "ref": "refs/tags/v2.0.0",
+              "manifest_path": "package.yml",
+              "commit": "deadbeef"
+            },
+            "trust": null
+          }
+        }
+        """#
+    })
+
+    let inspect = try await client.packageInspect(for: AteliaSession(), packageId: "com.example.review.extension")
+
+    #expect(inspect.packageId == "com.example.review.extension")
+    #expect(inspect.package.record?.version == "2.0.0")
+    #expect(inspect.manifest["version"] == .string("2.0.0"))
+    #expect(inspect.permissions == ["service.review.comments"])
+    #expect(inspect.rollbackAvailable)
+    #expect(
+        inspect.rollbackSnapshot?.artifactDigest
+            == "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    )
+}
+
 /// Verifies package list calls the packages list endpoint with list filters.
 @Test func httpClientListsPackages() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in

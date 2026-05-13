@@ -358,6 +358,12 @@ private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
     await #expect(throws: AteliaClientError.packageStatusUnavailable) {
         _ = try await client.packageStatusResponse(for: session, packageId: "com.example.package")
     }
+    await #expect(throws: AteliaClientError.packageInspectUnavailable) {
+        _ = try await client.packageInspectResponse(for: session, packageId: "com.example.package")
+    }
+    await #expect(throws: AteliaClientError.packageInspectUnavailable) {
+        _ = try await client.packageInspect(for: session, packageId: "com.example.package")
+    }
     await #expect(throws: AteliaClientError.packageListUnavailable) {
         _ = try await client.packageListResponse(for: session, request: AteliaPackageListRequest())
     }

@@ -573,6 +573,136 @@ import Testing
     #expect(encodedList["packages"] == nil)
 }
 
+/// Verifies package inspect responses decode from Secretary's beta wire shape.
+@Test func packageInspectResponseDecodesCanonicalProtocolJSON() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.2.0",
+        "storage_version": "0.2.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "package_id": "com.example.review.extension",
+      "extension": {
+        "extension_id": "com.example.review.extension",
+        "record": {
+          "id": "com.example.review.extension",
+          "version": "2.0.0",
+          "manifest_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source": {
+            "source": "github",
+            "repository": "atelia-labs/review-package",
+            "ref": "refs/tags/v2.0.0",
+            "manifest_path": "package.yml",
+            "commit": "deadbeef"
+          },
+          "boundary": "third_party",
+          "status": "installed",
+          "previous_version": "1.0.0",
+          "approved_permissions": ["service.review.comments"],
+          "rollback_snapshot": {
+            "manifest_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        },
+        "block": null
+      },
+      "manifest": {
+        "schema": "atelia.extension.v1",
+        "id": "com.example.review.extension",
+        "name": "Review Package",
+        "version": "2.0.0"
+      },
+      "block": null,
+      "permissions": ["service.review.comments"],
+      "services": {
+        "provides": [
+          {
+            "service": "review.comments",
+            "method": "summarize",
+            "schema_version": "v1",
+            "required_permission": "service.review.comments"
+          }
+        ],
+        "consumes": [
+          {
+            "extension_id": "com.example.provider",
+            "service": "context.graph",
+            "method": "query",
+            "schema_version": "v1",
+            "required_permission": "service.context.graph"
+          }
+        ]
+      },
+      "rollback_available": true,
+      "rollback_snapshot": {
+        "manifest_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "source": {
+        "source": "github",
+        "repository": "atelia-labs/review-package",
+        "ref": "refs/tags/v2.0.0",
+        "manifest_path": "package.yml",
+        "commit": "deadbeef"
+      },
+      "trust": {
+        "visibility": "public_searchable",
+        "registry_submission": "accepted"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: data)
+
+    #expect(decoded.metadata.capabilities == ["package_inspect.v1"])
+    #expect(decoded.packageId == "com.example.review.extension")
+    #expect(decoded.package.packageId == "com.example.review.extension")
+    #expect(decoded.package.record?.version == "2.0.0")
+    #expect(decoded.manifest["version"] == .string("2.0.0"))
+    #expect(decoded.permissions == ["service.review.comments"])
+    #expect(decoded.services.provides.map(\.service) == ["review.comments"])
+    #expect(decoded.services.consumes.map(\.extensionId) == ["com.example.provider"])
+    #expect(decoded.rollbackAvailable)
+    #expect(
+        decoded.rollbackSnapshot?.manifestDigest
+            == "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    )
+    #expect(decoded.source.repository == "atelia-labs/review-package")
+    #expect(decoded.trust?.registrySubmission == .accepted)
+
+    let legacyData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.2.0",
+        "storage_version": "0.2.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.nested.identity",
+        "record": null,
+        "block": null
+      },
+      "manifest": {
+        "id": "com.example.nested.identity"
+      },
+      "source": {
+        "source": "github"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let legacyDecoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: legacyData)
+    #expect(legacyDecoded.packageId == "com.example.nested.identity")
+    #expect(legacyDecoded.inspect.packageId == "com.example.nested.identity")
+    #expect(legacyDecoded.permissions.isEmpty)
+    #expect(legacyDecoded.services.provides.isEmpty)
+    #expect(legacyDecoded.rollbackAvailable == false)
+}
+
 /// Verifies package blocklist models round-trip canonical keys and note field.
 @Test func packageBlocklistModelsRoundTrip() throws {
     let entry = AteliaPackageBlocklistEntry(

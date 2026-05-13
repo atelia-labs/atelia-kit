@@ -259,6 +259,19 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Returns the inspect envelope for a package identifier.
+    public func packageInspectResponse(
+        for session: AteliaSession,
+        packageId: String
+    ) async throws -> AteliaPackageInspectResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makePackageOperationPath(packageId: packageId, operation: "inspect"),
+            body: EmptyRequest()
+        )
+    }
+
     /// Returns the package list envelope, with an optional explicit blocked filter.
     public func packageListResponse(
         for session: AteliaSession,
