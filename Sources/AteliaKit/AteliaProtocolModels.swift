@@ -191,6 +191,14 @@ public struct AteliaPathScope: Sendable, Codable, Equatable {
         self.includePatterns = includePatterns
         self.excludePatterns = excludePatterns
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(Kind.self, forKey: .kind)
+        self.roots = try container.decode([String].self, forKey: .roots)
+        self.includePatterns = try container.decodeIfPresent([String].self, forKey: .includePatterns) ?? []
+        self.excludePatterns = try container.decodeIfPresent([String].self, forKey: .excludePatterns) ?? []
+    }
 }
 
 /// Platform-neutral project identity used by client coordination surfaces.

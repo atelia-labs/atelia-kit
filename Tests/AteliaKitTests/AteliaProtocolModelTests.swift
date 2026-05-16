@@ -29,6 +29,22 @@ import Testing
     #expect(decoded.allowedScope.excludePatterns == [".build/**"])
 }
 
+/// Verifies path scopes tolerate daemon JSON that omits empty pattern arrays.
+@Test func pathScopeDecodesOmittedPatternKeysAsEmptyArrays() throws {
+    let data = #"""
+    {
+      "kind": "explicit_paths",
+      "roots": ["README.md"]
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPathScope.self, from: data)
+
+    #expect(decoded == AteliaPathScope(kind: .explicitPaths, roots: ["README.md"]))
+    #expect(decoded.includePatterns.isEmpty)
+    #expect(decoded.excludePatterns.isEmpty)
+}
+
 /// Verifies project-status models retain unknown enum wire values.
 @Test func protocolModelsPreserveUnknownEnumValues() throws {
     let data = #"""
@@ -190,6 +206,38 @@ import Testing
     #expect(pathScope["exclude_patterns"] == nil)
     #expect(object["requested_capabilities"] as? [String] == ["filesystem.read"])
     #expect(object["idempotency_key"] as? String == "submit-job-123")
+
+    let decoded = try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data)
+
+    #expect(decoded == request)
+}
+
+/// Verifies submit-job requests decode daemon-accepted omitted pattern keys.
+@Test func submitJobRequestDecodesOmittedPathScopePatternKeys() throws {
+    let data = #"""
+    {
+      "repository_id": "repo_123",
+      "requester": {
+        "type": "user",
+        "id": "user_123",
+        "display_name": "Ada"
+      },
+      "kind": "documentation_review",
+      "goal": "Review protocol references",
+      "path_scope": {
+        "kind": "explicit_paths",
+        "roots": ["README.md"]
+      },
+      "requested_capabilities": ["filesystem.read"],
+      "idempotency_key": "submit-job-123"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data)
+
+    #expect(decoded.pathScope == AteliaPathScope(kind: .explicitPaths, roots: ["README.md"]))
+    #expect(decoded.pathScope?.includePatterns == [])
+    #expect(decoded.pathScope?.excludePatterns == [])
 }
 
 /// Verifies job submission responses decode the persisted job projection.
