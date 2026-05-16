@@ -8,6 +8,8 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case repertoireUnavailable
     /// The conformer does not provide repository listing.
     case repositoriesUnavailable
+    /// The conformer does not provide repository registration.
+    case registerRepositoryUnavailable
     /// The conformer does not provide the live tool repertoire projection.
     case toolRepertoireUnavailable
     /// The conformer does not provide project status snapshots.
@@ -46,6 +48,14 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case packageRegistrySubmissionUnavailable
     /// The conformer does not provide job submission operations.
     case submitJobUnavailable
+    /// The conformer does not provide job inspection operations.
+    case jobUnavailable
+    /// The conformer does not provide job cancellation operations.
+    case cancelJobUnavailable
+    /// The conformer does not provide polling-friendly event listing.
+    case listEventsUnavailable
+    /// The conformer does not provide bounded event replay.
+    case replayEventsUnavailable
     /// The conformer does not provide tool output render operations.
     case toolOutputRenderUnavailable
 }
@@ -61,6 +71,16 @@ public protocol AteliaClient: Sendable {
     func status(for session: AteliaSession) async throws -> SecretaryStatus
     /// Returns registered repositories visible to the session.
     func repositories(for session: AteliaSession) async throws -> [AteliaRepository]
+    /// Registers a repository and returns the resulting persisted repository projection.
+    func registerRepositoryResponse(
+        for session: AteliaSession,
+        request: AteliaRegisterRepositoryRequest
+    ) async throws -> AteliaRegisterRepositoryResponse
+    /// Registers a repository and returns the persisted repository projection.
+    func registerRepository(
+        for session: AteliaSession,
+        request: AteliaRegisterRepositoryRequest
+    ) async throws -> AteliaRepository
     /// Returns the beta tool repertoire projection visible to the session.
     func toolRepertoire(for session: AteliaSession) async throws -> [AteliaToolRepertoireEntry]
     /// Returns a compact project status snapshot for a registered repository.
@@ -250,6 +270,60 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         request: AteliaSubmitJobRequest
     ) async throws -> AteliaJob
+    /// Returns the job inspection envelope.
+    func jobResponse(
+        for session: AteliaSession,
+        jobId: String
+    ) async throws -> AteliaGetJobResponse
+    /// Returns one job projection by job identifier.
+    func job(
+        for session: AteliaSession,
+        jobId: String
+    ) async throws -> AteliaJob
+    /// Returns the job cancellation response envelope.
+    func cancelJobResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaCancelJobRequest
+    ) async throws -> AteliaCancelJobResponse
+    /// Returns the canceled job projection after a cancellation request.
+    func cancelJob(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaCancelJobRequest
+    ) async throws -> AteliaJob
+    /// Returns a polling-friendly event listing response.
+    func listEventsResponse(
+        for session: AteliaSession,
+        request: AteliaListEventsRequest
+    ) async throws -> AteliaListEventsResponse
+    /// Returns polling-friendly events from the event listing envelope.
+    func listEvents(
+        for session: AteliaSession,
+        request: AteliaListEventsRequest
+    ) async throws -> [AteliaEvent]
+    /// Returns a polling-friendly event listing response for one job.
+    func listJobEventsResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaListEventsRequest
+    ) async throws -> AteliaListEventsResponse
+    /// Returns polling-friendly events for one job.
+    func listJobEvents(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaListEventsRequest
+    ) async throws -> [AteliaEvent]
+    /// Returns the bounded event replay envelope.
+    func replayEventsResponse(
+        for session: AteliaSession,
+        request: AteliaReplayEventsRequest
+    ) async throws -> AteliaReplayEventsResponse
+    /// Returns replayed events from the bounded replay envelope.
+    func replayEvents(
+        for session: AteliaSession,
+        request: AteliaReplayEventsRequest
+    ) async throws -> [AteliaEvent]
     /// Returns the tool output render response for a canonical tool result.
     func renderToolOutputResponse(
         for session: AteliaSession,
@@ -286,6 +360,24 @@ public extension AteliaClient {
     func repositories(for session: AteliaSession) async throws -> [AteliaRepository] {
         _ = session
         throw AteliaClientError.repositoriesUnavailable
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide repository registration.
+    func registerRepositoryResponse(
+        for session: AteliaSession,
+        request: AteliaRegisterRepositoryRequest
+    ) async throws -> AteliaRegisterRepositoryResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.registerRepositoryUnavailable
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide repository registration.
+    func registerRepository(
+        for session: AteliaSession,
+        request: AteliaRegisterRepositoryRequest
+    ) async throws -> AteliaRepository {
+        try await registerRepositoryResponse(for: session, request: request).repository
     }
 
     /// Returns an unavailable-capability error when the conformer does not provide tool repertoire.
@@ -642,6 +734,101 @@ public extension AteliaClient {
         request: AteliaSubmitJobRequest
     ) async throws -> AteliaJob {
         try await submitJobResponse(for: session, request: request).job
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide job inspection.
+    func jobResponse(
+        for session: AteliaSession,
+        jobId: String
+    ) async throws -> AteliaGetJobResponse {
+        _ = session
+        _ = jobId
+        throw AteliaClientError.jobUnavailable
+    }
+
+    /// Returns the job projection from the job inspection envelope.
+    func job(
+        for session: AteliaSession,
+        jobId: String
+    ) async throws -> AteliaJob {
+        try await jobResponse(for: session, jobId: jobId).job
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide job cancellation.
+    func cancelJobResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaCancelJobRequest
+    ) async throws -> AteliaCancelJobResponse {
+        _ = session
+        _ = jobId
+        _ = request
+        throw AteliaClientError.cancelJobUnavailable
+    }
+
+    /// Returns the canceled job projection from the cancellation envelope.
+    func cancelJob(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaCancelJobRequest
+    ) async throws -> AteliaJob {
+        try await cancelJobResponse(for: session, jobId: jobId, request: request).job
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide event listing.
+    func listEventsResponse(
+        for session: AteliaSession,
+        request: AteliaListEventsRequest
+    ) async throws -> AteliaListEventsResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.listEventsUnavailable
+    }
+
+    /// Returns event listing results from the polling-friendly event envelope.
+    func listEvents(
+        for session: AteliaSession,
+        request: AteliaListEventsRequest
+    ) async throws -> [AteliaEvent] {
+        try await listEventsResponse(for: session, request: request).events
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide job event listing.
+    func listJobEventsResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaListEventsRequest
+    ) async throws -> AteliaListEventsResponse {
+        var request = request
+        request.jobIds = [jobId]
+        return try await listEventsResponse(for: session, request: request)
+    }
+
+    /// Returns event listing results for one job.
+    func listJobEvents(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaListEventsRequest
+    ) async throws -> [AteliaEvent] {
+        try await listJobEventsResponse(for: session, jobId: jobId, request: request).events
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide replay.
+    func replayEventsResponse(
+        for session: AteliaSession,
+        request: AteliaReplayEventsRequest
+    ) async throws -> AteliaReplayEventsResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.replayEventsUnavailable
+    }
+
+    /// Returns replayed events from the bounded replay envelope.
+    func replayEvents(
+        for session: AteliaSession,
+        request: AteliaReplayEventsRequest
+    ) async throws -> [AteliaEvent] {
+        try await replayEventsResponse(for: session, request: request).events
     }
 
     /// Returns the default tool output render error when the conformer does not provide render.

@@ -29,6 +29,31 @@ import Testing
     #expect(decoded.allowedScope.excludePatterns == [".build/**"])
 }
 
+/// Verifies repository registration requests encode canonical snake_case keys.
+@Test func registerRepositoryRequestEncodesCanonicalProtocolJSON() throws {
+    let request = AteliaRegisterRepositoryRequest(
+        displayName: "Atelia Kit",
+        rootPath: "/workspace/atelia-kit",
+        allowedScope: AteliaPathScope(
+            kind: .repository,
+            roots: ["/workspace/atelia-kit"]
+        ),
+        requester: .user(id: "user_123", displayName: "Ada")
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let requester = try #require(object["requester"] as? [String: Any])
+    let allowedScope = try #require(object["allowed_scope"] as? [String: Any])
+
+    #expect(object["display_name"] as? String == "Atelia Kit")
+    #expect(object["root_path"] as? String == "/workspace/atelia-kit")
+    #expect(requester["type"] as? String == "user")
+    #expect(requester["id"] as? String == "user_123")
+    #expect(allowedScope["kind"] as? String == "repository")
+    #expect(allowedScope["roots"] as? [String] == ["/workspace/atelia-kit"])
+}
+
 /// Verifies path scopes tolerate daemon JSON that omits empty pattern arrays.
 @Test func pathScopeDecodesOmittedPatternKeysAsEmptyArrays() throws {
     let data = #"""
@@ -173,6 +198,96 @@ import Testing
     let decoded = try JSONDecoder().decode(AteliaJob.self, from: data)
 
     #expect(decoded == job)
+}
+
+/// Verifies job inspection, cancellation, and event models round-trip through Codable.
+@Test func jobLifecycleModelsRoundTrip() throws {
+    let metadata = AteliaProtocolMetadata(
+        protocolVersion: "1.0.0",
+        daemonVersion: "0.1.0",
+        storageVersion: "0.1.0",
+        capabilities: ["jobs.v1", "events.v1"]
+    )
+    let job = AteliaJob(
+        jobId: "job_123",
+        repositoryId: "repo_123",
+        requester: .agent(id: "agent_secretary", displayName: "Secretary"),
+        kind: "documentation_review",
+        goal: "Review protocol references",
+        status: .running,
+        createdAtUnixMilliseconds: 1710000000000,
+        startedAtUnixMilliseconds: 1710000001000,
+        latestEventId: "evt_123",
+        cancellation: AteliaJobCancellation(state: "requested")
+    )
+    let event = AteliaEvent(
+        eventId: "evt_123",
+        sequence: 42,
+        occurredAtUnixMilliseconds: 1710000001000,
+        subject: AteliaEventSubject(type: .job, id: "job_123"),
+        kind: "job.started",
+        severity: .info,
+        message: "job started",
+        refs: AteliaEventRefs(
+            repositoryId: "repo_123",
+            jobId: "job_123"
+        )
+    )
+
+    let registerResponse = AteliaRegisterRepositoryResponse(
+        metadata: metadata,
+        repository: AteliaRepository(
+            repositoryId: "repo_123",
+            displayName: "Atelia Kit",
+            rootPath: "/workspace/atelia-kit",
+            allowedScope: AteliaPathScope(kind: .repository, roots: ["/workspace/atelia-kit"]),
+            trustState: .trusted,
+            createdAtUnixMilliseconds: 1710000000000,
+            updatedAtUnixMilliseconds: 1710000001000
+        ),
+        policy: AteliaPolicyDecision(
+            decisionId: "pol_123",
+            outcome: .allowed,
+            riskTier: .r1,
+            requestedCapability: "filesystem.read",
+            reasonCode: "trusted_workspace",
+            reason: "Trusted workspace registration"
+        )
+    )
+    let getJobResponse = AteliaGetJobResponse(metadata: metadata, job: job)
+    let cancelJobResponse = AteliaCancelJobResponse(
+        metadata: metadata,
+        job: job,
+        cancellation: AteliaJobCancellation(
+            state: "completed",
+            requestedBy: .user(id: "user_123", displayName: "Ada"),
+            reason: "stop",
+            requestedAtUnixMilliseconds: 1710000002000,
+            completedAtUnixMilliseconds: 1710000003000
+        )
+    )
+    let listEventsResponse = AteliaListEventsResponse(
+        metadata: metadata,
+        events: [event],
+        nextPageToken: "page_2"
+    )
+    let replayEventsResponse = AteliaReplayEventsResponse(
+        metadata: metadata,
+        events: [event],
+        cursor: AteliaEventCursor(sequence: 42, eventId: "evt_123")
+    )
+
+    let registerData = try JSONEncoder().encode(registerResponse)
+    let getJobData = try JSONEncoder().encode(getJobResponse)
+    let cancelJobData = try JSONEncoder().encode(cancelJobResponse)
+    let listEventsData = try JSONEncoder().encode(listEventsResponse)
+    let replayEventsData = try JSONEncoder().encode(replayEventsResponse)
+
+    #expect(try JSONDecoder().decode(AteliaRegisterRepositoryResponse.self, from: registerData) == registerResponse)
+    #expect(try JSONDecoder().decode(AteliaGetJobResponse.self, from: getJobData) == getJobResponse)
+    #expect(try JSONDecoder().decode(AteliaCancelJobResponse.self, from: cancelJobData) == cancelJobResponse)
+    #expect(try JSONDecoder().decode(AteliaListEventsResponse.self, from: listEventsData) == listEventsResponse)
+    #expect(try JSONDecoder().decode(AteliaReplayEventsResponse.self, from: replayEventsData) == replayEventsResponse)
 }
 
 /// Verifies job submission requests encode canonical snake_case keys.

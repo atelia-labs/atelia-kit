@@ -987,6 +987,284 @@ import Testing
     #expect(job == response.job)
 }
 
+/// Verifies repository registration hits the registration route and encodes the canonical request body.
+@Test func httpClientRegistersRepository() async throws {
+    let request = AteliaRegisterRepositoryRequest(
+        displayName: "Atelia Kit",
+        rootPath: "/workspace/atelia-kit",
+        allowedScope: AteliaPathScope(
+            kind: .repository,
+            roots: ["/workspace/atelia-kit"]
+        ),
+        requester: .user(id: "user_123", displayName: "Ada")
+    )
+
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/repositories:register")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["display_name"] as? String == "Atelia Kit")
+        #expect(body["root_path"] as? String == "/workspace/atelia-kit")
+        let requester = try #require(body["requester"] as? [String: Any])
+        #expect(requester["type"] as? String == "user")
+        #expect(requester["id"] as? String == "user_123")
+        let scope = try #require(body["allowed_scope"] as? [String: Any])
+        #expect(scope["kind"] as? String == "repository")
+        #expect(scope["roots"] as? [String] == ["/workspace/atelia-kit"])
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["repositories.register.v1"]
+            },
+            "repository": {
+              "repository_id": "repo_123",
+              "display_name": "Atelia Kit",
+              "root_path": "/workspace/atelia-kit",
+              "allowed_scope": {
+                "kind": "repository",
+                "roots": ["/workspace/atelia-kit"],
+                "include_patterns": [],
+                "exclude_patterns": []
+              },
+              "trust_state": "trusted",
+              "created_at_unix_ms": 1710000000000,
+              "updated_at_unix_ms": 1710000100000
+            },
+            "policy": {
+              "decision_id": "pol_123",
+              "outcome": "allowed",
+              "risk_tier": "r1",
+              "requested_capability": "filesystem.read",
+              "reason_code": "trusted_workspace",
+              "reason": "Workspace is trusted"
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.registerRepositoryResponse(for: AteliaSession(), request: request)
+    let repository = try await client.registerRepository(for: AteliaSession(), request: request)
+
+    #expect(response.repository.repositoryId == "repo_123")
+    #expect(response.policy.decisionId == "pol_123")
+    #expect(repository == response.repository)
+}
+
+/// Verifies the HTTP client can fetch, cancel, and track job events through the lifecycle routes.
+@Test func httpClientFetchesCancelsAndTracksJobEvents() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        switch request.url?.path {
+        case "/v1/jobs/job_123":
+            #expect(request.httpMethod == "GET")
+            return #"""
+            {
+              "status": "ok",
+              "data": {
+                "metadata": {
+                  "protocol_version": "1.0.0",
+                  "daemon_version": "0.1.0",
+                  "storage_version": "0.1.0",
+                  "capabilities": ["jobs.get.v1"]
+                },
+                "job": {
+                  "job_id": "job_123",
+                  "repository_id": "repo_123",
+                  "requester": {
+                    "type": "agent",
+                    "id": "agent_secretary",
+                    "display_name": "Secretary"
+                  },
+                  "kind": "documentation_review",
+                  "goal": "Review protocol references",
+                  "status": "running",
+                  "policy_summary": null,
+                  "created_at_unix_ms": 1710000000000,
+                  "started_at_unix_ms": 1710000001000,
+                  "completed_at_unix_ms": null,
+                  "latest_event_id": "evt_123",
+                  "cancellation": {
+                    "state": "not_requested",
+                    "requested_by": null,
+                    "reason": null,
+                    "requested_at_unix_ms": null,
+                    "completed_at_unix_ms": null
+                  }
+                }
+              }
+            }
+            """#
+        case "/v1/jobs/job_123/cancel":
+            #expect(request.httpMethod == "POST")
+            let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+            #expect(body["reason"] as? String == "stop")
+            let requester = try #require(body["requester"] as? [String: Any])
+            #expect(requester["type"] as? String == "user")
+            return #"""
+            {
+              "status": "ok",
+              "data": {
+                "metadata": {
+                  "protocol_version": "1.0.0",
+                  "daemon_version": "0.1.0",
+                  "storage_version": "0.1.0",
+                  "capabilities": ["jobs.cancel.v1"]
+                },
+                "job": {
+                  "job_id": "job_123",
+                  "repository_id": "repo_123",
+                  "requester": {
+                    "type": "agent",
+                    "id": "agent_secretary",
+                    "display_name": "Secretary"
+                  },
+                  "kind": "documentation_review",
+                  "goal": "Review protocol references",
+                  "status": "canceled",
+                  "policy_summary": null,
+                  "created_at_unix_ms": 1710000000000,
+                  "started_at_unix_ms": 1710000001000,
+                  "completed_at_unix_ms": 1710000003000,
+                  "latest_event_id": "evt_124",
+                  "cancellation": {
+                    "state": "completed",
+                    "requested_by": {
+                      "type": "user",
+                      "id": "user_123",
+                      "display_name": "Ada"
+                    },
+                    "reason": "stop",
+                    "requested_at_unix_ms": 1710000002000,
+                    "completed_at_unix_ms": 1710000003000
+                  }
+                },
+                "cancellation": {
+                  "state": "completed",
+                  "requested_by": {
+                    "type": "user",
+                    "id": "user_123",
+                    "display_name": "Ada"
+                  },
+                  "reason": "stop",
+                  "requested_at_unix_ms": 1710000002000,
+                  "completed_at_unix_ms": 1710000003000
+                }
+              }
+            }
+            """#
+        case "/v1/jobs/job_123/events":
+            #expect(request.httpMethod == "POST")
+            let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+            #expect(body["job_ids"] as? [String] == ["job_123"])
+            return #"""
+            {
+              "status": "ok",
+              "data": {
+                "metadata": {
+                  "protocol_version": "1.0.0",
+                  "daemon_version": "0.1.0",
+                  "storage_version": "0.1.0",
+                  "capabilities": ["events.list.v1"]
+                },
+                "events": [
+                  {
+                    "event_id": "evt_123",
+                    "sequence": 42,
+                    "occurred_at_unix_ms": 1710000001000,
+                    "subject": {
+                      "type": "job",
+                      "id": "job_123"
+                    },
+                    "kind": "job.started",
+                    "severity": "info",
+                    "message": "job started",
+                    "refs": {
+                      "repository_id": "repo_123",
+                      "job_id": "job_123"
+                    }
+                  }
+                ],
+                "next_page_token": null
+              }
+            }
+            """#
+        case "/v1/events/replay":
+            #expect(request.httpMethod == "POST")
+            let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+            #expect(body["repository_id"] as? String == "repo_123")
+            return #"""
+            {
+              "status": "ok",
+              "data": {
+                "metadata": {
+                  "protocol_version": "1.0.0",
+                  "daemon_version": "0.1.0",
+                  "storage_version": "0.1.0",
+                  "capabilities": ["events.replay.v1"]
+                },
+                "events": [
+                  {
+                    "event_id": "evt_123",
+                    "sequence": 42,
+                    "occurred_at_unix_ms": 1710000001000,
+                    "subject": {
+                      "type": "job",
+                      "id": "job_123"
+                    },
+                    "kind": "job.started",
+                    "severity": "info",
+                    "message": "job started",
+                    "refs": {
+                      "repository_id": "repo_123",
+                      "job_id": "job_123"
+                    }
+                  }
+                ],
+                "cursor": {
+                  "sequence": 42,
+                  "event_id": "evt_123"
+                }
+              }
+            }
+            """#
+        default:
+            preconditionFailure("unexpected path: \(request.url?.path ?? "nil")")
+        }
+    })
+
+    let job = try await client.job(for: AteliaSession(), jobId: "job_123")
+    let canceledJob = try await client.cancelJob(
+        for: AteliaSession(),
+        jobId: "job_123",
+        request: AteliaCancelJobRequest(
+            requester: .user(id: "user_123", displayName: "Ada"),
+            reason: "stop"
+        )
+    )
+    let jobEvents = try await client.listJobEvents(
+        for: AteliaSession(),
+        jobId: "job_123",
+        request: AteliaListEventsRequest(repositoryId: "repo_123")
+    )
+    let replayEvents = try await client.replayEvents(
+        for: AteliaSession(),
+        request: AteliaReplayEventsRequest(repositoryId: "repo_123")
+    )
+
+    #expect(job.jobId == "job_123")
+    #expect(canceledJob.status == .canceled)
+    #expect(jobEvents.map(\.eventId) == ["evt_123"])
+    #expect(replayEvents.map(\.eventId) == ["evt_123"])
+}
+
 /// Verifies package removals use the identifier-scoped remove endpoint.
 @Test func httpClientRemovesPackage() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
