@@ -224,6 +224,11 @@ public actor AteliaProjectLifecycleStore {
 
     private func applyRepository(_ repository: AteliaRepository, generation: Int) {
         guard shouldApply(generation, after: repositoryGeneration) else { return }
+        if let latestRepository,
+           latestRepository.repositoryId != repository.repositoryId,
+           generation <= latestJobScopedGeneration {
+            return
+        }
         if latestRepository?.repositoryId != repository.repositoryId {
             resetJobScopedState(generation: generation)
         }
@@ -294,6 +299,10 @@ public actor AteliaProjectLifecycleStore {
             cursorGeneration = generation
             latestCursorValue = response.cursor
         }
+    }
+
+    private var latestJobScopedGeneration: Int {
+        max(jobGeneration, max(cancellationGeneration, max(eventsGeneration, max(replayGeneration, cursorGeneration))))
     }
 
     private func repository(matching rootPath: String) async throws -> AteliaRepository? {

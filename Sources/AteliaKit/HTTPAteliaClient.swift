@@ -185,12 +185,9 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         for session: AteliaSession,
         request: AteliaRegisterRepositoryRequest
     ) async throws -> AteliaRegisterRepositoryResponse {
-        try await send(
-            session: session,
-            method: "POST",
-            path: "/v1/repositories:register",
-            body: request
-        )
+        _ = session
+        _ = request
+        throw AteliaClientError.registerRepositoryUnavailable
     }
 
     /// Lists beta tool repertoire entries visible to the session.
@@ -405,19 +402,43 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    private struct ListJobEventsRequestPayload: Sendable, Codable {
+        private enum CodingKeys: String, CodingKey {
+            case repositoryId = "repository_id"
+            case cursor
+            case minSeverity = "min_severity"
+            case pageSize = "page_size"
+            case pageToken = "page_token"
+        }
+
+        var repositoryId: String?
+        var cursor: AteliaEventRouteCursor?
+        var minSeverity: AteliaEventSeverity?
+        var pageSize: Int?
+        var pageToken: String?
+
+        init(
+            request: AteliaListEventsRequest
+        ) {
+            repositoryId = request.repositoryId
+            cursor = request.cursor
+            minSeverity = request.minSeverity
+            pageSize = request.pageSize
+            pageToken = request.pageToken
+        }
+    }
+
     /// Returns the polling-friendly event list envelope for one job.
     public func listJobEventsResponse(
         for session: AteliaSession,
         jobId: String,
         request: AteliaListEventsRequest
     ) async throws -> AteliaListEventsResponse {
-        var request = request
-        request.jobIds = [jobId]
         return try await send(
             session: session,
             method: "POST",
             path: try makeJobOperationPath(jobId: jobId, operation: "events"),
-            body: request
+            body: ListJobEventsRequestPayload(request: request)
         )
     }
 

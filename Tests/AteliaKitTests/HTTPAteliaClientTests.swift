@@ -1051,8 +1051,8 @@ import Testing
     #expect(response.policy.decisionId == "pol_123")
 }
 
-/// Verifies repository registration hits the registration route and encodes the canonical request body.
-@Test func httpClientRegistersRepository() async throws {
+/// Verifies repository registration is marked unavailable on HTTP transport.
+@Test func httpClientDoesNotAdvertiseRepositoryRegistrationRoute() async throws {
     let request = AteliaRegisterRepositoryRequest(
         displayName: "Atelia Kit",
         rootPath: "/workspace/atelia-kit",
@@ -1063,64 +1063,22 @@ import Testing
         requester: .user(id: "user_123", displayName: "Ada")
     )
 
-    let client = HTTPAteliaClient(transport: .fixture { request in
-        #expect(request.url?.path == "/v1/repositories:register")
-        #expect(request.httpMethod == "POST")
-        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-
-        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
-        #expect(body["display_name"] as? String == "Atelia Kit")
-        #expect(body["root_path"] as? String == "/workspace/atelia-kit")
-        let requester = try #require(body["requester"] as? [String: Any])
-        #expect(requester["type"] as? String == "user")
-        #expect(requester["id"] as? String == "user_123")
-        let scope = try #require(body["allowed_scope"] as? [String: Any])
-        #expect(scope["kind"] as? String == "repository")
-        #expect(scope["roots"] as? [String] == ["/workspace/atelia-kit"])
-
+    let client = HTTPAteliaClient(transport: .fixture { _ in
+        Issue.record("registration should not issue an HTTP request")
         return #"""
         {
           "status": "ok",
-          "data": {
-            "metadata": {
-              "protocol_version": "1.0.0",
-              "daemon_version": "0.1.0",
-              "storage_version": "0.1.0",
-              "capabilities": ["repositories.register.v1"]
-            },
-            "repository": {
-              "repository_id": "repo_123",
-              "display_name": "Atelia Kit",
-              "root_path": "/workspace/atelia-kit",
-              "allowed_scope": {
-                "kind": "repository",
-                "roots": ["/workspace/atelia-kit"],
-                "include_patterns": [],
-                "exclude_patterns": []
-              },
-              "trust_state": "trusted",
-              "created_at_unix_ms": 1710000000000,
-              "updated_at_unix_ms": 1710000100000
-            },
-            "policy": {
-              "decision_id": "pol_123",
-              "outcome": "allowed",
-              "risk_tier": "r1",
-              "requested_capability": "filesystem.read",
-              "reason_code": "trusted_workspace",
-              "reason": "Workspace is trusted"
-            }
-          }
+          "data": {}
         }
         """#
     })
 
-    let response = try await client.registerRepositoryResponse(for: AteliaSession(), request: request)
-    let repository = try await client.registerRepository(for: AteliaSession(), request: request)
-
-    #expect(response.repository.repositoryId == "repo_123")
-    #expect(response.policy.decisionId == "pol_123")
-    #expect(repository == response.repository)
+    await #expect(throws: AteliaClientError.registerRepositoryUnavailable) {
+        _ = try await client.registerRepositoryResponse(for: AteliaSession(), request: request)
+    }
+    await #expect(throws: AteliaClientError.registerRepositoryUnavailable) {
+        _ = try await client.registerRepository(for: AteliaSession(), request: request)
+    }
 }
 
 /// Verifies the HTTP client can fetch, cancel, and track job events through the lifecycle routes.
@@ -1227,7 +1185,8 @@ import Testing
         case "/v1/jobs/job_123/events":
             #expect(request.httpMethod == "POST")
             let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
-            #expect(body["job_ids"] as? [String] == ["job_123"])
+            #expect(body["job_ids"] == nil)
+            #expect(body["subject_ids"] == nil)
             let cursor = try #require(body["cursor"] as? [String: Any])
             #expect(cursor["kind"] as? String == "after_sequence")
             #expect(cursor["sequence_number"] as? Int == 42)

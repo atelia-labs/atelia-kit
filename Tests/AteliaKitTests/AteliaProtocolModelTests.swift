@@ -296,6 +296,39 @@ import Testing
     #expect(replayCursor["sequence_number"] as? Int == 42)
 }
 
+/// Verifies repository registration responses decode an omitted policy decision as nil.
+@Test func registerRepositoryResponsePolicyCanBeNull() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["repositories.register.v1"]
+      },
+      "repository": {
+        "repository_id": "repo_123",
+        "display_name": "Atelia Kit",
+        "root_path": "/workspace/atelia-kit",
+        "allowed_scope": {
+          "kind": "repository",
+          "roots": ["/workspace/atelia-kit"],
+          "include_patterns": [],
+          "exclude_patterns": []
+        },
+        "trust_state": "trusted",
+        "created_at_unix_ms": 1710000000000,
+        "updated_at_unix_ms": 1710000001000
+      },
+      "policy": null
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaRegisterRepositoryResponse.self, from: data)
+
+    #expect(decoded.policy == nil)
+}
+
 /// Verifies event-route cursor wire shapes are tagged union values.
 @Test func eventRouteCursorModelsUseTaggedUnionJSON() throws {
     let listRequest = AteliaListEventsRequest(

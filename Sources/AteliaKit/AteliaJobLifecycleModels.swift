@@ -37,9 +37,13 @@ public struct AteliaRegisterRepositoryResponse: Sendable, Codable, Equatable {
 
     public var metadata: AteliaProtocolMetadata
     public var repository: AteliaRepository
-    public var policy: AteliaPolicyDecision
+    public var policy: AteliaPolicyDecision?
 
-    public init(metadata: AteliaProtocolMetadata, repository: AteliaRepository, policy: AteliaPolicyDecision) {
+    public init(
+        metadata: AteliaProtocolMetadata,
+        repository: AteliaRepository,
+        policy: AteliaPolicyDecision?
+    ) {
         self.metadata = metadata
         self.repository = repository
         self.policy = policy
