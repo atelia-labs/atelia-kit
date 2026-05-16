@@ -143,6 +143,54 @@ private actor ProjectLifecycleClientFixture: AteliaClient {
     }
 }
 
+private actor DelayedReplayLifecycleClientFixture: AteliaClient {
+    private let listJobEventsResponse: AteliaListEventsResponse
+    private var replayContinuation: CheckedContinuation<AteliaReplayEventsResponse, any Error>?
+    private var replayStarted = false
+    private var replayStartedWaiters: [CheckedContinuation<Void, Never>] = []
+
+    init(listJobEventsResponse: AteliaListEventsResponse) {
+        self.listJobEventsResponse = listJobEventsResponse
+    }
+
+    func listJobEventsResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaListEventsRequest
+    ) async throws -> AteliaListEventsResponse {
+        _ = session
+        _ = jobId
+        _ = request
+        return listJobEventsResponse
+    }
+
+    func replayEventsResponse(
+        for session: AteliaSession,
+        request: AteliaReplayEventsRequest
+    ) async throws -> AteliaReplayEventsResponse {
+        _ = session
+        _ = request
+        replayStarted = true
+        replayStartedWaiters.forEach { $0.resume() }
+        replayStartedWaiters.removeAll()
+        return try await withCheckedThrowingContinuation { continuation in
+            replayContinuation = continuation
+        }
+    }
+
+    func waitForReplayRequest() async {
+        if replayStarted { return }
+        await withCheckedContinuation { continuation in
+            replayStartedWaiters.append(continuation)
+        }
+    }
+
+    func completeReplay(with response: AteliaReplayEventsResponse) {
+        replayContinuation?.resume(returning: response)
+        replayContinuation = nil
+    }
+}
+
 private func lifecycleRepository() -> AteliaRepository {
     AteliaRepository(
         repositoryId: "repo_123",
@@ -186,10 +234,10 @@ private func lifecycleJob(status: AteliaJob.Status = .running) -> AteliaJob {
     )
 }
 
-private func lifecycleEvent() -> AteliaEvent {
+private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) -> AteliaEvent {
     AteliaEvent(
-        eventId: "evt_123",
-        sequence: 42,
+        eventId: eventId,
+        sequence: sequence,
         occurredAtUnixMilliseconds: 1710000001000,
         subject: AteliaEventSubject(type: .job, id: "job_123"),
         kind: "job.started",
@@ -321,4 +369,44 @@ private func lifecycleEvent() -> AteliaEvent {
     #expect((await store.replayResponse)?.cursor == AteliaEventCursor(sequence: 42, eventId: "evt_123"))
     #expect(await store.metadata == lifecycleMetadata(capability: "events.replay.v1"))
     #expect(await store.latestCursor == AteliaEventCursor(sequence: 42, eventId: "evt_123"))
+}
+
+/// Verifies an older replay response cannot overwrite newer listed events.
+@Test func lifecycleStoreDoesNotOverwriteNewerListEventsWithStaleReplay() async throws {
+    let replayEvent = lifecycleEvent(eventId: "evt_replay_old", sequence: 41)
+    let listedEvent = lifecycleEvent(eventId: "evt_list_new", sequence: 42)
+    let client = DelayedReplayLifecycleClientFixture(
+        listJobEventsResponse: AteliaListEventsResponse(
+            metadata: lifecycleMetadata(capability: "events.list.v1"),
+            events: [listedEvent],
+            nextPageToken: nil
+        )
+    )
+    let store = AteliaProjectLifecycleStore(client: client, session: AteliaSession())
+
+    let replayTask = Task {
+        try await store.replayEvents(
+            request: AteliaReplayEventsRequest(repositoryId: "repo_123")
+        )
+    }
+    await client.waitForReplayRequest()
+
+    let listedEvents = try await store.listJobEvents(
+        jobId: "job_123",
+        request: AteliaListEventsRequest(repositoryId: "repo_123")
+    )
+    await client.completeReplay(
+        with: AteliaReplayEventsResponse(
+            metadata: lifecycleMetadata(capability: "events.replay.v1"),
+            events: [replayEvent],
+            cursor: AteliaEventCursor(sequence: replayEvent.sequence, eventId: replayEvent.eventId)
+        )
+    )
+    let replayedEvents = try await replayTask.value
+
+    #expect(listedEvents == [listedEvent])
+    #expect(replayedEvents == [replayEvent])
+    #expect(await store.events == [listedEvent])
+    #expect((await store.replayResponse)?.events == [replayEvent])
+    #expect(await store.latestCursor == AteliaEventCursor(sequence: replayEvent.sequence, eventId: replayEvent.eventId))
 }

@@ -260,7 +260,10 @@ public actor AteliaProjectLifecycleStore {
         guard shouldApply(generation, after: replayGeneration) else { return }
         replayGeneration = generation
         latestReplayResponse = response
-        latestEvents = response.events
+        if shouldApply(generation, after: eventsGeneration) {
+            eventsGeneration = generation
+            latestEvents = response.events
+        }
         if let cursor = response.cursor, shouldApply(generation, after: cursorGeneration) {
             cursorGeneration = generation
             latestCursorValue = cursor

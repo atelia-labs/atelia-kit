@@ -987,6 +987,70 @@ import Testing
     #expect(job == response.job)
 }
 
+/// Verifies job submission HTTP payloads omit nil goals and responses tolerate omitted job goals.
+@Test func httpClientSubmitsJobWithOmittedGoal() async throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .agent(id: "agent_secretary", displayName: "Secretary"),
+        kind: "documentation_review"
+    )
+
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/jobs/submit")
+        #expect(request.httpMethod == "POST")
+
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["repository_id"] as? String == "repo_123")
+        #expect(body["kind"] as? String == "documentation_review")
+        #expect(body["goal"] == nil)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["jobs.submit.v1"]
+            },
+            "job": {
+              "job_id": "job_123",
+              "repository_id": "repo_123",
+              "requester": {
+                "type": "agent",
+                "id": "agent_secretary",
+                "display_name": "Secretary"
+              },
+              "kind": "documentation_review",
+              "status": "queued",
+              "policy_summary": null,
+              "created_at_unix_ms": 1710000000000,
+              "started_at_unix_ms": null,
+              "completed_at_unix_ms": null,
+              "latest_event_id": null,
+              "cancellation": null
+            },
+            "policy": {
+              "decision_id": "pol_123",
+              "outcome": "audited",
+              "risk_tier": "r1",
+              "requested_capability": "filesystem.read",
+              "reason_code": "bounded_read",
+              "reason": "Read-only request is permitted"
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.submitJobResponse(for: AteliaSession(), request: request)
+
+    #expect(response.job.jobId == "job_123")
+    #expect(response.job.goal == nil)
+    #expect(response.policy.decisionId == "pol_123")
+}
+
 /// Verifies repository registration hits the registration route and encodes the canonical request body.
 @Test func httpClientRegistersRepository() async throws {
     let request = AteliaRegisterRepositoryRequest(

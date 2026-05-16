@@ -327,6 +327,23 @@ import Testing
     #expect(decoded == request)
 }
 
+/// Verifies job submission requests may omit goal when callers do not have one.
+@Test func submitJobRequestOmitsNilGoal() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "documentation_review"
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+    #expect(object["repository_id"] as? String == "repo_123")
+    #expect(object["kind"] as? String == "documentation_review")
+    #expect(object["goal"] == nil)
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
+}
+
 /// Verifies submit-job requests decode daemon-accepted omitted pattern keys.
 @Test func submitJobRequestDecodesOmittedPathScopePatternKeys() throws {
     let data = #"""
@@ -353,6 +370,35 @@ import Testing
     #expect(decoded.pathScope == AteliaPathScope(kind: .explicitPaths, roots: ["README.md"]))
     #expect(decoded.pathScope?.includePatterns == [])
     #expect(decoded.pathScope?.excludePatterns == [])
+}
+
+/// Verifies Secretary job projections tolerate omitted goal fields.
+@Test func jobDecodesOmittedGoal() throws {
+    let data = #"""
+    {
+      "job_id": "job_123",
+      "repository_id": "repo_123",
+      "requester": {
+        "type": "agent",
+        "id": "agent_secretary",
+        "display_name": "Secretary"
+      },
+      "kind": "documentation_review",
+      "status": "queued",
+      "policy_summary": null,
+      "created_at_unix_ms": 1710000000000,
+      "started_at_unix_ms": null,
+      "completed_at_unix_ms": null,
+      "latest_event_id": null,
+      "cancellation": null
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaJob.self, from: data)
+
+    #expect(decoded.jobId == "job_123")
+    #expect(decoded.goal == nil)
+    #expect(decoded.status == .queued)
 }
 
 /// Verifies job submission responses decode the persisted job projection.

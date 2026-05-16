@@ -33,9 +33,12 @@ replaceable.
 | allowed path scope | `AteliaPathScope` | `kind`, `roots`, `include_patterns`, `exclude_patterns` |
 | project/thread client identity | `AteliaProjectIdentity`, `AteliaThreadIdentity` | `repository_id`, `project_id`, `id`, `title`, `display_name` |
 | actor | `AteliaActor` | `type`, `id`, `display_name` |
-| job | `AteliaJob` | `job_id`, `repository_id`, `requester`, `kind`, `status` |
-| cancellation | `AteliaJobCancellation` | `state`, `requested_by`, `reason` |
-| submit job | `AteliaSubmitJobRequest`, `AteliaSubmitJobResponse` | `repository_id`, `requester`, `kind`, `goal`, `path_scope`, `requested_capabilities`, `idempotency_key`, `job`, `policy` |
+| repository registration | `AteliaRegisterRepositoryRequest`, `AteliaRegisterRepositoryResponse` | `display_name`, `root_path`, `allowed_scope`, `requester`, `repository`, `policy` |
+| job | `AteliaJob` | `job_id`, `repository_id`, `requester`, `kind`, optional `goal`, `status`, `latest_event_id` |
+| cancellation | `AteliaCancelJobRequest`, `AteliaCancelJobResponse`, `AteliaJobCancellation` | `requester`, `reason`, `job`, `cancellation`, `state`, `requested_by` |
+| submit job | `AteliaSubmitJobRequest`, `AteliaSubmitJobResponse` | `repository_id`, `requester`, `kind`, optional `goal`, `path_scope`, `requested_capabilities`, `idempotency_key`, `job`, `policy` |
+| event listing / replay | `AteliaListEventsRequest`, `AteliaListEventsResponse`, `AteliaReplayEventsRequest`, `AteliaReplayEventsResponse`, `AteliaEvent` | `repository_id`, `job_ids`, `after_sequence`, `limit`, `events`, `next_page_token`, `cursor`, `event_id`, `sequence` |
+| project lifecycle cache | `AteliaProjectLifecycleStore`, `AteliaProjectLifecycleStoreSnapshot` | `repository`, `job`, `cancellation`, `events`, `replayResponse`, `metadata`, `latestCursor` |
 | policy summary / decision | `AteliaPolicySummary`, `AteliaPolicyDecision` | `decision_id`, `outcome`, `risk_tier`, `approval_request_ref`, `audit_ref` |
 | approval state | `AteliaApprovalState` | `id`, `status`, `policy_decision_id`, `requested_by`, `reason` |
 | audit reference | `AteliaAuditReference` | `id`, `repository_id`, `job_id`, `policy_decision_id`, `message` |
@@ -64,9 +67,15 @@ and iOS operating surfaces:
 
 - `GET /v1/health`
 - `POST /v1/repositories:list`
+- `POST /v1/repositories:register`
 - `POST /v1/repertoire:list`
 - `POST /v1/project-status:get`
 - `POST /v1/jobs/submit`
+- `GET /v1/jobs/{job_id}`
+- `POST /v1/jobs/{job_id}/cancel`
+- `POST /v1/events/list`
+- `POST /v1/jobs/{job_id}/events`
+- `POST /v1/events/replay`
 - `POST /v1/package-trust-index:list`
 - `POST /v1/packages/validate`
 - `POST /v1/packages/install`
