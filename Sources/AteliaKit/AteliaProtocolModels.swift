@@ -377,7 +377,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
     public var repositoryId: String
     public var requester: AteliaActor
     public var kind: String
-    public var goal: String?
+    public var goal: String
     public var status: Status
     public var policySummary: AteliaPolicySummary?
     public var createdAtUnixMilliseconds: Int64
@@ -393,7 +393,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         repositoryId: String,
         requester: AteliaActor,
         kind: String,
-        goal: String? = nil,
+        goal: String,
         status: Status,
         policySummary: AteliaPolicySummary? = nil,
         createdAtUnixMilliseconds: Int64,
@@ -436,8 +436,8 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
     public var requester: AteliaActor
     /// Job kind requested by the caller.
     public var kind: String
-    /// Optional bounded-job intent or summary.
-    public var goal: String?
+    /// Bounded-job intent or summary.
+    public var goal: String
     /// Optional filesystem scope attached to the job request.
     public var pathScope: AteliaPathScope?
     /// Optional capability hints forwarded to Secretary for policy normalization.
@@ -450,7 +450,7 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         repositoryId: String,
         requester: AteliaActor,
         kind: String,
-        goal: String? = nil,
+        goal: String,
         pathScope: AteliaPathScope? = nil,
         requestedCapabilities: [String]? = nil,
         idempotencyKey: String? = nil

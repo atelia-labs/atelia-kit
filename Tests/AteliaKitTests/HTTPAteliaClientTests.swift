@@ -949,11 +949,25 @@ import Testing
                 "risk_tier": "R1",
                 "reason_code": "bounded_read"
               },
+              "policy": {
+                "decision_id": "pol_123",
+                "outcome": "audited",
+                "risk_tier": "R1",
+                "requested_capability": "filesystem.read",
+                "reason_code": "bounded_read",
+                "reason": "Read-only request is permitted"
+              },
               "created_at_unix_ms": 1710000000000,
               "started_at_unix_ms": null,
               "completed_at_unix_ms": null,
               "latest_event_id": null,
-              "cancellation": null
+              "cancellation": {
+                "state": "none",
+                "requested_by": null,
+                "reason": null,
+                "requested_at_unix_ms": null,
+                "completed_at_unix_ms": null
+              }
             }
           }
         }

@@ -159,12 +159,13 @@ import Testing
     #expect(decoded == job)
 }
 
-/// Verifies job submission requests encode canonical snake_case keys and omit nil fields.
+/// Verifies job submission requests encode canonical snake_case keys.
 @Test func submitJobRequestEncodesCanonicalProtocolJSON() throws {
     let request = AteliaSubmitJobRequest(
         repositoryId: "repo_123",
         requester: .user(id: "user_123", displayName: "Ada"),
         kind: "documentation_review",
+        goal: "Review protocol references",
         pathScope: AteliaPathScope(
             kind: .repository,
             roots: ["/workspace/atelia-kit"],
@@ -182,7 +183,7 @@ import Testing
 
     #expect(object["repository_id"] as? String == "repo_123")
     #expect(object["kind"] as? String == "documentation_review")
-    #expect(object["goal"] == nil)
+    #expect(object["goal"] as? String == "Review protocol references")
     #expect(requester["type"] as? String == "user")
     #expect(requester["id"] as? String == "user_123")
     #expect(pathScope["kind"] as? String == "repository")
@@ -210,7 +211,7 @@ import Testing
           "display_name": "Secretary"
         },
         "kind": "documentation_review",
-        "goal": null,
+        "goal": "Review protocol references",
         "status": "queued",
         "policy_summary": {
           "decision_id": "pol_123",
@@ -218,11 +219,25 @@ import Testing
           "risk_tier": "R1",
           "reason_code": "bounded_read"
         },
+        "policy": {
+          "decision_id": "pol_123",
+          "outcome": "audited",
+          "risk_tier": "R1",
+          "requested_capability": "filesystem.read",
+          "reason_code": "bounded_read",
+          "reason": "Read-only request is permitted"
+        },
         "created_at_unix_ms": 1710000000000,
         "started_at_unix_ms": null,
         "completed_at_unix_ms": null,
         "latest_event_id": null,
-        "cancellation": null
+        "cancellation": {
+          "state": "none",
+          "requested_by": null,
+          "reason": null,
+          "requested_at_unix_ms": null,
+          "completed_at_unix_ms": null
+        }
       }
     }
     """#.data(using: .utf8)!
@@ -232,7 +247,7 @@ import Testing
     #expect(decoded.metadata.capabilities == ["jobs.submit.v1"])
     #expect(decoded.job.jobId == "job_123")
     #expect(decoded.job.status == .queued)
-    #expect(decoded.job.goal == nil)
+    #expect(decoded.job.goal == "Review protocol references")
     #expect(decoded.job.policySummary?.decisionId == "pol_123")
 }
 
