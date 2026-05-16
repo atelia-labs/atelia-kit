@@ -919,6 +919,8 @@ import Testing
         let pathScope = try #require(body["path_scope"] as? [String: Any])
         #expect(pathScope["kind"] as? String == "explicit_paths")
         #expect(pathScope["roots"] as? [String] == ["README.md"])
+        #expect(pathScope["include_patterns"] == nil)
+        #expect(pathScope["exclude_patterns"] == nil)
 
         return #"""
         {

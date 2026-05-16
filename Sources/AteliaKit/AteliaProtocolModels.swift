@@ -430,6 +430,13 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         case idempotencyKey = "idempotency_key"
     }
 
+    private enum PathScopeCodingKeys: String, CodingKey {
+        case kind
+        case roots
+        case includePatterns = "include_patterns"
+        case excludePatterns = "exclude_patterns"
+    }
+
     /// Repository the job should run against.
     public var repositoryId: String
     /// Actor requesting the job submission.
@@ -462,6 +469,31 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         self.pathScope = pathScope
         self.requestedCapabilities = requestedCapabilities
         self.idempotencyKey = idempotencyKey
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(repositoryId, forKey: .repositoryId)
+        try container.encode(requester, forKey: .requester)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(goal, forKey: .goal)
+        try container.encodeIfPresent(requestedCapabilities, forKey: .requestedCapabilities)
+        try container.encodeIfPresent(idempotencyKey, forKey: .idempotencyKey)
+
+        guard let pathScope else { return }
+
+        var pathScopeContainer = container.nestedContainer(
+            keyedBy: PathScopeCodingKeys.self,
+            forKey: .pathScope
+        )
+        try pathScopeContainer.encode(pathScope.kind, forKey: .kind)
+        try pathScopeContainer.encode(pathScope.roots, forKey: .roots)
+        if !pathScope.includePatterns.isEmpty {
+            try pathScopeContainer.encode(pathScope.includePatterns, forKey: .includePatterns)
+        }
+        if !pathScope.excludePatterns.isEmpty {
+            try pathScopeContainer.encode(pathScope.excludePatterns, forKey: .excludePatterns)
+        }
     }
 }
 

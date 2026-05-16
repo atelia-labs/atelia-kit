@@ -186,6 +186,8 @@ import Testing
     #expect(requester["id"] as? String == "user_123")
     #expect(pathScope["kind"] as? String == "explicit_paths")
     #expect(pathScope["roots"] as? [String] == ["README.md"])
+    #expect(pathScope["include_patterns"] == nil)
+    #expect(pathScope["exclude_patterns"] == nil)
     #expect(object["requested_capabilities"] as? [String] == ["filesystem.read"])
     #expect(object["idempotency_key"] as? String == "submit-job-123")
 }
