@@ -191,6 +191,14 @@ public struct AteliaPathScope: Sendable, Codable, Equatable {
         self.includePatterns = includePatterns
         self.excludePatterns = excludePatterns
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(Kind.self, forKey: .kind)
+        self.roots = try container.decode([String].self, forKey: .roots)
+        self.includePatterns = try container.decodeIfPresent([String].self, forKey: .includePatterns) ?? []
+        self.excludePatterns = try container.decodeIfPresent([String].self, forKey: .excludePatterns) ?? []
+    }
 }
 
 /// Platform-neutral project identity used by client coordination surfaces.
@@ -417,6 +425,110 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
     }
 }
 
+/// Request payload for submitting a bounded job.
+public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
+    /// JSON keys for job submission requests.
+    private enum CodingKeys: String, CodingKey {
+        case repositoryId = "repository_id"
+        case requester
+        case kind
+        case goal
+        case pathScope = "path_scope"
+        case requestedCapabilities = "requested_capabilities"
+        case idempotencyKey = "idempotency_key"
+    }
+
+    private enum PathScopeCodingKeys: String, CodingKey {
+        case kind
+        case roots
+        case includePatterns = "include_patterns"
+        case excludePatterns = "exclude_patterns"
+    }
+
+    /// Repository the job should run against.
+    public var repositoryId: String
+    /// Actor requesting the job submission.
+    public var requester: AteliaActor
+    /// Job kind requested by the caller.
+    public var kind: String
+    /// Bounded-job intent or summary.
+    public var goal: String
+    /// Optional filesystem scope attached to the job request.
+    public var pathScope: AteliaPathScope?
+    /// Optional capability hints forwarded to Secretary for policy normalization.
+    public var requestedCapabilities: [String]?
+    /// Optional idempotency token for replayable submissions.
+    public var idempotencyKey: String?
+
+    /// Creates a job submission request.
+    public init(
+        repositoryId: String,
+        requester: AteliaActor,
+        kind: String,
+        goal: String,
+        pathScope: AteliaPathScope? = nil,
+        requestedCapabilities: [String]? = nil,
+        idempotencyKey: String? = nil
+    ) {
+        self.repositoryId = repositoryId
+        self.requester = requester
+        self.kind = kind
+        self.goal = goal
+        self.pathScope = pathScope
+        self.requestedCapabilities = requestedCapabilities
+        self.idempotencyKey = idempotencyKey
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(repositoryId, forKey: .repositoryId)
+        try container.encode(requester, forKey: .requester)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(goal, forKey: .goal)
+        try container.encodeIfPresent(requestedCapabilities, forKey: .requestedCapabilities)
+        try container.encodeIfPresent(idempotencyKey, forKey: .idempotencyKey)
+
+        guard let pathScope else { return }
+
+        var pathScopeContainer = container.nestedContainer(
+            keyedBy: PathScopeCodingKeys.self,
+            forKey: .pathScope
+        )
+        try pathScopeContainer.encode(pathScope.kind, forKey: .kind)
+        try pathScopeContainer.encode(pathScope.roots, forKey: .roots)
+        if !pathScope.includePatterns.isEmpty {
+            try pathScopeContainer.encode(pathScope.includePatterns, forKey: .includePatterns)
+        }
+        if !pathScope.excludePatterns.isEmpty {
+            try pathScopeContainer.encode(pathScope.excludePatterns, forKey: .excludePatterns)
+        }
+    }
+}
+
+/// Envelope returned by job submission operations.
+public struct AteliaSubmitJobResponse: Sendable, Codable, Equatable {
+    /// JSON keys for job submission responses.
+    private enum CodingKeys: String, CodingKey {
+        case metadata
+        case job
+        case policy
+    }
+
+    /// Protocol metadata attached to the response.
+    public var metadata: AteliaProtocolMetadata
+    /// Persisted job projection returned by Secretary.
+    public var job: AteliaJob
+    /// Top-level policy decision returned with the job submission.
+    public var policy: AteliaPolicyDecision
+
+    /// Creates a job submission response.
+    public init(metadata: AteliaProtocolMetadata, job: AteliaJob, policy: AteliaPolicyDecision) {
+        self.metadata = metadata
+        self.job = job
+        self.policy = policy
+    }
+}
+
 public struct AteliaJobCancellation: Sendable, Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case state
@@ -545,15 +657,15 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
 
         public init(rawValue: String) {
             switch rawValue {
-            case "R0":
+            case "r0", "R0":
                 self = .r0
-            case "R1":
+            case "r1", "R1":
                 self = .r1
-            case "R2":
+            case "r2", "R2":
                 self = .r2
-            case "R3":
+            case "r3", "R3":
                 self = .r3
-            case "R4":
+            case "r4", "R4":
                 self = .r4
             default:
                 self = .unknown(rawValue)
@@ -563,15 +675,15 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
         public var rawValue: String {
             switch self {
             case .r0:
-                return "R0"
+                return "r0"
             case .r1:
-                return "R1"
+                return "r1"
             case .r2:
-                return "R2"
+                return "r2"
             case .r3:
-                return "R3"
+                return "r3"
             case .r4:
-                return "R4"
+                return "r4"
             case .unknown(let rawValue):
                 return rawValue
             }

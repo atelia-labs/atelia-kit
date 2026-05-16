@@ -884,6 +884,109 @@ import Testing
     #expect(state == .accepted)
 }
 
+/// Verifies job submissions hit the submit route and encode canonical request fields.
+@Test func httpClientSubmitsJob() async throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .agent(id: "agent_secretary", displayName: "Secretary"),
+        kind: "documentation_review",
+        goal: "Review protocol references",
+        pathScope: AteliaPathScope(
+            kind: .explicitPaths,
+            roots: ["README.md"]
+        ),
+        requestedCapabilities: ["filesystem.read"],
+        idempotencyKey: "submit-job-123"
+    )
+
+    let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
+        #expect(request.url?.path == "/v1/jobs/submit")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["repository_id"] as? String == "repo_123")
+        #expect(body["kind"] as? String == "documentation_review")
+        #expect(body["goal"] as? String == "Review protocol references")
+        #expect(body["requested_capabilities"] as? [String] == ["filesystem.read"])
+        #expect(body["idempotency_key"] as? String == "submit-job-123")
+
+        let requester = try #require(body["requester"] as? [String: Any])
+        #expect(requester["type"] as? String == "agent")
+        #expect(requester["id"] as? String == "agent_secretary")
+
+        let pathScope = try #require(body["path_scope"] as? [String: Any])
+        #expect(pathScope["kind"] as? String == "explicit_paths")
+        #expect(pathScope["roots"] as? [String] == ["README.md"])
+        #expect(pathScope["include_patterns"] == nil)
+        #expect(pathScope["exclude_patterns"] == nil)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["jobs.submit.v1"]
+            },
+            "job": {
+              "job_id": "job_123",
+              "repository_id": "repo_123",
+              "requester": {
+                "type": "agent",
+                "id": "agent_secretary",
+                "display_name": "Secretary"
+              },
+              "kind": "documentation_review",
+              "goal": "Review protocol references",
+              "status": "queued",
+              "policy_summary": {
+                "decision_id": "pol_123",
+                "outcome": "audited",
+                "risk_tier": "r1",
+                "reason_code": "bounded_read"
+              },
+              "created_at_unix_ms": 1710000000000,
+              "started_at_unix_ms": null,
+              "completed_at_unix_ms": null,
+              "latest_event_id": null,
+              "cancellation": {
+                "state": "not_requested",
+                "requested_by": null,
+                "reason": null,
+                "requested_at_unix_ms": null,
+                "completed_at_unix_ms": null
+              }
+            },
+            "policy": {
+              "decision_id": "pol_123",
+              "outcome": "audited",
+              "risk_tier": "r1",
+              "requested_capability": "filesystem.read",
+              "reason_code": "bounded_read",
+              "reason": "Read-only request is permitted"
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.submitJobResponse(for: AteliaSession(), request: request)
+    let job = try await client.submitJob(for: AteliaSession(), request: request)
+
+    #expect(response.metadata.capabilities == ["jobs.submit.v1"])
+    #expect(response.job.jobId == "job_123")
+    #expect(response.job.status == .queued)
+    #expect(response.job.goal == "Review protocol references")
+    #expect(response.job.policySummary?.decisionId == "pol_123")
+    #expect(response.policy.decisionId == "pol_123")
+    #expect(response.policy.riskTier == .r1)
+    #expect(job == response.job)
+}
+
 /// Verifies package removals use the identifier-scoped remove endpoint.
 @Test func httpClientRemovesPackage() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in

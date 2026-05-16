@@ -337,6 +337,19 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Submits a bounded job request to Secretary.
+    public func submitJobResponse(
+        for session: AteliaSession,
+        request: AteliaSubmitJobRequest
+    ) async throws -> AteliaSubmitJobResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/jobs/submit",
+            body: request
+        )
+    }
+
     /// Returns the disable response envelope for a package identifier.
     public func packageDisableResponse(
         for session: AteliaSession,
