@@ -44,6 +44,8 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case packagePublicationUnavailable
     /// The conformer does not provide package registry-submission operations.
     case packageRegistrySubmissionUnavailable
+    /// The conformer does not provide job submission operations.
+    case submitJobUnavailable
     /// The conformer does not provide tool output render operations.
     case toolOutputRenderUnavailable
 }
@@ -238,6 +240,16 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         request: AteliaPackageRegistrySubmissionRequest
     ) async throws -> AteliaPackageRegistrySubmissionState
+    /// Returns the job submission response envelope.
+    func submitJobResponse(
+        for session: AteliaSession,
+        request: AteliaSubmitJobRequest
+    ) async throws -> AteliaSubmitJobResponse
+    /// Returns the submitted job projection.
+    func submitJob(
+        for session: AteliaSession,
+        request: AteliaSubmitJobRequest
+    ) async throws -> AteliaJob
     /// Returns the tool output render response for a canonical tool result.
     func renderToolOutputResponse(
         for session: AteliaSession,
@@ -612,6 +624,24 @@ public extension AteliaClient {
         request: AteliaPackageRegistrySubmissionRequest
     ) async throws -> AteliaPackageRegistrySubmissionState {
         try await packageRegistrySubmissionResponse(for: session, request: request).state
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide job submission.
+    func submitJobResponse(
+        for session: AteliaSession,
+        request: AteliaSubmitJobRequest
+    ) async throws -> AteliaSubmitJobResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.submitJobUnavailable
+    }
+
+    /// Returns an unavailable-capability error when the conformer does not provide job submission.
+    func submitJob(
+        for session: AteliaSession,
+        request: AteliaSubmitJobRequest
+    ) async throws -> AteliaJob {
+        try await submitJobResponse(for: session, request: request).job
     }
 
     /// Returns the default tool output render error when the conformer does not provide render.

@@ -377,7 +377,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
     public var repositoryId: String
     public var requester: AteliaActor
     public var kind: String
-    public var goal: String
+    public var goal: String?
     public var status: Status
     public var policySummary: AteliaPolicySummary?
     public var createdAtUnixMilliseconds: Int64
@@ -393,7 +393,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         repositoryId: String,
         requester: AteliaActor,
         kind: String,
-        goal: String,
+        goal: String? = nil,
         status: Status,
         policySummary: AteliaPolicySummary? = nil,
         createdAtUnixMilliseconds: Int64,
@@ -414,6 +414,74 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         self.completedAtUnixMilliseconds = completedAtUnixMilliseconds
         self.latestEventId = latestEventId
         self.cancellation = cancellation
+    }
+}
+
+/// Request payload for submitting a bounded job.
+public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
+    /// JSON keys for job submission requests.
+    private enum CodingKeys: String, CodingKey {
+        case repositoryId = "repository_id"
+        case requester
+        case kind
+        case goal
+        case pathScope = "path_scope"
+        case requestedCapabilities = "requested_capabilities"
+        case idempotencyKey = "idempotency_key"
+    }
+
+    /// Repository the job should run against.
+    public var repositoryId: String
+    /// Actor requesting the job submission.
+    public var requester: AteliaActor
+    /// Job kind requested by the caller.
+    public var kind: String
+    /// Optional bounded-job intent or summary.
+    public var goal: String?
+    /// Optional filesystem scope attached to the job request.
+    public var pathScope: AteliaPathScope?
+    /// Optional capability hints forwarded to Secretary for policy normalization.
+    public var requestedCapabilities: [String]?
+    /// Optional idempotency token for replayable submissions.
+    public var idempotencyKey: String?
+
+    /// Creates a job submission request.
+    public init(
+        repositoryId: String,
+        requester: AteliaActor,
+        kind: String,
+        goal: String? = nil,
+        pathScope: AteliaPathScope? = nil,
+        requestedCapabilities: [String]? = nil,
+        idempotencyKey: String? = nil
+    ) {
+        self.repositoryId = repositoryId
+        self.requester = requester
+        self.kind = kind
+        self.goal = goal
+        self.pathScope = pathScope
+        self.requestedCapabilities = requestedCapabilities
+        self.idempotencyKey = idempotencyKey
+    }
+}
+
+/// Envelope returned by job submission operations.
+public struct AteliaSubmitJobResponse: Sendable, Codable, Equatable {
+    /// JSON keys for job submission responses.
+    private enum CodingKeys: String, CodingKey {
+        case metadata
+        case job
+    }
+
+    /// Protocol metadata attached to the response.
+    public var metadata: AteliaProtocolMetadata
+    /// Persisted job projection returned by Secretary.
+    public var job: AteliaJob
+
+    /// Creates a job submission response.
+    public init(metadata: AteliaProtocolMetadata, job: AteliaJob) {
+        self.metadata = metadata
+        self.job = job
     }
 }
 

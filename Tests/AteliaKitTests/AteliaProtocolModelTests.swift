@@ -159,6 +159,83 @@ import Testing
     #expect(decoded == job)
 }
 
+/// Verifies job submission requests encode canonical snake_case keys and omit nil fields.
+@Test func submitJobRequestEncodesCanonicalProtocolJSON() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "documentation_review",
+        pathScope: AteliaPathScope(
+            kind: .repository,
+            roots: ["/workspace/atelia-kit"],
+            includePatterns: ["Sources/**"],
+            excludePatterns: [".build/**"]
+        ),
+        requestedCapabilities: ["filesystem.read", "tool_output.render"],
+        idempotencyKey: "submit-job-123"
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let requester = try #require(object["requester"] as? [String: Any])
+    let pathScope = try #require(object["path_scope"] as? [String: Any])
+
+    #expect(object["repository_id"] as? String == "repo_123")
+    #expect(object["kind"] as? String == "documentation_review")
+    #expect(object["goal"] == nil)
+    #expect(requester["type"] as? String == "user")
+    #expect(requester["id"] as? String == "user_123")
+    #expect(pathScope["kind"] as? String == "repository")
+    #expect(pathScope["roots"] as? [String] == ["/workspace/atelia-kit"])
+    #expect(object["requested_capabilities"] as? [String] == ["filesystem.read", "tool_output.render"])
+    #expect(object["idempotency_key"] as? String == "submit-job-123")
+}
+
+/// Verifies job submission responses decode the persisted job projection.
+@Test func submitJobResponseDecodesCanonicalProtocolJSON() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["jobs.submit.v1"]
+      },
+      "job": {
+        "job_id": "job_123",
+        "repository_id": "repo_123",
+        "requester": {
+          "type": "agent",
+          "id": "agent_secretary",
+          "display_name": "Secretary"
+        },
+        "kind": "documentation_review",
+        "goal": null,
+        "status": "queued",
+        "policy_summary": {
+          "decision_id": "pol_123",
+          "outcome": "audited",
+          "risk_tier": "R1",
+          "reason_code": "bounded_read"
+        },
+        "created_at_unix_ms": 1710000000000,
+        "started_at_unix_ms": null,
+        "completed_at_unix_ms": null,
+        "latest_event_id": null,
+        "cancellation": null
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaSubmitJobResponse.self, from: data)
+
+    #expect(decoded.metadata.capabilities == ["jobs.submit.v1"])
+    #expect(decoded.job.jobId == "job_123")
+    #expect(decoded.job.status == .queued)
+    #expect(decoded.job.goal == nil)
+    #expect(decoded.job.policySummary?.decisionId == "pol_123")
+}
+
 /// Verifies job decoding keeps cancellation optional for older payloads.
 @Test func jobDecodesWhenCancellationIsOmitted() throws {
     let data = #"""

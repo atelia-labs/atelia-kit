@@ -426,6 +426,30 @@ private actor EntriesOnlyPackageTrustIndexClient: AteliaClient {
             )
         )
     }
+    await #expect(throws: AteliaClientError.submitJobUnavailable) {
+        _ = try await client.submitJobResponse(
+            for: session,
+            request: AteliaSubmitJobRequest(
+                repositoryId: "repo_123",
+                requester: .user(id: "user_123", displayName: "Ada"),
+                kind: "documentation_review",
+                goal: "Review protocol references",
+                requestedCapabilities: ["filesystem.read"],
+                idempotencyKey: "submit-job-123"
+            )
+        )
+    }
+    await #expect(throws: AteliaClientError.submitJobUnavailable) {
+        _ = try await client.submitJob(
+            for: session,
+            request: AteliaSubmitJobRequest(
+                repositoryId: "repo_123",
+                requester: .user(id: "user_123", displayName: "Ada"),
+                kind: "documentation_review",
+                goal: "Review protocol references"
+            )
+        )
+    }
 
     await #expect(throws: AteliaClientError.toolOutputRenderUnavailable) {
         _ = try await client.renderToolOutputResponse(for: session, request: renderRequest)
