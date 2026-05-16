@@ -892,10 +892,8 @@ import Testing
         kind: "documentation_review",
         goal: "Review protocol references",
         pathScope: AteliaPathScope(
-            kind: .repository,
-            roots: ["/workspace/atelia-kit"],
-            includePatterns: ["Sources/**"],
-            excludePatterns: [".build/**"]
+            kind: .explicitPaths,
+            roots: ["README.md"]
         ),
         requestedCapabilities: ["filesystem.read"],
         idempotencyKey: "submit-job-123"
@@ -919,8 +917,8 @@ import Testing
         #expect(requester["id"] as? String == "agent_secretary")
 
         let pathScope = try #require(body["path_scope"] as? [String: Any])
-        #expect(pathScope["kind"] as? String == "repository")
-        #expect(pathScope["roots"] as? [String] == ["/workspace/atelia-kit"])
+        #expect(pathScope["kind"] as? String == "explicit_paths")
+        #expect(pathScope["roots"] as? [String] == ["README.md"])
 
         return #"""
         {
