@@ -443,7 +443,7 @@ private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) 
         replayEventsResponse: .success(AteliaReplayEventsResponse(
             metadata: lifecycleMetadata(capability: "events.replay.v1"),
             events: [event],
-            cursor: AteliaEventCursor(sequence: 42, eventId: "evt_123")
+            cursor: .afterSequence(42)
         ))
     )
     let store = AteliaProjectLifecycleStore(client: client, session: AteliaSession())
@@ -498,9 +498,9 @@ private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) 
     #expect(await store.job == canceledJob)
     #expect(await store.cancellation == canceledJob.cancellation)
     #expect(await store.events == [event])
-    #expect((await store.replayResponse)?.cursor == AteliaEventCursor(sequence: 42, eventId: "evt_123"))
+    #expect((await store.replayResponse)?.cursor == .afterSequence(42))
     #expect(await store.metadata == lifecycleMetadata(capability: "events.replay.v1"))
-    #expect(await store.latestCursor == AteliaEventCursor(sequence: 42, eventId: "evt_123"))
+    #expect(await store.latestCursor == .afterSequence(42))
 }
 
 /// Verifies an older replay response cannot overwrite newer listed events.
@@ -531,7 +531,7 @@ private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) 
         with: AteliaReplayEventsResponse(
             metadata: lifecycleMetadata(capability: "events.replay.v1"),
             events: [replayEvent],
-            cursor: AteliaEventCursor(sequence: replayEvent.sequence, eventId: replayEvent.eventId)
+            cursor: .afterEventId(replayEvent.eventId)
         )
     )
     let replayedEvents = try await replayTask.value
@@ -540,7 +540,7 @@ private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) 
     #expect(replayedEvents == [replayEvent])
     #expect(await store.events == [listedEvent])
     #expect((await store.replayResponse)?.events == [replayEvent])
-    #expect(await store.latestCursor == AteliaEventCursor(sequence: replayEvent.sequence, eventId: replayEvent.eventId))
+    #expect(await store.latestCursor == .afterEventId(replayEvent.eventId))
     #expect(await client.listJobEventRequestsValue().map(\.jobId) == ["job_123"])
     #expect(await client.listJobEventRequestsValue().compactMap(\.request.repositoryId) == ["repo_123"])
 }
@@ -553,7 +553,7 @@ private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) 
         replayEventsResponse: .success(AteliaReplayEventsResponse(
             metadata: lifecycleMetadata(capability: "events.replay.v1"),
             events: [firstEvent],
-            cursor: AteliaEventCursor(sequence: firstEvent.sequence, eventId: firstEvent.eventId)
+            cursor: .afterSequence(firstEvent.sequence)
         ))
     )
     let store = AteliaProjectLifecycleStore(client: client, session: AteliaSession())
@@ -619,7 +619,7 @@ private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) 
         replayEventsResponse: .success(AteliaReplayEventsResponse(
             metadata: lifecycleMetadata(capability: "events.replay.v1"),
             events: [event],
-            cursor: AteliaEventCursor(sequence: event.sequence, eventId: event.eventId)
+            cursor: .afterSequence(event.sequence)
         ))
     )
     let store = AteliaProjectLifecycleStore(client: client, session: AteliaSession())
@@ -686,7 +686,7 @@ private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) 
     let canceledJob = lifecycleJob(status: .canceled)
     let listedEvent = lifecycleEvent(eventId: "evt_list_new", sequence: 42)
     let replayedEvent = lifecycleEvent(eventId: "evt_replay_new", sequence: 43)
-    let replayCursor = AteliaEventCursor(sequence: replayedEvent.sequence, eventId: replayedEvent.eventId)
+    let replayCursor = AteliaEventRouteCursor.afterSequence(replayedEvent.sequence)
     let client = DelayedRepositoryOpenLifecycleClientFixture(
         registerRepositoryResponse: AteliaRegisterRepositoryResponse(
             metadata: lifecycleMetadata(capability: "repositories.register.v1"),

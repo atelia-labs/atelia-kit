@@ -15,7 +15,7 @@ public struct AteliaProjectLifecycleStoreSnapshot: Sendable, Equatable {
     /// Latest protocol metadata from the most recent cached response.
     public var metadata: AteliaProtocolMetadata?
     /// Latest cursor returned by a replay operation.
-    public var latestCursor: AteliaEventCursor?
+    public var latestCursor: AteliaEventRouteCursor?
 
     /// Creates a project lifecycle snapshot.
     public init(
@@ -25,7 +25,7 @@ public struct AteliaProjectLifecycleStoreSnapshot: Sendable, Equatable {
         events: [AteliaEvent],
         replayResponse: AteliaReplayEventsResponse?,
         metadata: AteliaProtocolMetadata?,
-        latestCursor: AteliaEventCursor?
+        latestCursor: AteliaEventRouteCursor?
     ) {
         self.repository = repository
         self.job = job
@@ -47,7 +47,7 @@ public actor AteliaProjectLifecycleStore {
     private var latestEvents: [AteliaEvent] = []
     private var latestReplayResponse: AteliaReplayEventsResponse?
     private var latestMetadata: AteliaProtocolMetadata?
-    private var latestCursorValue: AteliaEventCursor?
+    private var latestCursorValue: AteliaEventRouteCursor?
     private var nextOperationGeneration = 0
     private var clearGeneration = 0
     private var repositoryGeneration = 0
@@ -186,7 +186,7 @@ public actor AteliaProjectLifecycleStore {
     }
 
     /// Returns the latest replay cursor, if one has been loaded.
-    public var latestCursor: AteliaEventCursor? {
+    public var latestCursor: AteliaEventRouteCursor? {
         latestCursorValue
     }
 

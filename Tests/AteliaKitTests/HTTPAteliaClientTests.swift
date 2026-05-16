@@ -1228,6 +1228,9 @@ import Testing
             #expect(request.httpMethod == "POST")
             let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
             #expect(body["job_ids"] as? [String] == ["job_123"])
+            let cursor = try #require(body["cursor"] as? [String: Any])
+            #expect(cursor["kind"] as? String == "after_sequence")
+            #expect(cursor["sequence_number"] as? Int == 42)
             return #"""
             {
               "status": "ok",
@@ -1264,6 +1267,9 @@ import Testing
             #expect(request.httpMethod == "POST")
             let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
             #expect(body["repository_id"] as? String == "repo_123")
+            let cursor = try #require(body["cursor"] as? [String: Any])
+            #expect(cursor["kind"] as? String == "after_event_id")
+            #expect(cursor["event_id"] as? String == "evt_123")
             return #"""
             {
               "status": "ok",
@@ -1293,7 +1299,7 @@ import Testing
                   }
                 ],
                 "cursor": {
-                  "sequence": 42,
+                  "kind": "after_event_id",
                   "event_id": "evt_123"
                 }
               }
@@ -1316,17 +1322,23 @@ import Testing
     let jobEvents = try await client.listJobEvents(
         for: AteliaSession(),
         jobId: "job_123",
-        request: AteliaListEventsRequest(repositoryId: "repo_123")
+        request: AteliaListEventsRequest(
+            cursor: .afterSequence(42)
+        )
     )
-    let replayEvents = try await client.replayEvents(
+    let replayResponse = try await client.replayEventsResponse(
         for: AteliaSession(),
-        request: AteliaReplayEventsRequest(repositoryId: "repo_123")
+        request: AteliaReplayEventsRequest(
+            repositoryId: "repo_123",
+            cursor: .afterEventId("evt_123")
+        )
     )
 
     #expect(job.jobId == "job_123")
     #expect(canceledJob.status == .canceled)
     #expect(jobEvents.map(\.eventId) == ["evt_123"])
-    #expect(replayEvents.map(\.eventId) == ["evt_123"])
+    #expect(replayResponse.events.map(\.eventId) == ["evt_123"])
+    #expect(replayResponse.cursor == .afterEventId("evt_123"))
 }
 
 /// Verifies job-scoped HTTP routes reject identifiers that cannot be embedded in one path segment.

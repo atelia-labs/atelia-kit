@@ -320,6 +320,54 @@ public struct AteliaEvent: Sendable, Codable, Equatable, Identifiable {
     }
 }
 
+/// Event cursor shape used by event list and replay routes.
+public enum AteliaEventRouteCursor: Sendable, Codable, Equatable {
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case sequenceNumber = "sequence_number"
+        case eventId = "event_id"
+    }
+
+    private enum Kind: String, Codable {
+        case beginning
+        case afterSequence = "after_sequence"
+        case afterEventId = "after_event_id"
+    }
+
+    case beginning
+    case afterSequence(_ sequenceNumber: UInt64)
+    case afterEventId(_ eventId: String)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try container.decode(Kind.self, forKey: .kind)
+        switch kind {
+        case .beginning:
+            self = .beginning
+        case .afterSequence:
+            let sequenceNumber = try container.decode(UInt64.self, forKey: .sequenceNumber)
+            self = .afterSequence(sequenceNumber)
+        case .afterEventId:
+            let eventId = try container.decode(String.self, forKey: .eventId)
+            self = .afterEventId(eventId)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .beginning:
+            try container.encode(Kind.beginning, forKey: .kind)
+        case .afterSequence(let sequenceNumber):
+            try container.encode(Kind.afterSequence, forKey: .kind)
+            try container.encode(sequenceNumber, forKey: .sequenceNumber)
+        case .afterEventId(let eventId):
+            try container.encode(Kind.afterEventId, forKey: .kind)
+            try container.encode(eventId, forKey: .eventId)
+        }
+    }
+}
+
 /// Request payload for polling-friendly event listing.
 public struct AteliaListEventsRequest: Sendable, Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
@@ -333,7 +381,7 @@ public struct AteliaListEventsRequest: Sendable, Codable, Equatable {
     }
 
     public var repositoryId: String?
-    public var cursor: AteliaEventCursor?
+    public var cursor: AteliaEventRouteCursor?
     public var subjectIds: [String]
     public var jobIds: [String]
     public var minSeverity: AteliaEventSeverity?
@@ -342,7 +390,7 @@ public struct AteliaListEventsRequest: Sendable, Codable, Equatable {
 
     public init(
         repositoryId: String? = nil,
-        cursor: AteliaEventCursor? = nil,
+        cursor: AteliaEventRouteCursor? = nil,
         subjectIds: [String] = [],
         jobIds: [String] = [],
         minSeverity: AteliaEventSeverity? = nil,
@@ -389,14 +437,14 @@ public struct AteliaReplayEventsRequest: Sendable, Codable, Equatable {
     }
 
     public var repositoryId: String
-    public var cursor: AteliaEventCursor?
+    public var cursor: AteliaEventRouteCursor?
     public var subjectIds: [String]
     public var minSeverity: AteliaEventSeverity?
     public var limit: Int?
 
     public init(
         repositoryId: String,
-        cursor: AteliaEventCursor? = nil,
+        cursor: AteliaEventRouteCursor? = nil,
         subjectIds: [String] = [],
         minSeverity: AteliaEventSeverity? = nil,
         limit: Int? = nil
@@ -419,9 +467,9 @@ public struct AteliaReplayEventsResponse: Sendable, Codable, Equatable {
 
     public var metadata: AteliaProtocolMetadata
     public var events: [AteliaEvent]
-    public var cursor: AteliaEventCursor?
+    public var cursor: AteliaEventRouteCursor?
 
-    public init(metadata: AteliaProtocolMetadata, events: [AteliaEvent], cursor: AteliaEventCursor?) {
+    public init(metadata: AteliaProtocolMetadata, events: [AteliaEvent], cursor: AteliaEventRouteCursor?) {
         self.metadata = metadata
         self.events = events
         self.cursor = cursor

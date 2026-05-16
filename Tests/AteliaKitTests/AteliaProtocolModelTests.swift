@@ -274,7 +274,7 @@ import Testing
     let replayEventsResponse = AteliaReplayEventsResponse(
         metadata: metadata,
         events: [event],
-        cursor: AteliaEventCursor(sequence: 42, eventId: "evt_123")
+        cursor: .afterSequence(42)
     )
 
     let registerData = try JSONEncoder().encode(registerResponse)
@@ -288,6 +288,49 @@ import Testing
     #expect(try JSONDecoder().decode(AteliaCancelJobResponse.self, from: cancelJobData) == cancelJobResponse)
     #expect(try JSONDecoder().decode(AteliaListEventsResponse.self, from: listEventsData) == listEventsResponse)
     #expect(try JSONDecoder().decode(AteliaReplayEventsResponse.self, from: replayEventsData) == replayEventsResponse)
+    let replayEventsObject = try #require(
+        JSONSerialization.jsonObject(with: replayEventsData) as? [String: Any]
+    )
+    let replayCursor = try #require(replayEventsObject["cursor"] as? [String: Any])
+    #expect(replayCursor["kind"] as? String == "after_sequence")
+    #expect(replayCursor["sequence_number"] as? Int == 42)
+}
+
+/// Verifies event-route cursor wire shapes are tagged union values.
+@Test func eventRouteCursorModelsUseTaggedUnionJSON() throws {
+    let listRequest = AteliaListEventsRequest(
+        cursor: .afterEventId("evt_123")
+    )
+    let listRequestData = try JSONEncoder().encode(listRequest)
+    let listRequestObject = try #require(
+        JSONSerialization.jsonObject(with: listRequestData) as? [String: Any]
+    )
+    let listCursor = try #require(listRequestObject["cursor"] as? [String: Any])
+
+    #expect(listRequestObject["repository_id"] == nil)
+    #expect(listCursor["kind"] as? String == "after_event_id")
+    #expect(listCursor["event_id"] as? String == "evt_123")
+
+    let replayResponseData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["events.replay.v1"]
+      },
+      "events": [],
+      "cursor": {
+        "kind": "beginning"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let replayResponse = try JSONDecoder().decode(
+        AteliaReplayEventsResponse.self,
+        from: replayResponseData
+    )
+    #expect(replayResponse.cursor == .beginning)
 }
 
 /// Verifies job submission requests encode canonical snake_case keys.
