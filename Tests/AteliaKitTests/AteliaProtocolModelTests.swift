@@ -333,6 +333,44 @@ import Testing
     #expect(replayResponse.cursor == .beginning)
 }
 
+/// Verifies project status latest_cursor is the flat event cursor shape.
+@Test func projectStatusLatestCursorUsesFlatWireShape() throws {
+    let status = AteliaProjectStatus(
+        metadata: AteliaProtocolMetadata(
+            protocolVersion: "1.0.0",
+            daemonVersion: "0.1.0",
+            storageVersion: "0.1.0",
+            capabilities: ["project_status.v1"]
+        ),
+        repository: AteliaRepository(
+            repositoryId: "repo_123",
+            displayName: "Atelia Kit",
+            rootPath: "/workspace/atelia-kit",
+            allowedScope: AteliaPathScope(kind: .repository),
+            trustState: .trusted,
+            createdAtUnixMilliseconds: 1710000000000,
+            updatedAtUnixMilliseconds: 1710000100000
+        ),
+        recentJobs: [],
+        recentPolicyDecisions: [],
+        latestCursor: AteliaEventCursor(sequence: 42, eventId: "evt_42"),
+        daemonStatus: .running,
+        storageStatus: .ready
+    )
+
+    let encoded = try JSONEncoder().encode(status)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    let latestCursor = try #require(object["latest_cursor"] as? [String: Any])
+
+    #expect(latestCursor["sequence"] as? Int == 42)
+    #expect(latestCursor["event_id"] as? String == "evt_42")
+    #expect(latestCursor["kind"] == nil)
+    #expect(latestCursor["sequence_number"] == nil)
+
+    let decoded = try JSONDecoder().decode(AteliaProjectStatus.self, from: encoded)
+    #expect(decoded == status)
+}
+
 /// Verifies job submission requests encode canonical snake_case keys.
 @Test func submitJobRequestEncodesCanonicalProtocolJSON() throws {
     let request = AteliaSubmitJobRequest(

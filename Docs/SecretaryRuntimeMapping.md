@@ -44,7 +44,7 @@ replaceable.
 | audit reference | `AteliaAuditReference` | `id`, `repository_id`, `job_id`, `policy_decision_id`, `message` |
 | review queue item | `AteliaReviewQueueItem` | `id`, `kind`, `title`, `repository_id`, `job_id`, `policy_decision_id`, `priority` |
 | event cursor (routes) | `AteliaEventRouteCursor` | `kind` + `sequence_number` / `event_id` |
-| project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor`, `daemon_status`, `storage_status` |
+| project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor: { sequence, event_id }`, `daemon_status`, `storage_status` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
 | package validation | `AteliaPackageValidationRequest`, `AteliaPackageValidationResponse` | `manifest`, `approve_local_unsigned`, `allow_local_process_runtime`, `approve_source_change`, `boundary` |
 | package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `id`, `record`, `extension_id`, `extension`, `extensions`, `previous_version` |
@@ -52,6 +52,10 @@ replaceable.
 | package rollback | `AteliaPackageRollbackResponse`, `AteliaPackageRollbackRecord` | `id`, `version`, `previous_version`, `status`, `rollback_snapshot` |
 | beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `supported_result_formats` |
 | tool output rendering | `AteliaToolOutputRenderRequest`, `AteliaToolOutputRenderResponse` | `tool_result`, `format`, `rendered_output`, `rendered_output_metadata`, `truncation` |
+
+Project status uses a flat `latest_cursor` (`sequence`, `event_id`) from the RPC EventCursor path.
+Event listing / replay routes use tagged `cursor` envelopes through `AteliaEventRouteCursor`
+(`kind`, optional `sequence_number` / `event_id`) on list/replay models.
 
 The third column is a representative drift guard, not an exhaustive schema
 listing. It includes envelope keys such as `metadata`, collection keys such as
