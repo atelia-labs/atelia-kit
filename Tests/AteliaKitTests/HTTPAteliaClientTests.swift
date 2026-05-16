@@ -1329,6 +1329,41 @@ import Testing
     #expect(replayEvents.map(\.eventId) == ["evt_123"])
 }
 
+/// Verifies job-scoped HTTP routes reject identifiers that cannot be embedded in one path segment.
+@Test func httpClientRejectsInvalidJobIds() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { _ in
+        Issue.record("Invalid job ids should fail before transport.")
+        return "{}"
+    })
+
+    await #expect(throws: HTTPAteliaClientError.invalidJobId("")) {
+        _ = try await client.jobResponse(for: AteliaSession(), jobId: "")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidJobId("jobs/123")) {
+        _ = try await client.jobResponse(for: AteliaSession(), jobId: "jobs/123")
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidJobId("..")) {
+        _ = try await client.cancelJobResponse(
+            for: AteliaSession(),
+            jobId: "..",
+            request: AteliaCancelJobRequest(
+                requester: .user(id: "user_123", displayName: "Ada"),
+                reason: "stop"
+            )
+        )
+    }
+
+    await #expect(throws: HTTPAteliaClientError.invalidJobId("job 123")) {
+        _ = try await client.listJobEventsResponse(
+            for: AteliaSession(),
+            jobId: "job 123",
+            request: AteliaListEventsRequest(repositoryId: "repo_123")
+        )
+    }
+}
+
 /// Verifies package removals use the identifier-scoped remove endpoint.
 @Test func httpClientRemovesPackage() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in

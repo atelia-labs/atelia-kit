@@ -20,6 +20,7 @@ private actor ProjectLifecycleClientFixture: AteliaClient {
     private(set) var requestedJobIDs: [String] = []
     private(set) var cancellationRequests: [(jobId: String, request: AteliaCancelJobRequest)] = []
     private(set) var listEventRequests: [AteliaListEventsRequest] = []
+    private(set) var listJobEventRequests: [(jobId: String, request: AteliaListEventsRequest)] = []
     private(set) var replayEventRequests: [AteliaReplayEventsRequest] = []
 
     init(
@@ -106,6 +107,19 @@ private actor ProjectLifecycleClientFixture: AteliaClient {
         return try listEventsResponse.get()
     }
 
+    func listJobEventsResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaListEventsRequest
+    ) async throws -> AteliaListEventsResponse {
+        _ = session
+        listJobEventRequests.append((jobId: jobId, request: request))
+        guard let listEventsResponse else {
+            throw ProjectLifecycleFixtureError.unconfiguredResponse
+        }
+        return try listEventsResponse.get()
+    }
+
     func replayEventsResponse(
         for session: AteliaSession,
         request: AteliaReplayEventsRequest
@@ -138,13 +152,26 @@ private actor ProjectLifecycleClientFixture: AteliaClient {
         listEventRequests
     }
 
+    func listJobEventRequestsValue() -> [(jobId: String, request: AteliaListEventsRequest)] {
+        listJobEventRequests
+    }
+
     func replayEventRequestsValue() -> [AteliaReplayEventsRequest] {
         replayEventRequests
+    }
+
+    func setRegisterRepositoryResponse(_ response: Result<AteliaRegisterRepositoryResponse, any Error>) {
+        registerRepositoryResponse = response
+    }
+
+    func setReplayEventsResponse(_ response: Result<AteliaReplayEventsResponse, any Error>) {
+        replayEventsResponse = response
     }
 }
 
 private actor DelayedReplayLifecycleClientFixture: AteliaClient {
     private let listJobEventsResponse: AteliaListEventsResponse
+    private(set) var listJobEventRequests: [(jobId: String, request: AteliaListEventsRequest)] = []
     private var replayContinuation: CheckedContinuation<AteliaReplayEventsResponse, any Error>?
     private var replayStarted = false
     private var replayStartedWaiters: [CheckedContinuation<Void, Never>] = []
@@ -159,8 +186,7 @@ private actor DelayedReplayLifecycleClientFixture: AteliaClient {
         request: AteliaListEventsRequest
     ) async throws -> AteliaListEventsResponse {
         _ = session
-        _ = jobId
-        _ = request
+        listJobEventRequests.append((jobId: jobId, request: request))
         return listJobEventsResponse
     }
 
@@ -189,14 +215,118 @@ private actor DelayedReplayLifecycleClientFixture: AteliaClient {
         replayContinuation?.resume(returning: response)
         replayContinuation = nil
     }
+
+    func listJobEventRequestsValue() -> [(jobId: String, request: AteliaListEventsRequest)] {
+        listJobEventRequests
+    }
 }
 
-private func lifecycleRepository() -> AteliaRepository {
+private actor DelayedRepositoryOpenLifecycleClientFixture: AteliaClient {
+    private let registerRepositoryResponseValue: AteliaRegisterRepositoryResponse
+    private let submitJobResponseValue: AteliaSubmitJobResponse
+    private let cancelJobResponseValue: AteliaCancelJobResponse
+    private let listJobEventsResponseValue: AteliaListEventsResponse
+    private let replayEventsResponseValue: AteliaReplayEventsResponse
+    private var registerContinuation: CheckedContinuation<AteliaRegisterRepositoryResponse, Never>?
+    private var registerStarted = false
+    private var registerStartedWaiters: [CheckedContinuation<Void, Never>] = []
+
+    init(
+        registerRepositoryResponse: AteliaRegisterRepositoryResponse,
+        submitJobResponse: AteliaSubmitJobResponse,
+        cancelJobResponse: AteliaCancelJobResponse,
+        listJobEventsResponse: AteliaListEventsResponse,
+        replayEventsResponse: AteliaReplayEventsResponse
+    ) {
+        registerRepositoryResponseValue = registerRepositoryResponse
+        submitJobResponseValue = submitJobResponse
+        cancelJobResponseValue = cancelJobResponse
+        listJobEventsResponseValue = listJobEventsResponse
+        replayEventsResponseValue = replayEventsResponse
+    }
+
+    func repositories(for session: AteliaSession) async throws -> [AteliaRepository] {
+        _ = session
+        return []
+    }
+
+    func registerRepositoryResponse(
+        for session: AteliaSession,
+        request: AteliaRegisterRepositoryRequest
+    ) async throws -> AteliaRegisterRepositoryResponse {
+        _ = session
+        _ = request
+        registerStarted = true
+        registerStartedWaiters.forEach { $0.resume() }
+        registerStartedWaiters.removeAll()
+        return await withCheckedContinuation { continuation in
+            registerContinuation = continuation
+        }
+    }
+
+    func submitJobResponse(
+        for session: AteliaSession,
+        request: AteliaSubmitJobRequest
+    ) async throws -> AteliaSubmitJobResponse {
+        _ = session
+        _ = request
+        return submitJobResponseValue
+    }
+
+    func cancelJobResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaCancelJobRequest
+    ) async throws -> AteliaCancelJobResponse {
+        _ = session
+        _ = jobId
+        _ = request
+        return cancelJobResponseValue
+    }
+
+    func listJobEventsResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaListEventsRequest
+    ) async throws -> AteliaListEventsResponse {
+        _ = session
+        _ = jobId
+        _ = request
+        return listJobEventsResponseValue
+    }
+
+    func replayEventsResponse(
+        for session: AteliaSession,
+        request: AteliaReplayEventsRequest
+    ) async throws -> AteliaReplayEventsResponse {
+        _ = session
+        _ = request
+        return replayEventsResponseValue
+    }
+
+    func waitForRegisterRequest() async {
+        if registerStarted { return }
+        await withCheckedContinuation { continuation in
+            registerStartedWaiters.append(continuation)
+        }
+    }
+
+    func completeRegister() {
+        registerContinuation?.resume(returning: registerRepositoryResponseValue)
+        registerContinuation = nil
+    }
+}
+
+private func lifecycleRepository(
+    repositoryId: String = "repo_123",
+    displayName: String = "Atelia Kit",
+    rootPath: String = "/workspace/atelia-kit"
+) -> AteliaRepository {
     AteliaRepository(
-        repositoryId: "repo_123",
-        displayName: "Atelia Kit",
-        rootPath: "/workspace/atelia-kit",
-        allowedScope: AteliaPathScope(kind: .repository, roots: ["/workspace/atelia-kit"]),
+        repositoryId: repositoryId,
+        displayName: displayName,
+        rootPath: rootPath,
+        allowedScope: AteliaPathScope(kind: .repository, roots: [rootPath]),
         trustState: .trusted,
         createdAtUnixMilliseconds: 1710000000000,
         updatedAtUnixMilliseconds: 1710000100000
@@ -360,7 +490,9 @@ private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) 
     #expect(await client.submitRequestsValue().count == 1)
     #expect(await client.requestedJobIDsValue() == [job.jobId])
     #expect(await client.cancellationRequestsValue().map(\.jobId) == [job.jobId])
-    #expect(await client.listEventRequestsValue().compactMap(\.repositoryId) == [repository.repositoryId])
+    #expect(await client.listEventRequestsValue().isEmpty)
+    #expect(await client.listJobEventRequestsValue().map(\.jobId) == [job.jobId])
+    #expect(await client.listJobEventRequestsValue().compactMap(\.request.repositoryId) == [repository.repositoryId])
     #expect(await client.replayEventRequestsValue().map(\.repositoryId) == [repository.repositoryId])
     #expect(await store.repository == repository)
     #expect(await store.job == canceledJob)
@@ -409,4 +541,236 @@ private func lifecycleEvent(eventId: String = "evt_123", sequence: UInt64 = 42) 
     #expect(await store.events == [listedEvent])
     #expect((await store.replayResponse)?.events == [replayEvent])
     #expect(await store.latestCursor == AteliaEventCursor(sequence: replayEvent.sequence, eventId: replayEvent.eventId))
+    #expect(await client.listJobEventRequestsValue().map(\.jobId) == ["job_123"])
+    #expect(await client.listJobEventRequestsValue().compactMap(\.request.repositoryId) == ["repo_123"])
+}
+
+/// Verifies a newer replay response with no cursor clears an older replay cursor.
+@Test func lifecycleStoreClearsCursorWhenNewerReplayOmitsCursor() async throws {
+    let firstEvent = lifecycleEvent(eventId: "evt_123", sequence: 42)
+    let secondEvent = lifecycleEvent(eventId: "evt_124", sequence: 43)
+    let client = ProjectLifecycleClientFixture(
+        replayEventsResponse: .success(AteliaReplayEventsResponse(
+            metadata: lifecycleMetadata(capability: "events.replay.v1"),
+            events: [firstEvent],
+            cursor: AteliaEventCursor(sequence: firstEvent.sequence, eventId: firstEvent.eventId)
+        ))
+    )
+    let store = AteliaProjectLifecycleStore(client: client, session: AteliaSession())
+
+    _ = try await store.replayEvents(request: AteliaReplayEventsRequest(repositoryId: "repo_123"))
+    await client.setReplayEventsResponse(.success(AteliaReplayEventsResponse(
+        metadata: lifecycleMetadata(capability: "events.replay.v1"),
+        events: [secondEvent],
+        cursor: nil
+    )))
+    _ = try await store.replayEvents(request: AteliaReplayEventsRequest(repositoryId: "repo_123"))
+
+    #expect(await store.events == [secondEvent])
+    #expect((await store.replayResponse)?.events == [secondEvent])
+    #expect(await store.latestCursor == nil)
+}
+
+/// Verifies switching repository identity clears cached job-scoped state.
+@Test func lifecycleStoreResetsJobScopedStateWhenRepositoryChanges() async throws {
+    let firstRepository = lifecycleRepository()
+    let secondRepository = lifecycleRepository(
+        repositoryId: "repo_456",
+        displayName: "Atelia App",
+        rootPath: "/workspace/atelia-app"
+    )
+    let job = lifecycleJob()
+    let event = lifecycleEvent()
+    let client = ProjectLifecycleClientFixture(
+        registerRepositoryResponse: .success(AteliaRegisterRepositoryResponse(
+            metadata: lifecycleMetadata(capability: "repositories.register.v1"),
+            repository: firstRepository,
+            policy: AteliaPolicyDecision(
+                decisionId: "pol_123",
+                outcome: .allowed,
+                riskTier: .r1,
+                requestedCapability: "filesystem.read",
+                reasonCode: "trusted_workspace",
+                reason: "Workspace is trusted"
+            )
+        )),
+        submitJobResponse: .success(AteliaSubmitJobResponse(
+            metadata: lifecycleMetadata(capability: "jobs.submit.v1"),
+            job: job,
+            policy: AteliaPolicyDecision(
+                decisionId: "pol_124",
+                outcome: .audited,
+                riskTier: .r1,
+                requestedCapability: "filesystem.read",
+                reasonCode: "bounded_read",
+                reason: "Read-only request is permitted"
+            )
+        )),
+        cancelJobResponse: .success(AteliaCancelJobResponse(
+            metadata: lifecycleMetadata(capability: "jobs.cancel.v1"),
+            job: lifecycleJob(status: .canceled),
+            cancellation: AteliaJobCancellation(state: "completed")
+        )),
+        listEventsResponse: .success(AteliaListEventsResponse(
+            metadata: lifecycleMetadata(capability: "events.list.v1"),
+            events: [event],
+            nextPageToken: nil
+        )),
+        replayEventsResponse: .success(AteliaReplayEventsResponse(
+            metadata: lifecycleMetadata(capability: "events.replay.v1"),
+            events: [event],
+            cursor: AteliaEventCursor(sequence: event.sequence, eventId: event.eventId)
+        ))
+    )
+    let store = AteliaProjectLifecycleStore(client: client, session: AteliaSession())
+
+    _ = try await store.open(request: AteliaRegisterRepositoryRequest(
+        displayName: firstRepository.displayName,
+        rootPath: firstRepository.rootPath,
+        allowedScope: firstRepository.allowedScope,
+        requester: .user(id: "user_123", displayName: "Ada")
+    ))
+    _ = try await store.submit(request: AteliaSubmitJobRequest(
+        repositoryId: firstRepository.repositoryId,
+        requester: .agent(id: "agent_secretary", displayName: "Secretary"),
+        kind: "documentation_review",
+        goal: "Review protocol references"
+    ))
+    _ = try await store.cancel(
+        jobId: job.jobId,
+        request: AteliaCancelJobRequest(
+            requester: .user(id: "user_123", displayName: "Ada"),
+            reason: "stop"
+        )
+    )
+    _ = try await store.listJobEvents(
+        jobId: job.jobId,
+        request: AteliaListEventsRequest(repositoryId: firstRepository.repositoryId)
+    )
+    _ = try await store.replayEvents(
+        request: AteliaReplayEventsRequest(repositoryId: firstRepository.repositoryId)
+    )
+
+    await client.setRegisterRepositoryResponse(.success(AteliaRegisterRepositoryResponse(
+        metadata: lifecycleMetadata(capability: "repositories.register.v1"),
+        repository: secondRepository,
+        policy: AteliaPolicyDecision(
+            decisionId: "pol_125",
+            outcome: .allowed,
+            riskTier: .r1,
+            requestedCapability: "filesystem.read",
+            reasonCode: "trusted_workspace",
+            reason: "Workspace is trusted"
+        )
+    )))
+    _ = try await store.open(request: AteliaRegisterRepositoryRequest(
+        displayName: secondRepository.displayName,
+        rootPath: secondRepository.rootPath,
+        allowedScope: secondRepository.allowedScope,
+        requester: .user(id: "user_123", displayName: "Ada")
+    ))
+
+    let snapshot = await store.snapshot()
+    #expect(snapshot.repository == secondRepository)
+    #expect(snapshot.job == nil)
+    #expect(snapshot.cancellation == nil)
+    #expect(snapshot.events.isEmpty)
+    #expect(snapshot.replayResponse == nil)
+    #expect(snapshot.latestCursor == nil)
+}
+
+/// Verifies an older repository reset cannot clear newer job-scoped cache fields.
+@Test func lifecycleStoreDoesNotClearNewerJobScopedStateWhenStaleOpenResumes() async throws {
+    let repository = lifecycleRepository()
+    let job = lifecycleJob()
+    let canceledJob = lifecycleJob(status: .canceled)
+    let listedEvent = lifecycleEvent(eventId: "evt_list_new", sequence: 42)
+    let replayedEvent = lifecycleEvent(eventId: "evt_replay_new", sequence: 43)
+    let replayCursor = AteliaEventCursor(sequence: replayedEvent.sequence, eventId: replayedEvent.eventId)
+    let client = DelayedRepositoryOpenLifecycleClientFixture(
+        registerRepositoryResponse: AteliaRegisterRepositoryResponse(
+            metadata: lifecycleMetadata(capability: "repositories.register.v1"),
+            repository: repository,
+            policy: AteliaPolicyDecision(
+                decisionId: "pol_123",
+                outcome: .allowed,
+                riskTier: .r1,
+                requestedCapability: "filesystem.read",
+                reasonCode: "trusted_workspace",
+                reason: "Workspace is trusted"
+            )
+        ),
+        submitJobResponse: AteliaSubmitJobResponse(
+            metadata: lifecycleMetadata(capability: "jobs.submit.v1"),
+            job: job,
+            policy: AteliaPolicyDecision(
+                decisionId: "pol_124",
+                outcome: .audited,
+                riskTier: .r1,
+                requestedCapability: "filesystem.read",
+                reasonCode: "bounded_read",
+                reason: "Read-only request is permitted"
+            )
+        ),
+        cancelJobResponse: AteliaCancelJobResponse(
+            metadata: lifecycleMetadata(capability: "jobs.cancel.v1"),
+            job: canceledJob,
+            cancellation: canceledJob.cancellation ?? AteliaJobCancellation(state: "completed")
+        ),
+        listJobEventsResponse: AteliaListEventsResponse(
+            metadata: lifecycleMetadata(capability: "events.list.v1"),
+            events: [listedEvent],
+            nextPageToken: nil
+        ),
+        replayEventsResponse: AteliaReplayEventsResponse(
+            metadata: lifecycleMetadata(capability: "events.replay.v1"),
+            events: [replayedEvent],
+            cursor: replayCursor
+        )
+    )
+    let store = AteliaProjectLifecycleStore(client: client, session: AteliaSession())
+
+    let openTask = Task {
+        try await store.open(request: AteliaRegisterRepositoryRequest(
+            displayName: repository.displayName,
+            rootPath: repository.rootPath,
+            allowedScope: repository.allowedScope,
+            requester: .user(id: "user_123", displayName: "Ada")
+        ))
+    }
+    await client.waitForRegisterRequest()
+
+    _ = try await store.submit(request: AteliaSubmitJobRequest(
+        repositoryId: repository.repositoryId,
+        requester: .agent(id: "agent_secretary", displayName: "Secretary"),
+        kind: "documentation_review",
+        goal: "Review protocol references"
+    ))
+    _ = try await store.cancel(
+        jobId: job.jobId,
+        request: AteliaCancelJobRequest(
+            requester: .user(id: "user_123", displayName: "Ada"),
+            reason: "stop"
+        )
+    )
+    _ = try await store.listJobEvents(
+        jobId: job.jobId,
+        request: AteliaListEventsRequest(repositoryId: repository.repositoryId)
+    )
+    _ = try await store.replayEvents(
+        request: AteliaReplayEventsRequest(repositoryId: repository.repositoryId)
+    )
+
+    await client.completeRegister()
+    let opened = try await openTask.value
+
+    let snapshot = await store.snapshot()
+    #expect(opened == repository)
+    #expect(snapshot.repository == repository)
+    #expect(snapshot.job == canceledJob)
+    #expect(snapshot.cancellation == canceledJob.cancellation)
+    #expect(snapshot.events == [replayedEvent])
+    #expect(snapshot.replayResponse?.events == [replayedEvent])
+    #expect(snapshot.latestCursor == replayCursor)
+    #expect(snapshot.metadata == lifecycleMetadata(capability: "events.replay.v1"))
 }

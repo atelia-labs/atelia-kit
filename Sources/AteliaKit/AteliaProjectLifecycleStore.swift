@@ -224,8 +224,34 @@ public actor AteliaProjectLifecycleStore {
 
     private func applyRepository(_ repository: AteliaRepository, generation: Int) {
         guard shouldApply(generation, after: repositoryGeneration) else { return }
+        if latestRepository?.repositoryId != repository.repositoryId {
+            resetJobScopedState(generation: generation)
+        }
         repositoryGeneration = generation
         latestRepository = repository
+    }
+
+    private func resetJobScopedState(generation: Int) {
+        if shouldApply(generation, after: jobGeneration) {
+            jobGeneration = generation
+            latestJob = nil
+        }
+        if shouldApply(generation, after: cancellationGeneration) {
+            cancellationGeneration = generation
+            latestCancellation = nil
+        }
+        if shouldApply(generation, after: eventsGeneration) {
+            eventsGeneration = generation
+            latestEvents = []
+        }
+        if shouldApply(generation, after: replayGeneration) {
+            replayGeneration = generation
+            latestReplayResponse = nil
+        }
+        if shouldApply(generation, after: cursorGeneration) {
+            cursorGeneration = generation
+            latestCursorValue = nil
+        }
     }
 
     private func applyRepositoryResponse(
@@ -264,9 +290,9 @@ public actor AteliaProjectLifecycleStore {
             eventsGeneration = generation
             latestEvents = response.events
         }
-        if let cursor = response.cursor, shouldApply(generation, after: cursorGeneration) {
+        if shouldApply(generation, after: cursorGeneration) {
             cursorGeneration = generation
-            latestCursorValue = cursor
+            latestCursorValue = response.cursor
         }
     }
 
