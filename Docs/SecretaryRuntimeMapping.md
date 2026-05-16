@@ -35,6 +35,7 @@ replaceable.
 | actor | `AteliaActor` | `type`, `id`, `display_name` |
 | job | `AteliaJob` | `job_id`, `repository_id`, `requester`, `kind`, `status` |
 | cancellation | `AteliaJobCancellation` | `state`, `requested_by`, `reason` |
+| submit job | `AteliaSubmitJobRequest`, `AteliaSubmitJobResponse` | `repository_id`, `requester`, `kind`, `goal`, `path_scope`, `requested_capabilities`, `idempotency_key`, `job`, `policy` |
 | policy summary / decision | `AteliaPolicySummary`, `AteliaPolicyDecision` | `decision_id`, `outcome`, `risk_tier`, `approval_request_ref`, `audit_ref` |
 | approval state | `AteliaApprovalState` | `id`, `status`, `policy_decision_id`, `requested_by`, `reason` |
 | audit reference | `AteliaAuditReference` | `id`, `repository_id`, `job_id`, `policy_decision_id`, `message` |
@@ -65,6 +66,7 @@ and iOS operating surfaces:
 - `POST /v1/repositories:list`
 - `POST /v1/repertoire:list`
 - `POST /v1/project-status:get`
+- `POST /v1/jobs/submit`
 - `POST /v1/package-trust-index:list`
 - `POST /v1/packages/validate`
 - `POST /v1/packages/install`

@@ -172,7 +172,7 @@ import Testing
             includePatterns: ["Sources/**"],
             excludePatterns: [".build/**"]
         ),
-        requestedCapabilities: ["filesystem.read", "tool_output.render"],
+        requestedCapabilities: ["filesystem.read"],
         idempotencyKey: "submit-job-123"
     )
 
@@ -188,7 +188,7 @@ import Testing
     #expect(requester["id"] as? String == "user_123")
     #expect(pathScope["kind"] as? String == "repository")
     #expect(pathScope["roots"] as? [String] == ["/workspace/atelia-kit"])
-    #expect(object["requested_capabilities"] as? [String] == ["filesystem.read", "tool_output.render"])
+    #expect(object["requested_capabilities"] as? [String] == ["filesystem.read"])
     #expect(object["idempotency_key"] as? String == "submit-job-123")
 }
 

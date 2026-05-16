@@ -897,7 +897,7 @@ import Testing
             includePatterns: ["Sources/**"],
             excludePatterns: [".build/**"]
         ),
-        requestedCapabilities: ["filesystem.read", "tool_output.render"],
+        requestedCapabilities: ["filesystem.read"],
         idempotencyKey: "submit-job-123"
     )
 
@@ -911,7 +911,7 @@ import Testing
         #expect(body["repository_id"] as? String == "repo_123")
         #expect(body["kind"] as? String == "documentation_review")
         #expect(body["goal"] as? String == "Review protocol references")
-        #expect(body["requested_capabilities"] as? [String] == ["filesystem.read", "tool_output.render"])
+        #expect(body["requested_capabilities"] as? [String] == ["filesystem.read"])
         #expect(body["idempotency_key"] as? String == "submit-job-123")
 
         let requester = try #require(body["requester"] as? [String: Any])
