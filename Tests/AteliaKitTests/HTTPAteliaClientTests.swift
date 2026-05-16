@@ -946,28 +946,28 @@ import Testing
               "policy_summary": {
                 "decision_id": "pol_123",
                 "outcome": "audited",
-                "risk_tier": "R1",
+                "risk_tier": "r1",
                 "reason_code": "bounded_read"
-              },
-              "policy": {
-                "decision_id": "pol_123",
-                "outcome": "audited",
-                "risk_tier": "R1",
-                "requested_capability": "filesystem.read",
-                "reason_code": "bounded_read",
-                "reason": "Read-only request is permitted"
               },
               "created_at_unix_ms": 1710000000000,
               "started_at_unix_ms": null,
               "completed_at_unix_ms": null,
               "latest_event_id": null,
               "cancellation": {
-                "state": "none",
+                "state": "not_requested",
                 "requested_by": null,
                 "reason": null,
                 "requested_at_unix_ms": null,
                 "completed_at_unix_ms": null
               }
+            },
+            "policy": {
+              "decision_id": "pol_123",
+              "outcome": "audited",
+              "risk_tier": "r1",
+              "requested_capability": "filesystem.read",
+              "reason_code": "bounded_read",
+              "reason": "Read-only request is permitted"
             }
           }
         }
@@ -982,6 +982,8 @@ import Testing
     #expect(response.job.status == .queued)
     #expect(response.job.goal == "Review protocol references")
     #expect(response.job.policySummary?.decisionId == "pol_123")
+    #expect(response.policy.decisionId == "pol_123")
+    #expect(response.policy.riskTier == .r1)
     #expect(job == response.job)
 }
 

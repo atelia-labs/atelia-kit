@@ -471,17 +471,21 @@ public struct AteliaSubmitJobResponse: Sendable, Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case metadata
         case job
+        case policy
     }
 
     /// Protocol metadata attached to the response.
     public var metadata: AteliaProtocolMetadata
     /// Persisted job projection returned by Secretary.
     public var job: AteliaJob
+    /// Top-level policy decision returned with the job submission.
+    public var policy: AteliaPolicyDecision
 
     /// Creates a job submission response.
-    public init(metadata: AteliaProtocolMetadata, job: AteliaJob) {
+    public init(metadata: AteliaProtocolMetadata, job: AteliaJob, policy: AteliaPolicyDecision) {
         self.metadata = metadata
         self.job = job
+        self.policy = policy
     }
 }
 
@@ -613,15 +617,15 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
 
         public init(rawValue: String) {
             switch rawValue {
-            case "R0":
+            case "r0", "R0":
                 self = .r0
-            case "R1":
+            case "r1", "R1":
                 self = .r1
-            case "R2":
+            case "r2", "R2":
                 self = .r2
-            case "R3":
+            case "r3", "R3":
                 self = .r3
-            case "R4":
+            case "r4", "R4":
                 self = .r4
             default:
                 self = .unknown(rawValue)
@@ -631,15 +635,15 @@ public struct AteliaPolicyDecision: Sendable, Codable, Equatable, Identifiable {
         public var rawValue: String {
             switch self {
             case .r0:
-                return "R0"
+                return "r0"
             case .r1:
-                return "R1"
+                return "r1"
             case .r2:
-                return "R2"
+                return "r2"
             case .r3:
-                return "R3"
+                return "r3"
             case .r4:
-                return "R4"
+                return "r4"
             case .unknown(let rawValue):
                 return rawValue
             }
