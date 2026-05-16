@@ -37,7 +37,7 @@ replaceable.
 | job | `AteliaJob` | `job_id`, `repository_id`, `requester`, `kind`, optional `goal`, `status`, `latest_event_id` |
 | cancellation | `AteliaCancelJobRequest`, `AteliaCancelJobResponse`, `AteliaJobCancellation` | `requester`, `reason`, `job`, `cancellation`, `state`, `requested_by` |
 | submit job | `AteliaSubmitJobRequest`, `AteliaSubmitJobResponse` | `repository_id`, `requester`, `kind`, optional `goal`, `path_scope`, `requested_capabilities`, `idempotency_key`, `job`, `policy` |
-| event listing / replay | `AteliaListEventsRequest`, `AteliaListEventsResponse`, `AteliaReplayEventsRequest`, `AteliaReplayEventsResponse`, `AteliaEvent` | `repository_id`, `job_ids`, `after_sequence`, `limit`, `events`, `next_page_token`, `cursor`, `event_id`, `sequence` |
+| event listing / replay | `AteliaListEventsRequest`, `AteliaListEventsResponse`, `AteliaReplayEventsRequest`, `AteliaReplayEventsResponse`, `AteliaEvent` | listing: `repository_id`, `job_ids`, `cursor`, `page_size`, `page_token`; replay: `repository_id`, `cursor`, `limit`; responses/events: `events`, `next_page_token`, `event_id`, `sequence` |
 | project lifecycle cache | `AteliaProjectLifecycleStore`, `AteliaProjectLifecycleStoreSnapshot` | `repository`, `job`, `cancellation`, `events`, `replayResponse`, `metadata`, `latestCursor` |
 | policy summary / decision | `AteliaPolicySummary`, `AteliaPolicyDecision` | `decision_id`, `outcome`, `risk_tier`, `approval_request_ref`, `audit_ref` |
 | approval state | `AteliaApprovalState` | `id`, `status`, `policy_decision_id`, `requested_by`, `reason` |
