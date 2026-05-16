@@ -48,6 +48,7 @@ public actor AteliaProjectLifecycleStore {
     private var latestReplayResponse: AteliaReplayEventsResponse?
     private var latestMetadata: AteliaProtocolMetadata?
     private var latestCursorValue: AteliaEventRouteCursor?
+    private var latestJobScopedRepositoryId: String?
     private var nextOperationGeneration = 0
     private var clearGeneration = 0
     private var repositoryGeneration = 0
@@ -114,7 +115,11 @@ public actor AteliaProjectLifecycleStore {
     public func listEvents(request: AteliaListEventsRequest = .init()) async throws -> [AteliaEvent] {
         let operationGeneration = beginOperation()
         let response = try await client.listEventsResponse(for: session, request: request)
-        applyEventsResponse(response, generation: operationGeneration)
+        applyEventsResponse(
+            response,
+            generation: operationGeneration,
+            requestRepositoryId: request.repositoryId
+        )
         return response.events
     }
 
@@ -130,7 +135,11 @@ public actor AteliaProjectLifecycleStore {
             jobId: jobId,
             request: request
         )
-        applyEventsResponse(response, generation: operationGeneration)
+        applyEventsResponse(
+            response,
+            generation: operationGeneration,
+            requestRepositoryId: request.repositoryId
+        )
         return response.events
     }
 
@@ -139,7 +148,11 @@ public actor AteliaProjectLifecycleStore {
     public func replayEvents(request: AteliaReplayEventsRequest) async throws -> [AteliaEvent] {
         let operationGeneration = beginOperation()
         let response = try await client.replayEventsResponse(for: session, request: request)
-        applyReplayResponse(response, generation: operationGeneration)
+        applyReplayResponse(
+            response,
+            generation: operationGeneration,
+            requestRepositoryId: request.repositoryId
+        )
         return response.events
     }
 
@@ -147,6 +160,7 @@ public actor AteliaProjectLifecycleStore {
     public func clear() {
         clearGeneration = nextOperationGeneration
         latestRepository = nil
+        latestJobScopedRepositoryId = nil
         latestJob = nil
         latestCancellation = nil
         latestEvents = []
@@ -224,12 +238,13 @@ public actor AteliaProjectLifecycleStore {
 
     private func applyRepository(_ repository: AteliaRepository, generation: Int) {
         guard shouldApply(generation, after: repositoryGeneration) else { return }
-        if let latestRepository,
-           latestRepository.repositoryId != repository.repositoryId,
+        if let latestJobScopedRepositoryId,
+           latestJobScopedRepositoryId != repository.repositoryId,
            generation <= latestJobScopedGeneration {
             return
         }
         if latestRepository?.repositoryId != repository.repositoryId {
+            latestJobScopedRepositoryId = repository.repositoryId
             resetJobScopedState(generation: generation)
         }
         repositoryGeneration = generation
@@ -269,6 +284,11 @@ public actor AteliaProjectLifecycleStore {
 
     private func applyJob(_ job: AteliaJob, generation: Int) {
         guard shouldApply(generation, after: jobGeneration) else { return }
+        applyJobScopedRepositoryId(
+            job.repositoryId,
+            generation: generation,
+            shouldClearRepository: true
+        )
         jobGeneration = generation
         latestJob = job
     }
@@ -279,15 +299,43 @@ public actor AteliaProjectLifecycleStore {
         latestCancellation = cancellation
     }
 
-    private func applyEventsResponse(_ response: AteliaListEventsResponse, generation: Int) {
+    private func applyEventsResponse(
+        _ response: AteliaListEventsResponse,
+        generation: Int,
+        requestRepositoryId: String?
+    ) {
         applyMetadata(response.metadata, generation: generation)
+        if let repositoryId = jobScopedRepositoryId(
+            requestRepositoryId: requestRepositoryId,
+            events: response.events
+        ) {
+            applyJobScopedRepositoryId(
+                repositoryId,
+                generation: generation,
+                shouldClearRepository: false
+            )
+        }
         guard shouldApply(generation, after: eventsGeneration) else { return }
         eventsGeneration = generation
         latestEvents = response.events
     }
 
-    private func applyReplayResponse(_ response: AteliaReplayEventsResponse, generation: Int) {
+    private func applyReplayResponse(
+        _ response: AteliaReplayEventsResponse,
+        generation: Int,
+        requestRepositoryId: String?
+    ) {
         applyMetadata(response.metadata, generation: generation)
+        if let repositoryId = jobScopedRepositoryId(
+            requestRepositoryId: requestRepositoryId,
+            events: response.events
+        ) {
+            applyJobScopedRepositoryId(
+                repositoryId,
+                generation: generation,
+                shouldClearRepository: false
+            )
+        }
         guard shouldApply(generation, after: replayGeneration) else { return }
         replayGeneration = generation
         latestReplayResponse = response
@@ -299,6 +347,30 @@ public actor AteliaProjectLifecycleStore {
             cursorGeneration = generation
             latestCursorValue = response.cursor
         }
+    }
+
+    private func applyJobScopedRepositoryId(
+        _ repositoryId: String,
+        generation: Int,
+        shouldClearRepository: Bool
+    ) {
+        guard shouldApply(generation, after: latestJobScopedGeneration) else { return }
+        let hasDifferentRepository = latestJobScopedRepositoryId != repositoryId
+        latestJobScopedRepositoryId = repositoryId
+        if shouldClearRepository && hasDifferentRepository {
+            latestRepository = nil
+            resetJobScopedState(generation: generation)
+        }
+    }
+
+    private func jobScopedRepositoryId(
+        requestRepositoryId: String?,
+        events: [AteliaEvent]
+    ) -> String? {
+        if let requestRepositoryId {
+            return requestRepositoryId
+        }
+        return events.compactMap(\.refs.repositoryId).first
     }
 
     private var latestJobScopedGeneration: Int {
