@@ -477,7 +477,33 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         repositoryId: String,
         requester: AteliaActor,
         kind: String,
-        message: String? = nil,
+        goal: String? = nil,
+        pathScope: AteliaPathScope? = nil,
+        requestedCapabilities: [String]? = nil,
+        idempotencyKey: String? = nil,
+        toolArgs: AteliaSubmitJobToolArgs? = nil
+    ) {
+        self.init(
+            repositoryId: repositoryId,
+            requester: requester,
+            kind: kind,
+            message: nil,
+            goal: goal,
+            modelRouteKey: nil,
+            permissionModeRouteKey: nil,
+            pathScope: pathScope,
+            requestedCapabilities: requestedCapabilities,
+            idempotencyKey: idempotencyKey,
+            toolArgs: toolArgs
+        )
+    }
+
+    /// Creates a routed-message job submission request.
+    public init(
+        repositoryId: String,
+        requester: AteliaActor,
+        kind: String,
+        message: String?,
         goal: String? = nil,
         modelRouteKey: String? = nil,
         permissionModeRouteKey: String? = nil,

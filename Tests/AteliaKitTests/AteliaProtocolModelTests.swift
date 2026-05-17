@@ -581,6 +581,32 @@ import Testing
     #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
 }
 
+/// Verifies the compatibility initializer keeps new routed-message fields absent.
+@Test func submitJobRequestCompatibilityInitializerOmitsMessageRouteHints() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "documentation_review",
+        goal: "Review protocol references",
+        pathScope: AteliaPathScope(kind: .explicitPaths, roots: ["README.md"]),
+        requestedCapabilities: ["filesystem.read"],
+        idempotencyKey: "submit-job-123",
+        toolArgs: AteliaSubmitJobToolArgs(pattern: "needle", max: 10)
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+    #expect(request.message == nil)
+    #expect(request.modelRouteKey == nil)
+    #expect(request.permissionModeRouteKey == nil)
+    #expect(object["message"] == nil)
+    #expect(object["model_route_key"] == nil)
+    #expect(object["permission_mode_route_key"] == nil)
+    #expect(object["goal"] as? String == "Review protocol references")
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
+}
+
 /// Verifies submit-job requests decode daemon-accepted omitted pattern keys.
 @Test func submitJobRequestDecodesOmittedPathScopePatternKeys() throws {
     let data = #"""
