@@ -36,7 +36,7 @@ replaceable.
 | repository registration | `AteliaRegisterRepositoryRequest`, `AteliaRegisterRepositoryResponse` | `display_name`, `root_path`, `allowed_scope`, `requester`, `repository`, `policy` (nullable) |
 | job | `AteliaJob` | `job_id`, `repository_id`, `requester`, `kind`, optional `goal`, `status`, `latest_event_id` |
 | cancellation | `AteliaCancelJobRequest`, `AteliaCancelJobResponse`, `AteliaJobCancellation` | `requester`, `reason`, `job`, `cancellation`, `state`, `requested_by` |
-| submit job | `AteliaSubmitJobRequest`, `AteliaSubmitJobResponse` | `repository_id`, `requester`, `kind`, optional `goal`, `path_scope`, `requested_capabilities`, `idempotency_key`, `job`, `policy` |
+| submit job | `AteliaSubmitJobRequest`, `AteliaSubmitJobToolArgs`, `AteliaSubmitJobResponse` | `repository_id`, `requester`, `kind`, optional `goal`, `path_scope`, `requested_capabilities`, `idempotency_key`, `tool_args`, `job`, `policy` |
 | event listing / replay | `AteliaListEventsRequest`, `AteliaListEventsResponse`, `AteliaReplayEventsRequest`, `AteliaReplayEventsResponse`, `AteliaEvent` | listing: `repository_id`, `job_ids`, `cursor`, `page_size`, `page_token`; job-scoped list: `repository_id`, `cursor`, `min_severity`, `page_size`, `page_token`; replay: `repository_id`, `cursor`, `limit`; responses/events: `events`, `next_page_token`, tagged cursor keys (`kind`, optional `sequence_number`, optional `event_id`) |
 | project lifecycle cache | `AteliaProjectLifecycleStore`, `AteliaProjectLifecycleStoreSnapshot` | `repository`, `job`, `cancellation`, `events`, `replayResponse`, `metadata`, `latestCursor` |
 | policy summary / decision | `AteliaPolicySummary`, `AteliaPolicyDecision` | `decision_id`, `outcome`, `risk_tier`, `approval_request_ref`, `audit_ref` |
@@ -64,6 +64,12 @@ Secretary implementations. Codable tests cover the exact keys most likely to
 break the client/server contract; add focused tests before changing any
 protocol-facing model shape.
 
+`AteliaRegisterRepositoryRequest` intentionally requires both `requester` and
+`allowed_scope` for client-originated repository registration, even though the
+Secretary transport accepts them as optional. Mac MDP clients should register
+repositories with an explicit actor and allowed path scope so audit, policy, and
+runtime safety decisions do not depend on server-side defaults.
+
 ## Transport Boundary
 
 `HTTPAteliaClient` implements the beta HTTP/JSON calls needed by the first Mac
@@ -71,6 +77,7 @@ and iOS operating surfaces:
 
 - `GET /v1/health`
 - `POST /v1/repositories:list`
+- `POST /v1/repositories:register`
 - `POST /v1/repertoire:list`
 - `POST /v1/project-status:get`
 - `POST /v1/jobs/submit`

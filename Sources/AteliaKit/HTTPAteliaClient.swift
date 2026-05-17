@@ -185,9 +185,12 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         for session: AteliaSession,
         request: AteliaRegisterRepositoryRequest
     ) async throws -> AteliaRegisterRepositoryResponse {
-        _ = session
-        _ = request
-        throw AteliaClientError.registerRepositoryUnavailable
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/repositories:register",
+            body: request
+        )
     }
 
     /// Lists beta tool repertoire entries visible to the session.
