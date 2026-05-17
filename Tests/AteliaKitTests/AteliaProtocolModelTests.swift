@@ -29,6 +29,31 @@ import Testing
     #expect(decoded.allowedScope.excludePatterns == [".build/**"])
 }
 
+/// Verifies repository registration requests encode canonical snake_case keys.
+@Test func registerRepositoryRequestEncodesCanonicalProtocolJSON() throws {
+    let request = AteliaRegisterRepositoryRequest(
+        displayName: "Atelia Kit",
+        rootPath: "/workspace/atelia-kit",
+        allowedScope: AteliaPathScope(
+            kind: .repository,
+            roots: ["/workspace/atelia-kit"]
+        ),
+        requester: .user(id: "user_123", displayName: "Ada")
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let requester = try #require(object["requester"] as? [String: Any])
+    let allowedScope = try #require(object["allowed_scope"] as? [String: Any])
+
+    #expect(object["display_name"] as? String == "Atelia Kit")
+    #expect(object["root_path"] as? String == "/workspace/atelia-kit")
+    #expect(requester["type"] as? String == "user")
+    #expect(requester["id"] as? String == "user_123")
+    #expect(allowedScope["kind"] as? String == "repository")
+    #expect(allowedScope["roots"] as? [String] == ["/workspace/atelia-kit"])
+}
+
 /// Verifies path scopes tolerate daemon JSON that omits empty pattern arrays.
 @Test func pathScopeDecodesOmittedPatternKeysAsEmptyArrays() throws {
     let data = #"""
@@ -175,6 +200,242 @@ import Testing
     #expect(decoded == job)
 }
 
+/// Verifies job inspection, cancellation, and event models round-trip through Codable.
+@Test func jobLifecycleModelsRoundTrip() throws {
+    let metadata = AteliaProtocolMetadata(
+        protocolVersion: "1.0.0",
+        daemonVersion: "0.1.0",
+        storageVersion: "0.1.0",
+        capabilities: ["jobs.v1", "events.v1"]
+    )
+    let job = AteliaJob(
+        jobId: "job_123",
+        repositoryId: "repo_123",
+        requester: .agent(id: "agent_secretary", displayName: "Secretary"),
+        kind: "documentation_review",
+        goal: "Review protocol references",
+        status: .running,
+        createdAtUnixMilliseconds: 1710000000000,
+        startedAtUnixMilliseconds: 1710000001000,
+        latestEventId: "evt_123",
+        cancellation: AteliaJobCancellation(state: "requested")
+    )
+    let event = AteliaEvent(
+        eventId: "evt_123",
+        sequence: 42,
+        occurredAtUnixMilliseconds: 1710000001000,
+        subject: AteliaEventSubject(type: .job, id: "job_123"),
+        kind: "job.started",
+        severity: .info,
+        message: "job started",
+        refs: AteliaEventRefs(
+            repositoryId: "repo_123",
+            jobId: "job_123"
+        )
+    )
+
+    let registerResponse = AteliaRegisterRepositoryResponse(
+        metadata: metadata,
+        repository: AteliaRepository(
+            repositoryId: "repo_123",
+            displayName: "Atelia Kit",
+            rootPath: "/workspace/atelia-kit",
+            allowedScope: AteliaPathScope(kind: .repository, roots: ["/workspace/atelia-kit"]),
+            trustState: .trusted,
+            createdAtUnixMilliseconds: 1710000000000,
+            updatedAtUnixMilliseconds: 1710000001000
+        ),
+        policy: AteliaPolicyDecision(
+            decisionId: "pol_123",
+            outcome: .allowed,
+            riskTier: .r1,
+            requestedCapability: "filesystem.read",
+            reasonCode: "trusted_workspace",
+            reason: "Trusted workspace registration"
+        )
+    )
+    let getJobResponse = AteliaGetJobResponse(metadata: metadata, job: job)
+    let cancelJobResponse = AteliaCancelJobResponse(
+        metadata: metadata,
+        job: job,
+        cancellation: AteliaJobCancellation(
+            state: "completed",
+            requestedBy: .user(id: "user_123", displayName: "Ada"),
+            reason: "stop",
+            requestedAtUnixMilliseconds: 1710000002000,
+            completedAtUnixMilliseconds: 1710000003000
+        )
+    )
+    let listEventsResponse = AteliaListEventsResponse(
+        metadata: metadata,
+        events: [event],
+        nextPageToken: "page_2"
+    )
+    let replayEventsResponse = AteliaReplayEventsResponse(
+        metadata: metadata,
+        events: [event],
+        cursor: .afterSequence(42)
+    )
+
+    let registerData = try JSONEncoder().encode(registerResponse)
+    let getJobData = try JSONEncoder().encode(getJobResponse)
+    let cancelJobData = try JSONEncoder().encode(cancelJobResponse)
+    let listEventsData = try JSONEncoder().encode(listEventsResponse)
+    let replayEventsData = try JSONEncoder().encode(replayEventsResponse)
+
+    #expect(try JSONDecoder().decode(AteliaRegisterRepositoryResponse.self, from: registerData) == registerResponse)
+    #expect(try JSONDecoder().decode(AteliaGetJobResponse.self, from: getJobData) == getJobResponse)
+    #expect(try JSONDecoder().decode(AteliaCancelJobResponse.self, from: cancelJobData) == cancelJobResponse)
+    #expect(try JSONDecoder().decode(AteliaListEventsResponse.self, from: listEventsData) == listEventsResponse)
+    #expect(try JSONDecoder().decode(AteliaReplayEventsResponse.self, from: replayEventsData) == replayEventsResponse)
+    let replayEventsObject = try #require(
+        JSONSerialization.jsonObject(with: replayEventsData) as? [String: Any]
+    )
+    let replayCursor = try #require(replayEventsObject["cursor"] as? [String: Any])
+    #expect(replayCursor["kind"] as? String == "after_sequence")
+    #expect(replayCursor["sequence_number"] as? Int == 42)
+}
+
+/// Verifies repository registration responses decode an omitted policy decision as nil.
+@Test func registerRepositoryResponsePolicyCanBeNull() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["repositories.register.v1"]
+      },
+      "repository": {
+        "repository_id": "repo_123",
+        "display_name": "Atelia Kit",
+        "root_path": "/workspace/atelia-kit",
+        "allowed_scope": {
+          "kind": "repository",
+          "roots": ["/workspace/atelia-kit"],
+          "include_patterns": [],
+          "exclude_patterns": []
+        },
+        "trust_state": "trusted",
+        "created_at_unix_ms": 1710000000000,
+        "updated_at_unix_ms": 1710000001000
+      },
+      "policy": null
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaRegisterRepositoryResponse.self, from: data)
+
+    #expect(decoded.policy == nil)
+}
+
+/// Verifies repository registration responses decode with omitted policy key as nil.
+@Test func registerRepositoryResponsePolicyCanBeOmitted() throws {
+    let data = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["repositories.register.v1"]
+      },
+      "repository": {
+        "repository_id": "repo_123",
+        "display_name": "Atelia Kit",
+        "root_path": "/workspace/atelia-kit",
+        "allowed_scope": {
+          "kind": "repository",
+          "roots": ["/workspace/atelia-kit"],
+          "include_patterns": [],
+          "exclude_patterns": []
+        },
+        "trust_state": "trusted",
+        "created_at_unix_ms": 1710000000000,
+        "updated_at_unix_ms": 1710000001000
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaRegisterRepositoryResponse.self, from: data)
+
+    #expect(decoded.policy == nil)
+}
+
+/// Verifies event-route cursor wire shapes are tagged union values.
+@Test func eventRouteCursorModelsUseTaggedUnionJSON() throws {
+    let listRequest = AteliaListEventsRequest(
+        cursor: .afterEventId("evt_123")
+    )
+    let listRequestData = try JSONEncoder().encode(listRequest)
+    let listRequestObject = try #require(
+        JSONSerialization.jsonObject(with: listRequestData) as? [String: Any]
+    )
+    let listCursor = try #require(listRequestObject["cursor"] as? [String: Any])
+
+    #expect(listRequestObject["repository_id"] == nil)
+    #expect(listCursor["kind"] as? String == "after_event_id")
+    #expect(listCursor["event_id"] as? String == "evt_123")
+
+    let replayResponseData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["events.replay.v1"]
+      },
+      "events": [],
+      "cursor": {
+        "kind": "beginning"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let replayResponse = try JSONDecoder().decode(
+        AteliaReplayEventsResponse.self,
+        from: replayResponseData
+    )
+    #expect(replayResponse.cursor == .beginning)
+}
+
+/// Verifies project status latest_cursor is the flat event cursor shape.
+@Test func projectStatusLatestCursorUsesFlatWireShape() throws {
+    let status = AteliaProjectStatus(
+        metadata: AteliaProtocolMetadata(
+            protocolVersion: "1.0.0",
+            daemonVersion: "0.1.0",
+            storageVersion: "0.1.0",
+            capabilities: ["project_status.v1"]
+        ),
+        repository: AteliaRepository(
+            repositoryId: "repo_123",
+            displayName: "Atelia Kit",
+            rootPath: "/workspace/atelia-kit",
+            allowedScope: AteliaPathScope(kind: .repository),
+            trustState: .trusted,
+            createdAtUnixMilliseconds: 1710000000000,
+            updatedAtUnixMilliseconds: 1710000100000
+        ),
+        recentJobs: [],
+        recentPolicyDecisions: [],
+        latestCursor: AteliaEventCursor(sequence: 42, eventId: "evt_42"),
+        daemonStatus: .running,
+        storageStatus: .ready
+    )
+
+    let encoded = try JSONEncoder().encode(status)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    let latestCursor = try #require(object["latest_cursor"] as? [String: Any])
+
+    #expect(latestCursor["sequence"] as? Int == 42)
+    #expect(latestCursor["event_id"] as? String == "evt_42")
+    #expect(latestCursor["kind"] == nil)
+    #expect(latestCursor["sequence_number"] == nil)
+
+    let decoded = try JSONDecoder().decode(AteliaProjectStatus.self, from: encoded)
+    #expect(decoded == status)
+}
+
 /// Verifies job submission requests encode canonical snake_case keys.
 @Test func submitJobRequestEncodesCanonicalProtocolJSON() throws {
     let request = AteliaSubmitJobRequest(
@@ -212,6 +473,23 @@ import Testing
     #expect(decoded == request)
 }
 
+/// Verifies job submission requests may omit goal when callers do not have one.
+@Test func submitJobRequestOmitsNilGoal() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "documentation_review"
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+    #expect(object["repository_id"] as? String == "repo_123")
+    #expect(object["kind"] as? String == "documentation_review")
+    #expect(object["goal"] == nil)
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
+}
+
 /// Verifies submit-job requests decode daemon-accepted omitted pattern keys.
 @Test func submitJobRequestDecodesOmittedPathScopePatternKeys() throws {
     let data = #"""
@@ -238,6 +516,35 @@ import Testing
     #expect(decoded.pathScope == AteliaPathScope(kind: .explicitPaths, roots: ["README.md"]))
     #expect(decoded.pathScope?.includePatterns == [])
     #expect(decoded.pathScope?.excludePatterns == [])
+}
+
+/// Verifies Secretary job projections tolerate omitted goal fields.
+@Test func jobDecodesOmittedGoal() throws {
+    let data = #"""
+    {
+      "job_id": "job_123",
+      "repository_id": "repo_123",
+      "requester": {
+        "type": "agent",
+        "id": "agent_secretary",
+        "display_name": "Secretary"
+      },
+      "kind": "documentation_review",
+      "status": "queued",
+      "policy_summary": null,
+      "created_at_unix_ms": 1710000000000,
+      "started_at_unix_ms": null,
+      "completed_at_unix_ms": null,
+      "latest_event_id": null,
+      "cancellation": null
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaJob.self, from: data)
+
+    #expect(decoded.jobId == "job_123")
+    #expect(decoded.goal == nil)
+    #expect(decoded.status == .queued)
 }
 
 /// Verifies job submission responses decode the persisted job projection.

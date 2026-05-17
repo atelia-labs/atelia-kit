@@ -33,15 +33,18 @@ replaceable.
 | allowed path scope | `AteliaPathScope` | `kind`, `roots`, `include_patterns`, `exclude_patterns` |
 | project/thread client identity | `AteliaProjectIdentity`, `AteliaThreadIdentity` | `repository_id`, `project_id`, `id`, `title`, `display_name` |
 | actor | `AteliaActor` | `type`, `id`, `display_name` |
-| job | `AteliaJob` | `job_id`, `repository_id`, `requester`, `kind`, `status` |
-| cancellation | `AteliaJobCancellation` | `state`, `requested_by`, `reason` |
-| submit job | `AteliaSubmitJobRequest`, `AteliaSubmitJobResponse` | `repository_id`, `requester`, `kind`, `goal`, `path_scope`, `requested_capabilities`, `idempotency_key`, `job`, `policy` |
+| repository registration | `AteliaRegisterRepositoryRequest`, `AteliaRegisterRepositoryResponse` | `display_name`, `root_path`, `allowed_scope`, `requester`, `repository`, `policy` (nullable) |
+| job | `AteliaJob` | `job_id`, `repository_id`, `requester`, `kind`, optional `goal`, `status`, `latest_event_id` |
+| cancellation | `AteliaCancelJobRequest`, `AteliaCancelJobResponse`, `AteliaJobCancellation` | `requester`, `reason`, `job`, `cancellation`, `state`, `requested_by` |
+| submit job | `AteliaSubmitJobRequest`, `AteliaSubmitJobResponse` | `repository_id`, `requester`, `kind`, optional `goal`, `path_scope`, `requested_capabilities`, `idempotency_key`, `job`, `policy` |
+| event listing / replay | `AteliaListEventsRequest`, `AteliaListEventsResponse`, `AteliaReplayEventsRequest`, `AteliaReplayEventsResponse`, `AteliaEvent` | listing: `repository_id`, `job_ids`, `cursor`, `page_size`, `page_token`; job-scoped list: `repository_id`, `cursor`, `min_severity`, `page_size`, `page_token`; replay: `repository_id`, `cursor`, `limit`; responses/events: `events`, `next_page_token`, tagged cursor keys (`kind`, optional `sequence_number`, optional `event_id`) |
+| project lifecycle cache | `AteliaProjectLifecycleStore`, `AteliaProjectLifecycleStoreSnapshot` | `repository`, `job`, `cancellation`, `events`, `replayResponse`, `metadata`, `latestCursor` |
 | policy summary / decision | `AteliaPolicySummary`, `AteliaPolicyDecision` | `decision_id`, `outcome`, `risk_tier`, `approval_request_ref`, `audit_ref` |
 | approval state | `AteliaApprovalState` | `id`, `status`, `policy_decision_id`, `requested_by`, `reason` |
 | audit reference | `AteliaAuditReference` | `id`, `repository_id`, `job_id`, `policy_decision_id`, `message` |
 | review queue item | `AteliaReviewQueueItem` | `id`, `kind`, `title`, `repository_id`, `job_id`, `policy_decision_id`, `priority` |
-| event cursor | `AteliaEventCursor` | `sequence`, `event_id` |
-| project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor`, `daemon_status`, `storage_status` |
+| event cursor (routes) | `AteliaEventRouteCursor` | `kind` + `sequence_number` / `event_id` |
+| project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor: { sequence, event_id }`, `daemon_status`, `storage_status` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
 | package validation | `AteliaPackageValidationRequest`, `AteliaPackageValidationResponse` | `manifest`, `approve_local_unsigned`, `allow_local_process_runtime`, `approve_source_change`, `boundary` |
 | package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `id`, `record`, `extension_id`, `extension`, `extensions`, `previous_version` |
@@ -49,6 +52,10 @@ replaceable.
 | package rollback | `AteliaPackageRollbackResponse`, `AteliaPackageRollbackRecord` | `id`, `version`, `previous_version`, `status`, `rollback_snapshot` |
 | beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `supported_result_formats` |
 | tool output rendering | `AteliaToolOutputRenderRequest`, `AteliaToolOutputRenderResponse` | `tool_result`, `format`, `rendered_output`, `rendered_output_metadata`, `truncation` |
+
+Project status uses a flat `latest_cursor` (`sequence`, `event_id`) from the RPC EventCursor path.
+Event listing / replay routes use tagged `cursor` envelopes through `AteliaEventRouteCursor`
+(`kind`, optional `sequence_number` / `event_id`) on list/replay models.
 
 The third column is a representative drift guard, not an exhaustive schema
 listing. It includes envelope keys such as `metadata`, collection keys such as
@@ -67,6 +74,11 @@ and iOS operating surfaces:
 - `POST /v1/repertoire:list`
 - `POST /v1/project-status:get`
 - `POST /v1/jobs/submit`
+- `GET /v1/jobs/{job_id}`
+- `POST /v1/jobs/{job_id}/cancel`
+- `POST /v1/events/list`
+- `POST /v1/jobs/{job_id}/events`
+- `POST /v1/events/replay`
 - `POST /v1/package-trust-index:list`
 - `POST /v1/packages/validate`
 - `POST /v1/packages/install`

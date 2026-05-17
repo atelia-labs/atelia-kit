@@ -385,7 +385,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
     public var repositoryId: String
     public var requester: AteliaActor
     public var kind: String
-    public var goal: String
+    public var goal: String?
     public var status: Status
     public var policySummary: AteliaPolicySummary?
     public var createdAtUnixMilliseconds: Int64
@@ -401,7 +401,7 @@ public struct AteliaJob: Sendable, Codable, Equatable, Identifiable {
         repositoryId: String,
         requester: AteliaActor,
         kind: String,
-        goal: String,
+        goal: String? = nil,
         status: Status,
         policySummary: AteliaPolicySummary? = nil,
         createdAtUnixMilliseconds: Int64,
@@ -452,7 +452,7 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
     /// Job kind requested by the caller.
     public var kind: String
     /// Bounded-job intent or summary.
-    public var goal: String
+    public var goal: String?
     /// Optional filesystem scope attached to the job request.
     public var pathScope: AteliaPathScope?
     /// Optional capability hints forwarded to Secretary for policy normalization.
@@ -465,7 +465,7 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         repositoryId: String,
         requester: AteliaActor,
         kind: String,
-        goal: String,
+        goal: String? = nil,
         pathScope: AteliaPathScope? = nil,
         requestedCapabilities: [String]? = nil,
         idempotencyKey: String? = nil
@@ -484,7 +484,7 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         try container.encode(repositoryId, forKey: .repositoryId)
         try container.encode(requester, forKey: .requester)
         try container.encode(kind, forKey: .kind)
-        try container.encode(goal, forKey: .goal)
+        try container.encodeIfPresent(goal, forKey: .goal)
         try container.encodeIfPresent(requestedCapabilities, forKey: .requestedCapabilities)
         try container.encodeIfPresent(idempotencyKey, forKey: .idempotencyKey)
 

@@ -9,6 +9,8 @@ public enum HTTPAteliaClientError: Error, Sendable, Equatable {
     case invalidURL(path: String)
     /// The package identifier cannot be used in an operation path.
     case invalidPackageId(String)
+    /// The job identifier cannot be used in an operation path.
+    case invalidJobId(String)
     /// The transport returned a non-HTTP response.
     case invalidHTTPResponse
     /// Secretary returned a non-success HTTP status without a structured API error.
@@ -176,6 +178,16 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         }
 
         return repositories
+    }
+
+    /// Registers a repository root and returns the persisted repository projection.
+    public func registerRepositoryResponse(
+        for session: AteliaSession,
+        request: AteliaRegisterRepositoryRequest
+    ) async throws -> AteliaRegisterRepositoryResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.registerRepositoryUnavailable
     }
 
     /// Lists beta tool repertoire entries visible to the session.
@@ -346,6 +358,99 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
             session: session,
             method: "POST",
             path: "/v1/jobs/submit",
+            body: request
+        )
+    }
+
+    /// Returns a job projection for a job identifier.
+    public func jobResponse(
+        for session: AteliaSession,
+        jobId: String
+    ) async throws -> AteliaGetJobResponse {
+        try await send(
+            session: session,
+            method: "GET",
+            path: try makeJobPath(jobId: jobId),
+            body: EmptyRequest()
+        )
+    }
+
+    /// Returns the cancellation response envelope for a job identifier.
+    public func cancelJobResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaCancelJobRequest
+    ) async throws -> AteliaCancelJobResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: try makeJobOperationPath(jobId: jobId, operation: "cancel"),
+            body: request
+        )
+    }
+
+    /// Returns the polling-friendly event list envelope.
+    public func listEventsResponse(
+        for session: AteliaSession,
+        request: AteliaListEventsRequest
+    ) async throws -> AteliaListEventsResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/events/list",
+            body: request
+        )
+    }
+
+    private struct ListJobEventsRequestPayload: Sendable, Codable {
+        private enum CodingKeys: String, CodingKey {
+            case repositoryId = "repository_id"
+            case cursor
+            case minSeverity = "min_severity"
+            case pageSize = "page_size"
+            case pageToken = "page_token"
+        }
+
+        var repositoryId: String?
+        var cursor: AteliaEventRouteCursor?
+        var minSeverity: AteliaEventSeverity?
+        var pageSize: Int?
+        var pageToken: String?
+
+        init(
+            request: AteliaListEventsRequest
+        ) {
+            repositoryId = request.repositoryId
+            cursor = request.cursor
+            minSeverity = request.minSeverity
+            pageSize = request.pageSize
+            pageToken = request.pageToken
+        }
+    }
+
+    /// Returns the polling-friendly event list envelope for one job.
+    public func listJobEventsResponse(
+        for session: AteliaSession,
+        jobId: String,
+        request: AteliaListEventsRequest
+    ) async throws -> AteliaListEventsResponse {
+        return try await send(
+            session: session,
+            method: "POST",
+            path: try makeJobOperationPath(jobId: jobId, operation: "events"),
+            body: ListJobEventsRequestPayload(request: request)
+        )
+    }
+
+    /// Returns the bounded replay envelope.
+    public func replayEventsResponse(
+        for session: AteliaSession,
+        request: AteliaReplayEventsRequest
+    ) async throws -> AteliaReplayEventsResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/events/replay",
             body: request
         )
     }
@@ -547,6 +652,22 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Builds a Secretary job path after validating the job identifier.
+    private func makeJobPath(jobId: String) throws -> String {
+        guard isValidJobId(jobId) else {
+            throw HTTPAteliaClientError.invalidJobId(jobId)
+        }
+        return "/v1/jobs/\(jobId)"
+    }
+
+    /// Builds a Secretary job operation path after validating the job identifier.
+    private func makeJobOperationPath(jobId: String, operation: String) throws -> String {
+        guard isValidJobId(jobId) else {
+            throw HTTPAteliaClientError.invalidJobId(jobId)
+        }
+        return "/v1/jobs/\(jobId)/\(operation)"
+    }
+
     /// Builds a Secretary package path after validating the package identifier.
     private func makePackageOperationPath(
         baseSegment: String,
@@ -565,6 +686,17 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
             return false
         }
         return packageId.range(
+            of: #"^[A-Za-z0-9._-]+$"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    /// Returns whether a job identifier can be embedded into a path segment.
+    private func isValidJobId(_ jobId: String) -> Bool {
+        guard !jobId.isEmpty, jobId != ".", jobId != ".." else {
+            return false
+        }
+        return jobId.range(
             of: #"^[A-Za-z0-9._-]+$"#,
             options: .regularExpression
         ) != nil
