@@ -432,7 +432,10 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         case repositoryId = "repository_id"
         case requester
         case kind
+        case message
         case goal
+        case modelRouteKey = "model_route_key"
+        case permissionModeRouteKey = "permission_mode_route_key"
         case pathScope = "path_scope"
         case requestedCapabilities = "requested_capabilities"
         case idempotencyKey = "idempotency_key"
@@ -452,8 +455,14 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
     public var requester: AteliaActor
     /// Job kind requested by the caller.
     public var kind: String
+    /// Free-form user or agent message attached to this submission.
+    public var message: String?
     /// Bounded-job intent or summary.
     public var goal: String?
+    /// Optional client model route hint used by presentation hosts.
+    public var modelRouteKey: String?
+    /// Optional permission-mode route hint used by presentation hosts.
+    public var permissionModeRouteKey: String?
     /// Optional filesystem scope attached to the job request.
     public var pathScope: AteliaPathScope?
     /// Optional capability hints forwarded to Secretary for policy normalization.
@@ -468,7 +477,10 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         repositoryId: String,
         requester: AteliaActor,
         kind: String,
+        message: String? = nil,
         goal: String? = nil,
+        modelRouteKey: String? = nil,
+        permissionModeRouteKey: String? = nil,
         pathScope: AteliaPathScope? = nil,
         requestedCapabilities: [String]? = nil,
         idempotencyKey: String? = nil,
@@ -477,7 +489,10 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         self.repositoryId = repositoryId
         self.requester = requester
         self.kind = kind
+        self.message = message
         self.goal = goal
+        self.modelRouteKey = modelRouteKey
+        self.permissionModeRouteKey = permissionModeRouteKey
         self.pathScope = pathScope
         self.requestedCapabilities = requestedCapabilities
         self.idempotencyKey = idempotencyKey
@@ -489,7 +504,10 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         try container.encode(repositoryId, forKey: .repositoryId)
         try container.encode(requester, forKey: .requester)
         try container.encode(kind, forKey: .kind)
+        try container.encodeIfPresent(message, forKey: .message)
         try container.encodeIfPresent(goal, forKey: .goal)
+        try container.encodeIfPresent(modelRouteKey, forKey: .modelRouteKey)
+        try container.encodeIfPresent(permissionModeRouteKey, forKey: .permissionModeRouteKey)
         try container.encodeIfPresent(requestedCapabilities, forKey: .requestedCapabilities)
         try container.encodeIfPresent(idempotencyKey, forKey: .idempotencyKey)
         try container.encodeIfPresent(toolArgs, forKey: .toolArgs)

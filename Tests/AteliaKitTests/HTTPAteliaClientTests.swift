@@ -890,7 +890,10 @@ import Testing
         repositoryId: "repo_123",
         requester: .agent(id: "agent_secretary", displayName: "Secretary"),
         kind: "documentation_review",
+        message: "Please review the protocol references.",
         goal: "Review protocol references",
+        modelRouteKey: "models/atelia-balanced",
+        permissionModeRouteKey: "permissions/full-access",
         pathScope: AteliaPathScope(
             kind: .explicitPaths,
             roots: ["README.md"]
@@ -909,7 +912,10 @@ import Testing
         let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
         #expect(body["repository_id"] as? String == "repo_123")
         #expect(body["kind"] as? String == "documentation_review")
+        #expect(body["message"] as? String == "Please review the protocol references.")
         #expect(body["goal"] as? String == "Review protocol references")
+        #expect(body["model_route_key"] as? String == "models/atelia-balanced")
+        #expect(body["permission_mode_route_key"] as? String == "permissions/full-access")
         #expect(body["requested_capabilities"] as? [String] == ["filesystem.read"])
         #expect(body["idempotency_key"] as? String == "submit-job-123")
         #expect(body["tool_args"] == nil)

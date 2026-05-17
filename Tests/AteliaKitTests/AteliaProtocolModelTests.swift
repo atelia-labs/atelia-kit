@@ -442,7 +442,10 @@ import Testing
         repositoryId: "repo_123",
         requester: .user(id: "user_123", displayName: "Ada"),
         kind: "documentation_review",
+        message: "Please review the protocol references.",
         goal: "Review protocol references",
+        modelRouteKey: "models/atelia-balanced",
+        permissionModeRouteKey: "permissions/full-access",
         pathScope: AteliaPathScope(
             kind: .explicitPaths,
             roots: ["README.md"]
@@ -459,7 +462,10 @@ import Testing
 
     #expect(object["repository_id"] as? String == "repo_123")
     #expect(object["kind"] as? String == "documentation_review")
+    #expect(object["message"] as? String == "Please review the protocol references.")
     #expect(object["goal"] as? String == "Review protocol references")
+    #expect(object["model_route_key"] as? String == "models/atelia-balanced")
+    #expect(object["permission_mode_route_key"] as? String == "permissions/full-access")
     #expect(requester["type"] as? String == "user")
     #expect(requester["id"] as? String == "user_123")
     #expect(pathScope["kind"] as? String == "explicit_paths")
@@ -476,6 +482,28 @@ import Testing
     let decoded = try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data)
 
     #expect(decoded == request)
+}
+
+/// Verifies submit-job requests keep free-form message separate from optional goal.
+@Test func submitJobRequestKeepsMessageSeparateFromOptionalGoal() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "message",
+        message: "進捗を要約して",
+        goal: nil,
+        modelRouteKey: "models/atelia-balanced",
+        permissionModeRouteKey: "permissions/full-access"
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+    #expect(object["message"] as? String == "進捗を要約して")
+    #expect(object["goal"] == nil)
+    #expect(object["model_route_key"] as? String == "models/atelia-balanced")
+    #expect(object["permission_mode_route_key"] as? String == "permissions/full-access")
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
 }
 
 /// Verifies submit-job tool arguments decode and round-trip all canonical keys.
