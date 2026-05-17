@@ -478,6 +478,37 @@ import Testing
     #expect(decoded == request)
 }
 
+/// Verifies submit-job tool arguments decode and round-trip all canonical keys.
+@Test func submitJobToolArgsDecodesAndRoundTripsCanonicalProtocolJSON() throws {
+    let data = #"""
+    {
+      "pattern": "needle",
+      "max": 10,
+      "comparison_path": "right.txt",
+      "max_bytes": 4096,
+      "max_chars": 120
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaSubmitJobToolArgs.self, from: data)
+
+    #expect(decoded.pattern == "needle")
+    #expect(decoded.max == 10)
+    #expect(decoded.comparisonPath == "right.txt")
+    #expect(decoded.maxBytes == 4096)
+    #expect(decoded.maxChars == 120)
+
+    let encoded = try JSONEncoder().encode(decoded)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+    #expect(object["pattern"] as? String == "needle")
+    #expect(object["max"] as? Int == 10)
+    #expect(object["comparison_path"] as? String == "right.txt")
+    #expect(object["max_bytes"] as? Int == 4096)
+    #expect(object["max_chars"] as? Int == 120)
+    #expect(try JSONDecoder().decode(AteliaSubmitJobToolArgs.self, from: encoded) == decoded)
+}
+
 /// Verifies diff submit-job tool arguments encode and decode canonical protocol keys.
 @Test func submitJobDiffToolArgsRoundTripCanonicalProtocolJSON() throws {
     let request = AteliaSubmitJobRequest(

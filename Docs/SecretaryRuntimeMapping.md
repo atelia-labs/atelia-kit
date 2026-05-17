@@ -64,6 +64,12 @@ Secretary implementations. Codable tests cover the exact keys most likely to
 break the client/server contract; add focused tests before changing any
 protocol-facing model shape.
 
+`AteliaRegisterRepositoryRequest` intentionally requires both `requester` and
+`allowed_scope` for client-originated repository registration, even though the
+Secretary transport accepts them as optional. Mac MDP clients should register
+repositories with an explicit actor and allowed path scope so audit, policy, and
+runtime safety decisions do not depend on server-side defaults.
+
 ## Transport Boundary
 
 `HTTPAteliaClient` implements the beta HTTP/JSON calls needed by the first Mac
