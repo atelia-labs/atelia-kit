@@ -436,6 +436,7 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         case pathScope = "path_scope"
         case requestedCapabilities = "requested_capabilities"
         case idempotencyKey = "idempotency_key"
+        case toolArgs = "tool_args"
     }
 
     private enum PathScopeCodingKeys: String, CodingKey {
@@ -459,6 +460,8 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
     public var requestedCapabilities: [String]?
     /// Optional idempotency token for replayable submissions.
     public var idempotencyKey: String?
+    /// Optional tool-specific arguments for supported filesystem capabilities.
+    public var toolArgs: AteliaSubmitJobToolArgs?
 
     /// Creates a job submission request.
     public init(
@@ -468,7 +471,8 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         goal: String? = nil,
         pathScope: AteliaPathScope? = nil,
         requestedCapabilities: [String]? = nil,
-        idempotencyKey: String? = nil
+        idempotencyKey: String? = nil,
+        toolArgs: AteliaSubmitJobToolArgs? = nil
     ) {
         self.repositoryId = repositoryId
         self.requester = requester
@@ -477,6 +481,7 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         self.pathScope = pathScope
         self.requestedCapabilities = requestedCapabilities
         self.idempotencyKey = idempotencyKey
+        self.toolArgs = toolArgs
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -487,6 +492,7 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         try container.encodeIfPresent(goal, forKey: .goal)
         try container.encodeIfPresent(requestedCapabilities, forKey: .requestedCapabilities)
         try container.encodeIfPresent(idempotencyKey, forKey: .idempotencyKey)
+        try container.encodeIfPresent(toolArgs, forKey: .toolArgs)
 
         guard let pathScope else { return }
 
@@ -502,6 +508,44 @@ public struct AteliaSubmitJobRequest: Sendable, Codable, Equatable {
         if !pathScope.excludePatterns.isEmpty {
             try pathScopeContainer.encode(pathScope.excludePatterns, forKey: .excludePatterns)
         }
+    }
+}
+
+/// Structured tool-specific arguments accepted by `SubmitJob`.
+public struct AteliaSubmitJobToolArgs: Sendable, Codable, Equatable {
+    /// JSON keys for submit-job tool arguments.
+    private enum CodingKeys: String, CodingKey {
+        case pattern
+        case max
+        case comparisonPath = "comparison_path"
+        case maxBytes = "max_bytes"
+        case maxChars = "max_chars"
+    }
+
+    /// Search pattern for `filesystem.search` / `fs.search`.
+    public var pattern: String?
+    /// Maximum number of search results for `filesystem.search` / `fs.search`.
+    public var max: UInt64?
+    /// Comparison path for `filesystem.diff` / `fs.diff`.
+    public var comparisonPath: String?
+    /// Maximum bytes for diff output.
+    public var maxBytes: UInt64?
+    /// Maximum UTF-8 characters for diff output.
+    public var maxChars: UInt64?
+
+    /// Creates tool-specific submit-job arguments.
+    public init(
+        pattern: String? = nil,
+        max: UInt64? = nil,
+        comparisonPath: String? = nil,
+        maxBytes: UInt64? = nil,
+        maxChars: UInt64? = nil
+    ) {
+        self.pattern = pattern
+        self.max = max
+        self.comparisonPath = comparisonPath
+        self.maxBytes = maxBytes
+        self.maxChars = maxChars
     }
 }
 

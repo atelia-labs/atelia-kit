@@ -896,7 +896,8 @@ import Testing
             roots: ["README.md"]
         ),
         requestedCapabilities: ["filesystem.read"],
-        idempotencyKey: "submit-job-123"
+        idempotencyKey: "submit-job-123",
+        toolArgs: nil
     )
 
     let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
@@ -911,6 +912,7 @@ import Testing
         #expect(body["goal"] as? String == "Review protocol references")
         #expect(body["requested_capabilities"] as? [String] == ["filesystem.read"])
         #expect(body["idempotency_key"] as? String == "submit-job-123")
+        #expect(body["tool_args"] == nil)
 
         let requester = try #require(body["requester"] as? [String: Any])
         #expect(requester["type"] as? String == "agent")
@@ -987,6 +989,83 @@ import Testing
     #expect(job == response.job)
 }
 
+/// Verifies submit-job requests can carry Secretary filesystem tool arguments.
+@Test func httpClientSubmitsJobWithFilesystemToolArgs() async throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .agent(id: "agent_secretary", displayName: "Secretary"),
+        kind: "tool",
+        pathScope: AteliaPathScope(
+            kind: .explicitPaths,
+            roots: ["Sources"]
+        ),
+        requestedCapabilities: ["filesystem.search"],
+        idempotencyKey: "search-123",
+        toolArgs: AteliaSubmitJobToolArgs(
+            pattern: "AteliaSubmitJobRequest",
+            max: 10
+        )
+    )
+
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/jobs/submit")
+        #expect(request.httpMethod == "POST")
+
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["requested_capabilities"] as? [String] == ["filesystem.search"])
+        let toolArgs = try #require(body["tool_args"] as? [String: Any])
+        #expect(toolArgs["pattern"] as? String == "AteliaSubmitJobRequest")
+        #expect(toolArgs["max"] as? Int == 10)
+        #expect(toolArgs["comparison_path"] == nil)
+        #expect(toolArgs["max_bytes"] == nil)
+        #expect(toolArgs["max_chars"] == nil)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["jobs.submit.v1"]
+            },
+            "job": {
+              "job_id": "job_123",
+              "repository_id": "repo_123",
+              "requester": {
+                "type": "agent",
+                "id": "agent_secretary",
+                "display_name": "Secretary"
+              },
+              "kind": "tool",
+              "status": "queued",
+              "policy_summary": null,
+              "created_at_unix_ms": 1710000000000,
+              "started_at_unix_ms": null,
+              "completed_at_unix_ms": null,
+              "latest_event_id": null,
+              "cancellation": null
+            },
+            "policy": {
+              "decision_id": "pol_123",
+              "outcome": "audited",
+              "risk_tier": "r1",
+              "requested_capability": "filesystem.search",
+              "reason_code": "bounded_search",
+              "reason": "Search request is permitted"
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.submitJobResponse(for: AteliaSession(), request: request)
+
+    #expect(response.job.kind == "tool")
+    #expect(response.policy.requestedCapability == "filesystem.search")
+}
+
 /// Verifies job submission HTTP payloads omit nil goals and responses tolerate omitted job goals.
 @Test func httpClientSubmitsJobWithOmittedGoal() async throws {
     let request = AteliaSubmitJobRequest(
@@ -1051,8 +1130,8 @@ import Testing
     #expect(response.policy.decisionId == "pol_123")
 }
 
-/// Verifies repository registration is marked unavailable on HTTP transport.
-@Test func httpClientDoesNotAdvertiseRepositoryRegistrationRoute() async throws {
+/// Verifies repository registration hits Secretary's beta registration route.
+@Test func httpClientRegistersRepository() async throws {
     let request = AteliaRegisterRepositoryRequest(
         displayName: "Atelia Kit",
         rootPath: "/workspace/atelia-kit",
@@ -1063,22 +1142,58 @@ import Testing
         requester: .user(id: "user_123", displayName: "Ada")
     )
 
-    let client = HTTPAteliaClient(transport: .fixture { _ in
-        Issue.record("registration should not issue an HTTP request")
+    let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in
+        #expect(request.url?.path == "/v1/repositories:register")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer token-123")
+
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+        #expect(body["display_name"] as? String == "Atelia Kit")
+        #expect(body["root_path"] as? String == "/workspace/atelia-kit")
+        let requester = try #require(body["requester"] as? [String: Any])
+        #expect(requester["type"] as? String == "user")
+        #expect(requester["id"] as? String == "user_123")
+        let allowedScope = try #require(body["allowed_scope"] as? [String: Any])
+        #expect(allowedScope["kind"] as? String == "repository")
+        #expect(allowedScope["roots"] as? [String] == ["/workspace/atelia-kit"])
+
         return #"""
         {
           "status": "ok",
-          "data": {}
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["repositories.register.v1"]
+            },
+            "repository": {
+              "repository_id": "repo_123",
+              "display_name": "Atelia Kit",
+              "root_path": "/workspace/atelia-kit",
+              "allowed_scope": {
+                "kind": "repository",
+                "roots": ["/workspace/atelia-kit"],
+                "include_patterns": [],
+                "exclude_patterns": []
+              },
+              "trust_state": "trusted",
+              "created_at_unix_ms": 1710000000000,
+              "updated_at_unix_ms": 1710000100000
+            },
+            "policy": null
+          }
         }
         """#
     })
 
-    await #expect(throws: AteliaClientError.registerRepositoryUnavailable) {
-        _ = try await client.registerRepositoryResponse(for: AteliaSession(), request: request)
-    }
-    await #expect(throws: AteliaClientError.registerRepositoryUnavailable) {
-        _ = try await client.registerRepository(for: AteliaSession(), request: request)
-    }
+    let response = try await client.registerRepositoryResponse(for: AteliaSession(), request: request)
+    let repository = try await client.registerRepository(for: AteliaSession(), request: request)
+
+    #expect(response.metadata.capabilities == ["repositories.register.v1"])
+    #expect(response.repository.repositoryId == "repo_123")
+    #expect(response.policy == nil)
+    #expect(repository == response.repository)
 }
 
 /// Verifies the HTTP client can fetch, cancel, and track job events through the lifecycle routes.

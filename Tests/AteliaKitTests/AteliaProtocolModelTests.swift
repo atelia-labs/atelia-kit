@@ -447,8 +447,9 @@ import Testing
             kind: .explicitPaths,
             roots: ["README.md"]
         ),
-        requestedCapabilities: ["filesystem.read"],
-        idempotencyKey: "submit-job-123"
+        requestedCapabilities: ["filesystem.search"],
+        idempotencyKey: "submit-job-123",
+        toolArgs: AteliaSubmitJobToolArgs(pattern: "needle", max: 10)
     )
 
     let data = try JSONEncoder().encode(request)
@@ -465,12 +466,43 @@ import Testing
     #expect(pathScope["roots"] as? [String] == ["README.md"])
     #expect(pathScope["include_patterns"] == nil)
     #expect(pathScope["exclude_patterns"] == nil)
-    #expect(object["requested_capabilities"] as? [String] == ["filesystem.read"])
+    #expect(object["requested_capabilities"] as? [String] == ["filesystem.search"])
     #expect(object["idempotency_key"] as? String == "submit-job-123")
+    let toolArgs = try #require(object["tool_args"] as? [String: Any])
+    #expect(toolArgs["pattern"] as? String == "needle")
+    #expect(toolArgs["max"] as? Int == 10)
+    #expect(toolArgs["comparison_path"] == nil)
 
     let decoded = try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data)
 
     #expect(decoded == request)
+}
+
+/// Verifies diff submit-job tool arguments encode and decode canonical protocol keys.
+@Test func submitJobDiffToolArgsRoundTripCanonicalProtocolJSON() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "tool",
+        pathScope: AteliaPathScope(kind: .explicitPaths, roots: ["left.txt"]),
+        requestedCapabilities: ["filesystem.diff"],
+        toolArgs: AteliaSubmitJobToolArgs(
+            comparisonPath: "right.txt",
+            maxBytes: 4096,
+            maxChars: 120
+        )
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let toolArgs = try #require(object["tool_args"] as? [String: Any])
+
+    #expect(toolArgs["pattern"] == nil)
+    #expect(toolArgs["max"] == nil)
+    #expect(toolArgs["comparison_path"] as? String == "right.txt")
+    #expect(toolArgs["max_bytes"] as? Int == 4096)
+    #expect(toolArgs["max_chars"] as? Int == 120)
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
 }
 
 /// Verifies job submission requests may omit goal when callers do not have one.
