@@ -296,6 +296,92 @@ import Testing
     #expect(replayCursor["sequence_number"] as? Int == 42)
 }
 
+/// Verifies event refs decode tool-result content type when present.
+@Test func eventRefsDecodeToolResultContentType() throws {
+    let data = #"""
+    {
+      "event_id": "evt_123",
+      "sequence": 42,
+      "occurred_at_unix_ms": 1710000001000,
+      "subject": {
+        "type": "tool_result",
+        "id": "tool_result_123"
+      },
+      "kind": "tool_result_recorded",
+      "severity": "info",
+      "message": "tool result recorded",
+      "refs": {
+        "repository_id": "repo_123",
+        "job_id": "job_123",
+        "tool_invocation_id": "tool_invocation_123",
+        "tool_result_id": "tool_result_123",
+        "content_type": "application/json"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaEvent.self, from: data)
+
+    #expect(decoded.refs.contentType == "application/json")
+    #expect(AteliaToolResultRef(event: decoded) == AteliaToolResultRef(
+        toolResultId: "tool_result_123",
+        toolInvocationId: "tool_invocation_123",
+        jobId: "job_123",
+        repositoryId: "repo_123",
+        contentType: "application/json"
+    ))
+}
+
+/// Verifies event refs preserve compatibility with older payloads that omit content type.
+@Test func eventRefsDecodeWhenToolResultContentTypeIsAbsent() throws {
+    let data = #"""
+    {
+      "event_id": "evt_123",
+      "sequence": 42,
+      "occurred_at_unix_ms": 1710000001000,
+      "subject": {
+        "type": "tool_result",
+        "id": "tool_result_123"
+      },
+      "kind": "tool_result_recorded",
+      "severity": "info",
+      "message": "tool result recorded",
+      "refs": {
+        "repository_id": "repo_123",
+        "job_id": "job_123",
+        "tool_invocation_id": "tool_invocation_123",
+        "tool_result_id": "tool_result_123"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaEvent.self, from: data)
+
+    #expect(decoded.refs.contentType == nil)
+    #expect(AteliaToolResultRef(event: decoded) == nil)
+}
+
+/// Verifies tool-result refs require every render endpoint key.
+@Test func toolResultRefFromEventRequiresCompleteRefs() {
+    let event = AteliaEvent(
+        eventId: "evt_123",
+        sequence: 42,
+        occurredAtUnixMilliseconds: 1710000001000,
+        subject: AteliaEventSubject(type: .toolResult, id: "tool_result_123"),
+        kind: "tool_result_recorded",
+        severity: .info,
+        message: "tool result recorded",
+        refs: AteliaEventRefs(
+            repositoryId: "repo_123",
+            jobId: "job_123",
+            toolResultId: "tool_result_123",
+            contentType: "application/json"
+        )
+    )
+
+    #expect(AteliaToolResultRef(event: event) == nil)
+}
+
 /// Verifies repository registration responses decode an omitted policy decision as nil.
 @Test func registerRepositoryResponsePolicyCanBeNull() throws {
     let data = #"""

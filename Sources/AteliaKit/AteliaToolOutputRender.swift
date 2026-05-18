@@ -106,6 +106,28 @@ public struct AteliaToolResultRef: Sendable, Codable, Equatable {
         self.repositoryId = repositoryId
         self.contentType = contentType
     }
+
+    /// Creates a renderable tool-result reference from an event when every
+    /// render endpoint key is present in the event refs.
+    public init?(event: AteliaEvent) {
+        let refs = event.refs
+        guard let toolResultId = refs.toolResultId,
+              let toolInvocationId = refs.toolInvocationId,
+              let jobId = refs.jobId,
+              let repositoryId = refs.repositoryId,
+              let contentType = refs.contentType
+        else {
+            return nil
+        }
+
+        self.init(
+            toolResultId: toolResultId,
+            toolInvocationId: toolInvocationId,
+            jobId: jobId,
+            repositoryId: repositoryId,
+            contentType: contentType
+        )
+    }
 }
 
 /// Output format accepted by render requests.
