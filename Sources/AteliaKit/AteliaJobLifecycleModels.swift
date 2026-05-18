@@ -249,6 +249,7 @@ public struct AteliaEventRefs: Sendable, Codable, Equatable {
         case lockDecisionId = "lock_decision_id"
         case toolInvocationId = "tool_invocation_id"
         case toolResultId = "tool_result_id"
+        case contentType = "content_type"
         case auditRef = "audit_ref"
     }
 
@@ -258,6 +259,7 @@ public struct AteliaEventRefs: Sendable, Codable, Equatable {
     public var lockDecisionId: String?
     public var toolInvocationId: String?
     public var toolResultId: String?
+    public var contentType: String?
     public var auditRef: String?
 
     public init(
@@ -267,6 +269,7 @@ public struct AteliaEventRefs: Sendable, Codable, Equatable {
         lockDecisionId: String? = nil,
         toolInvocationId: String? = nil,
         toolResultId: String? = nil,
+        contentType: String? = nil,
         auditRef: String? = nil
     ) {
         self.repositoryId = repositoryId
@@ -275,6 +278,7 @@ public struct AteliaEventRefs: Sendable, Codable, Equatable {
         self.lockDecisionId = lockDecisionId
         self.toolInvocationId = toolInvocationId
         self.toolResultId = toolResultId
+        self.contentType = contentType
         self.auditRef = auditRef
     }
 }
