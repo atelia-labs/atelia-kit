@@ -600,7 +600,11 @@ import Testing
       "max": 10,
       "comparison_path": "right.txt",
       "max_bytes": 4096,
-      "max_chars": 120
+      "max_chars": 120,
+      "content": "hello\nworld\n",
+      "destination_path": "archive/note.txt",
+      "allow_overwrite": true,
+      "replacement_text": "delta"
     }
     """#.data(using: .utf8)!
 
@@ -611,6 +615,10 @@ import Testing
     #expect(decoded.comparisonPath == "right.txt")
     #expect(decoded.maxBytes == 4096)
     #expect(decoded.maxChars == 120)
+    #expect(decoded.content == "hello\nworld\n")
+    #expect(decoded.destinationPath == "archive/note.txt")
+    #expect(decoded.allowOverwrite == true)
+    #expect(decoded.replacementText == "delta")
 
     let encoded = try JSONEncoder().encode(decoded)
     let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
@@ -620,6 +628,10 @@ import Testing
     #expect(object["comparison_path"] as? String == "right.txt")
     #expect(object["max_bytes"] as? Int == 4096)
     #expect(object["max_chars"] as? Int == 120)
+    #expect(object["content"] as? String == "hello\nworld\n")
+    #expect(object["destination_path"] as? String == "archive/note.txt")
+    #expect(object["allow_overwrite"] as? Bool == true)
+    #expect(object["replacement_text"] as? String == "delta")
     #expect(try JSONDecoder().decode(AteliaSubmitJobToolArgs.self, from: encoded) == decoded)
 }
 
@@ -647,6 +659,104 @@ import Testing
     #expect(toolArgs["comparison_path"] as? String == "right.txt")
     #expect(toolArgs["max_bytes"] as? Int == 4096)
     #expect(toolArgs["max_chars"] as? Int == 120)
+    #expect(toolArgs["content"] == nil)
+    #expect(toolArgs["destination_path"] == nil)
+    #expect(toolArgs["allow_overwrite"] == nil)
+    #expect(toolArgs["replacement_text"] == nil)
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
+}
+
+/// Verifies submit-job write tool arguments encode and decode canonical protocol keys.
+@Test func submitJobWriteToolArgsRoundTripCanonicalProtocolJSON() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "tool",
+        pathScope: AteliaPathScope(kind: .explicitPaths, roots: ["notes.md"]),
+        requestedCapabilities: ["filesystem.write"],
+        toolArgs: AteliaSubmitJobToolArgs(
+            maxBytes: 8192,
+            content: "hello\nworld\n",
+            allowOverwrite: false
+        )
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let toolArgs = try #require(object["tool_args"] as? [String: Any])
+
+    #expect(toolArgs["content"] as? String == "hello\nworld\n")
+    #expect(toolArgs["allow_overwrite"] as? Bool == false)
+    #expect(toolArgs["max_bytes"] as? Int == 8192)
+    #expect(toolArgs["pattern"] == nil)
+    #expect(toolArgs["max"] == nil)
+    #expect(toolArgs["comparison_path"] == nil)
+    #expect(toolArgs["max_chars"] == nil)
+    #expect(toolArgs["destination_path"] == nil)
+    #expect(toolArgs["replacement_text"] == nil)
+
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
+}
+
+/// Verifies submit-job patch tool arguments encode and decode canonical protocol keys.
+@Test func submitJobPatchToolArgsRoundTripCanonicalProtocolJSON() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "tool",
+        pathScope: AteliaPathScope(kind: .explicitPaths, roots: ["notes.md"]),
+        requestedCapabilities: ["filesystem.patch"],
+        toolArgs: AteliaSubmitJobToolArgs(
+            pattern: "needle",
+            maxBytes: 1024,
+            replacementText: "delta"
+        )
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let toolArgs = try #require(object["tool_args"] as? [String: Any])
+
+    #expect(toolArgs["pattern"] as? String == "needle")
+    #expect(toolArgs["replacement_text"] as? String == "delta")
+    #expect(toolArgs["max_bytes"] as? Int == 1024)
+    #expect(toolArgs["content"] == nil)
+    #expect(toolArgs["comparison_path"] == nil)
+    #expect(toolArgs["max_chars"] == nil)
+    #expect(toolArgs["destination_path"] == nil)
+    #expect(toolArgs["allow_overwrite"] == nil)
+
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
+}
+
+/// Verifies submit-job move tool arguments encode and decode canonical protocol keys.
+@Test func submitJobMoveToolArgsRoundTripCanonicalProtocolJSON() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "tool",
+        pathScope: AteliaPathScope(kind: .explicitPaths, roots: ["notes.md"]),
+        requestedCapabilities: ["filesystem.move"],
+        toolArgs: AteliaSubmitJobToolArgs(
+            destinationPath: "archive/note.txt",
+            allowOverwrite: true
+        )
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let toolArgs = try #require(object["tool_args"] as? [String: Any])
+
+    #expect(toolArgs["destination_path"] as? String == "archive/note.txt")
+    #expect(toolArgs["allow_overwrite"] as? Bool == true)
+    #expect(toolArgs["pattern"] == nil)
+    #expect(toolArgs["max"] == nil)
+    #expect(toolArgs["comparison_path"] == nil)
+    #expect(toolArgs["max_bytes"] == nil)
+    #expect(toolArgs["max_chars"] == nil)
+    #expect(toolArgs["content"] == nil)
+    #expect(toolArgs["replacement_text"] == nil)
+
     #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
 }
 
@@ -1392,6 +1502,72 @@ import Testing
     #expect(decoded.packageId == "com.example.provider")
     #expect(decoded.service == "context.graph")
     #expect(decoded.grants == [])
+}
+
+/// Verifies canonical null dependency package IDs do not fallback to legacy extension IDs.
+@Test func packageDependencyCanonicalNullPackageDoesNotFallbackToLegacy() throws {
+    let dependencyData = #"""
+    {
+      "package": null,
+      "extension_id": "com.example.provider",
+      "service": "context.graph",
+      "method": "query",
+      "schema_version": "v1"
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaPackageServiceDependency.self, from: dependencyData)
+    }
+}
+
+/// Verifies package inspect payloads with dependency fallback for missing canonical package continue to work.
+@Test func packageInspectDependencyDecodingFallsBackToLegacyWhenPackageFieldIsAbsent() throws {
+    let inspectData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.2.0",
+        "storage_version": "0.2.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.consumer",
+        "record": null,
+        "block": null
+      },
+      "manifest": {
+        "id": "com.example.consumer"
+      },
+      "permissions": [],
+      "services": {
+        "provides": [],
+        "consumes": [
+          {
+            "extension_id": "com.example.provider",
+            "service": "context.graph",
+            "method": "query",
+            "schema_version": "v1"
+          }
+        ]
+      },
+      "source": {
+        "source": "github"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: inspectData)
+
+    #expect(decoded.services.consumes == [
+        AteliaPackageServiceDependency(
+            packageId: "com.example.provider",
+            service: "context.graph",
+            method: "query",
+            schemaVersion: "v1",
+            grants: []
+        )
+    ])
 }
 
 /// Verifies package inspect responses fall back package ID from legacy envelope keys.
@@ -2264,6 +2440,49 @@ import Testing
     #expect(grant.requiredPermissions == ["service.review.comments"])
 }
 
+/// Verifies explicit canonical null values do not fallback to legacy extension ids.
+@Test func serviceBrokerAuthorizationCanonicalNullPackageIdsDoNotFallbackToLegacyExtensionIds() throws {
+    let requestData = #"""
+    {
+      "caller_package_id": null,
+      "caller_extension_id": "legacy.consumer",
+      "caller_component_id": "frontend",
+      "callee_package_id": null,
+      "callee_extension_id": "legacy.provider",
+      "callee_component_id": "backend",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"]
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaAuthorizeServiceCallRequest.self, from: requestData)
+    }
+
+    let grantData = #"""
+    {
+      "caller_package_id": null,
+      "caller_extension_id": "legacy.consumer",
+      "caller_version": "2.0.0",
+      "caller_component_id": "frontend",
+      "callee_package_id": null,
+      "callee_extension_id": "legacy.provider",
+      "callee_version": "1.2.0",
+      "callee_component_id": "backend",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"]
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaServiceCallGrant.self, from: grantData)
+    }
+}
+
 /// Verifies service broker execution models use the new live call keys.
 @Test func serviceBrokerExecutionModelsRoundTrip() throws {
     let request = AteliaServiceCallRequest(
@@ -2321,6 +2540,28 @@ import Testing
     #expect(decoded.result.outcome == "unavailable")
     #expect(decoded.result.reason == "no executor is configured for this service")
     #expect(decoded.result.reasonCode == "no_executor")
+}
+
+/// Verifies explicit canonical null values do not fallback to legacy extension ids for execution requests.
+@Test func serviceBrokerExecutionCanonicalNullPackageIdsDoNotFallbackToLegacyExtensionIds() throws {
+    let requestData = #"""
+    {
+      "caller_package_id": null,
+      "caller_extension_id": "legacy.consumer",
+      "caller_component_id": "frontend",
+      "callee_package_id": null,
+      "callee_extension_id": "legacy.provider",
+      "callee_component_id": "backend",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"]
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaServiceCallRequest.self, from: requestData)
+    }
 }
 
 /// Verifies execution requests encode component ids on canonical keys.

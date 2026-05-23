@@ -49,13 +49,15 @@ public struct AteliaAuthorizeServiceCallRequest: Sendable, Codable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.callerPackageId =
-            try container.decodeIfPresent(String.self, forKey: .callerPackageId)
-            ?? container.decode(String.self, forKey: .callerExtensionId)
+        self.callerPackageId = try container.decodePreferredString(
+            canonical: .callerPackageId,
+            fallback: .callerExtensionId
+        )
         self.callerComponentId = try container.decodeIfPresent(String.self, forKey: .callerComponentId)
-        self.calleePackageId =
-            try container.decodeIfPresent(String.self, forKey: .calleePackageId)
-            ?? container.decode(String.self, forKey: .calleeExtensionId)
+        self.calleePackageId = try container.decodePreferredString(
+            canonical: .calleePackageId,
+            fallback: .calleeExtensionId
+        )
         self.calleeComponentId = try container.decodeIfPresent(String.self, forKey: .calleeComponentId)
         self.service = try container.decode(String.self, forKey: .service)
         self.method = try container.decode(String.self, forKey: .method)
@@ -138,14 +140,16 @@ public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.callerPackageId =
-            try container.decodeIfPresent(String.self, forKey: .callerPackageId)
-            ?? container.decode(String.self, forKey: .callerExtensionId)
+        self.callerPackageId = try container.decodePreferredString(
+            canonical: .callerPackageId,
+            fallback: .callerExtensionId
+        )
         self.callerComponentId = try container.decodeIfPresent(String.self, forKey: .callerComponentId)
         self.callerVersion = try container.decode(String.self, forKey: .callerVersion)
-        self.calleePackageId =
-            try container.decodeIfPresent(String.self, forKey: .calleePackageId)
-            ?? container.decode(String.self, forKey: .calleeExtensionId)
+        self.calleePackageId = try container.decodePreferredString(
+            canonical: .calleePackageId,
+            fallback: .calleeExtensionId
+        )
         self.calleeComponentId = try container.decodeIfPresent(String.self, forKey: .calleeComponentId)
         self.calleeVersion = try container.decode(String.self, forKey: .calleeVersion)
         self.service = try container.decode(String.self, forKey: .service)
@@ -237,13 +241,15 @@ public struct AteliaServiceCallRequest: Sendable, Codable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.callerPackageId =
-            try container.decodeIfPresent(String.self, forKey: .callerPackageId)
-            ?? container.decode(String.self, forKey: .callerExtensionId)
+        self.callerPackageId = try container.decodePreferredString(
+            canonical: .callerPackageId,
+            fallback: .callerExtensionId
+        )
         self.callerComponentId = try container.decodeIfPresent(String.self, forKey: .callerComponentId)
-        self.calleePackageId =
-            try container.decodeIfPresent(String.self, forKey: .calleePackageId)
-            ?? container.decode(String.self, forKey: .calleeExtensionId)
+        self.calleePackageId = try container.decodePreferredString(
+            canonical: .calleePackageId,
+            fallback: .calleeExtensionId
+        )
         self.calleeComponentId = try container.decodeIfPresent(String.self, forKey: .calleeComponentId)
         self.service = try container.decode(String.self, forKey: .service)
         self.method = try container.decode(String.self, forKey: .method)
@@ -310,5 +316,28 @@ public struct AteliaServiceCallResponse: Sendable, Codable, Equatable {
         self.metadata = metadata
         self.grant = grant
         self.result = result
+    }
+}
+
+private extension KeyedDecodingContainer {
+    func decodePreferredString(
+        canonical: Key,
+        fallback legacy: Key
+    ) throws -> String {
+        if contains(canonical) {
+            guard let value = try decodeIfPresent(String.self, forKey: canonical) else {
+                let debugPath = codingPath + [canonical]
+                throw DecodingError.valueNotFound(
+                    String.self,
+                    DecodingError.Context(
+                        codingPath: debugPath,
+                        debugDescription: "Expected `\(canonical.stringValue)` to be a non-null string."
+                    )
+                )
+            }
+            return value
+        }
+
+        return try decode(String.self, forKey: legacy)
     }
 }
