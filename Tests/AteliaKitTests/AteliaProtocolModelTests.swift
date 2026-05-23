@@ -1275,7 +1275,7 @@ import Testing
             "service": "review.comments",
             "method": "summarize",
             "schema_version": "v1",
-            "required_permission": "service.review.comments"
+            "required_permissions": ["service.review.comments"]
           }
         ],
         "consumes": [
@@ -1315,6 +1315,7 @@ import Testing
     #expect(decoded.package.record?.version == "2.0.0")
     #expect(decoded.manifest["version"] == .string("2.0.0"))
     #expect(decoded.permissions == ["service.review.comments"])
+    #expect(decoded.services.provides[0].requiredPermissions == ["service.review.comments"])
     #expect(decoded.services.provides.map(\.service) == ["review.comments"])
     #expect(decoded.services.consumes.map(\.extensionId) == ["com.example.provider"])
     #expect(decoded.services.consumes.map(\.grants) == [["service.context.graph"]])
@@ -1397,6 +1398,48 @@ import Testing
 
     #expect(decoded.services.consumes.count == 1)
     #expect(decoded.services.consumes[0].grants == ["service.context.graph"])
+}
+
+/// Verifies legacy package provider permissions decode into canonical `requiredPermissions`.
+@Test func packageInspectDecodesLegacyRequiredPermissionDefinition() throws {
+    let legacyProvidesData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.legacy.provider",
+        "record": null,
+        "block": null
+      },
+      "manifest": {
+        "id": "com.example.legacy.provider"
+      },
+      "permissions": [],
+      "services": {
+        "provides": [
+          {
+            "service": "context.graph",
+            "method": "query",
+            "schema_version": "v1",
+            "required_permission": "service.context.graph"
+          }
+        ],
+        "consumes": []
+      },
+      "source": {
+        "source": "github"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: legacyProvidesData)
+
+    #expect(decoded.services.provides.count == 1)
+    #expect(decoded.services.provides[0].requiredPermissions == ["service.context.graph"])
 }
 
 /// Verifies package blocklist models round-trip canonical keys and note field.
@@ -1926,8 +1969,8 @@ import Testing
 /// Verifies service broker authorization models use Secretary protocol keys.
 @Test func serviceBrokerAuthorizationModelsRoundTrip() throws {
     let request = AteliaAuthorizeServiceCallRequest(
-        callerExtensionId: "com.example.consumer",
-        calleeExtensionId: "com.example.provider",
+        callerPackageId: "com.example.consumer",
+        calleePackageId: "com.example.provider",
         service: "review.comments",
         method: "summarize",
         schemaVersion: "v1",
@@ -1936,8 +1979,10 @@ import Testing
 
     let requestData = try JSONEncoder().encode(request)
     let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
-    #expect(requestObject["caller_extension_id"] as? String == "com.example.consumer")
-    #expect(requestObject["callee_extension_id"] as? String == "com.example.provider")
+    #expect(requestObject["caller_package_id"] as? String == "com.example.consumer")
+    #expect(requestObject["callee_package_id"] as? String == "com.example.provider")
+    #expect(requestObject["caller_extension_id"] == nil)
+    #expect(requestObject["callee_extension_id"] == nil)
     #expect(requestObject["schema_version"] as? String == "v1")
     #expect(requestObject["required_permission"] as? String == "service.review.comments")
 
@@ -1950,9 +1995,9 @@ import Testing
         "capabilities": ["services.v1"]
       },
       "grant": {
-        "caller_extension_id": "com.example.consumer",
+        "caller_package_id": "com.example.consumer",
         "caller_version": "2.0.0",
-        "callee_extension_id": "com.example.provider",
+        "callee_package_id": "com.example.provider",
         "callee_version": "1.2.0",
         "service": "review.comments",
         "method": "summarize",
@@ -1964,18 +2009,53 @@ import Testing
 
     let decoded = try JSONDecoder().decode(AteliaAuthorizeServiceCallResponse.self, from: responseData)
     #expect(decoded.metadata.capabilities == ["services.v1"])
-    #expect(decoded.grant.callerExtensionId == "com.example.consumer")
+    #expect(decoded.grant.callerPackageId == "com.example.consumer")
     #expect(decoded.grant.callerVersion == "2.0.0")
-    #expect(decoded.grant.calleeExtensionId == "com.example.provider")
+    #expect(decoded.grant.calleePackageId == "com.example.provider")
     #expect(decoded.grant.calleeVersion == "1.2.0")
     #expect(decoded.grant.requiredPermission == "service.review.comments")
+}
+
+/// Verifies legacy service authorization JSON using extension ids decodes into package ids.
+@Test func serviceBrokerAuthorizationDecodesLegacyExtensionIds() throws {
+    let requestData = #"""
+    {
+      "caller_extension_id": "com.example.consumer",
+      "callee_extension_id": "com.example.provider",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permission": "service.review.comments"
+    }
+    """#.data(using: .utf8)!
+
+    let request = try JSONDecoder().decode(AteliaAuthorizeServiceCallRequest.self, from: requestData)
+    #expect(request.callerPackageId == "com.example.consumer")
+    #expect(request.calleePackageId == "com.example.provider")
+
+    let grantData = #"""
+    {
+      "caller_extension_id": "com.example.consumer",
+      "caller_version": "2.0.0",
+      "callee_extension_id": "com.example.provider",
+      "callee_version": "1.2.0",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permission": "service.review.comments"
+    }
+    """#.data(using: .utf8)!
+
+    let grant = try JSONDecoder().decode(AteliaServiceCallGrant.self, from: grantData)
+    #expect(grant.callerPackageId == "com.example.consumer")
+    #expect(grant.calleePackageId == "com.example.provider")
 }
 
 /// Verifies service broker execution models use the new live call keys.
 @Test func serviceBrokerExecutionModelsRoundTrip() throws {
     let request = AteliaServiceCallRequest(
-        callerExtensionId: "com.example.consumer",
-        calleeExtensionId: "com.example.provider",
+        callerPackageId: "com.example.consumer",
+        calleePackageId: "com.example.provider",
         service: "review.comments",
         method: "summarize",
         schemaVersion: "v1",
@@ -1984,8 +2064,10 @@ import Testing
 
     let requestData = try JSONEncoder().encode(request)
     let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
-    #expect(requestObject["caller_extension_id"] as? String == "com.example.consumer")
-    #expect(requestObject["callee_extension_id"] as? String == "com.example.provider")
+    #expect(requestObject["caller_package_id"] as? String == "com.example.consumer")
+    #expect(requestObject["callee_package_id"] as? String == "com.example.provider")
+    #expect(requestObject["caller_extension_id"] == nil)
+    #expect(requestObject["callee_extension_id"] == nil)
     #expect(requestObject["service"] as? String == "review.comments")
     #expect(requestObject["method"] as? String == "summarize")
     #expect(requestObject["schema_version"] as? String == "v1")
@@ -2000,9 +2082,9 @@ import Testing
         "capabilities": ["services.v1"]
       },
       "grant": {
-        "caller_extension_id": "com.example.consumer",
+        "caller_package_id": "com.example.consumer",
         "caller_version": "2.0.0",
-        "callee_extension_id": "com.example.provider",
+        "callee_package_id": "com.example.provider",
         "callee_version": "1.2.0",
         "service": "review.comments",
         "method": "summarize",
@@ -2020,11 +2102,29 @@ import Testing
 
     let decoded = try JSONDecoder().decode(AteliaServiceCallResponse.self, from: responseData)
     #expect(decoded.metadata.capabilities == ["services.v1"])
-    #expect(decoded.grant.callerExtensionId == "com.example.consumer")
+    #expect(decoded.grant.callerPackageId == "com.example.consumer")
     #expect(decoded.result.status == "unavailable")
     #expect(decoded.result.outcome == "unavailable")
     #expect(decoded.result.reason == "no executor is configured for this service")
     #expect(decoded.result.reasonCode == "no_executor")
+}
+
+/// Verifies legacy live call JSON using extension ids decodes into package ids.
+@Test func serviceBrokerExecutionDecodesLegacyExtensionIds() throws {
+    let requestData = #"""
+    {
+      "caller_extension_id": "com.example.consumer",
+      "callee_extension_id": "com.example.provider",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permission": "service.review.comments"
+    }
+    """#.data(using: .utf8)!
+
+    let request = try JSONDecoder().decode(AteliaServiceCallRequest.self, from: requestData)
+    #expect(request.callerPackageId == "com.example.consumer")
+    #expect(request.calleePackageId == "com.example.provider")
 }
 
 /// Verifies live execution result round-trips through JSON keys.

@@ -45,10 +45,10 @@ replaceable.
 | review queue item | `AteliaReviewQueueItem` | `id`, `kind`, `title`, `repository_id`, `job_id`, `policy_decision_id`, `priority` |
 | event cursor (routes) | `AteliaEventRouteCursor` | `kind` + `sequence_number` / `event_id` |
 | project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor: { sequence, event_id }`, `daemon_status`, `storage_status` |
-| package inspect | `AteliaPackageInspect`, `AteliaPackageServices`, `AteliaPackageServiceDependency` | `package_id`, `extension`, `manifest`, `permissions`, `services`, `services.provides[].required_permission`, `services.consumes[].grants` |
+| package inspect | `AteliaPackageInspect`, `AteliaPackageServices`, `AteliaPackageServiceDependency` | `package_id`, `extension`, `manifest`, `permissions`, `services`, `services.provides[].required_permissions`, `services.consumes[].grants` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
-| service broker authorization | `AteliaAuthorizeServiceCallRequest`, `AteliaAuthorizeServiceCallResponse`, `AteliaServiceCallGrant` | `caller_extension_id`, `callee_extension_id`, `service`, `method`, `schema_version`, `required_permission`, `grant` |
-| service broker live call | `AteliaServiceCallRequest`, `AteliaServiceCallResponse`, `AteliaServiceCallExecutionResult`, `AteliaServiceCallGrant` | `caller_extension_id`, `callee_extension_id`, `service`, `method`, `schema_version`, `required_permission`, `metadata`, `grant`, `result`, (`status`, `outcome`, `reason`, `reason_code`) |
+| service broker authorization | `AteliaAuthorizeServiceCallRequest`, `AteliaAuthorizeServiceCallResponse`, `AteliaServiceCallGrant` | `caller_package_id`, `caller_component_id`(optional), `callee_package_id`, `callee_component_id`(optional), `service`, `method`, `schema_version`, `required_permission`, `grant` |
+| service broker live call | `AteliaServiceCallRequest`, `AteliaServiceCallResponse`, `AteliaServiceCallExecutionResult`, `AteliaServiceCallGrant` | `caller_package_id`, `caller_component_id`(optional), `callee_package_id`, `callee_component_id`(optional), `service`, `method`, `schema_version`, `required_permission`, `metadata`, `grant`, `result`, (`status`, `outcome`, `reason`, `reason_code`) |
 | package validation | `AteliaPackageValidationRequest`, `AteliaPackageValidationResponse` | `manifest`, `approve_local_unsigned`, `allow_local_process_runtime`, `approve_source_change`, `boundary` |
 | package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `id`, `record`, `extension_id`, `extension`, `extensions`, `previous_version` |
 | package authoring | `AteliaPackageAuthoringFlow`, `AteliaPackagePublicationPlan`, `AteliaPackageRegistrySubmissionState` | `package_id`, `source_class`, `source`, `steps`, `publication_plan`, `state` |
@@ -60,8 +60,10 @@ Project status uses a flat `latest_cursor` (`sequence`, `event_id`) from the RPC
 Event listing / replay routes use tagged `cursor` envelopes through `AteliaEventRouteCursor`
 (`kind`, optional `sequence_number` / `event_id`) on list/replay models.
 
-`services.consumes[].grants` is the canonical shape for package dependency grants in
-Kit, and decode compatibility accepts legacy `services.consumes[].required_permission`.
+`services.provides[].required_permissions` is the canonical shape for package service permissions in
+Kit, and decode compatibility accepts legacy `services.provides[].required_permission`.
+Service broker model keys are canonicalized to package/component IDs, while decoding
+keeps compatibility with legacy `*_extension_id` request and response keys.
 
 The third column is a representative drift guard, not an exhaustive schema
 listing. It includes envelope keys such as `metadata`, collection keys such as

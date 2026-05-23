@@ -157,8 +157,10 @@ import Testing
         #expect(request.httpMethod == "POST")
         let body = try #require(request.httpBody)
         let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
-        #expect(object["caller_extension_id"] as? String == "com.example.consumer")
-        #expect(object["callee_extension_id"] as? String == "com.example.provider")
+        #expect(object["caller_package_id"] as? String == "com.example.consumer")
+        #expect(object["callee_package_id"] as? String == "com.example.provider")
+        #expect(object["caller_extension_id"] == nil)
+        #expect(object["callee_extension_id"] == nil)
         #expect(object["schema_version"] as? String == "v1")
         #expect(object["required_permission"] as? String == "service.review.comments")
 
@@ -173,9 +175,9 @@ import Testing
               "capabilities": ["services.v1"]
             },
             "grant": {
-              "caller_extension_id": "com.example.consumer",
+              "caller_package_id": "com.example.consumer",
               "caller_version": "2.0.0",
-              "callee_extension_id": "com.example.provider",
+              "callee_package_id": "com.example.provider",
               "callee_version": "1.2.0",
               "service": "review.comments",
               "method": "summarize",
@@ -190,8 +192,8 @@ import Testing
     let grant = try await client.authorizeServiceCall(
         for: AteliaSession(),
         request: AteliaAuthorizeServiceCallRequest(
-            callerExtensionId: "com.example.consumer",
-            calleeExtensionId: "com.example.provider",
+            callerPackageId: "com.example.consumer",
+            calleePackageId: "com.example.provider",
             service: "review.comments",
             method: "summarize",
             schemaVersion: "v1",
@@ -211,8 +213,10 @@ import Testing
         #expect(request.httpMethod == "POST")
         let body = try #require(request.httpBody)
         let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
-        #expect(object["caller_extension_id"] as? String == "com.example.consumer")
-        #expect(object["callee_extension_id"] as? String == "com.example.provider")
+        #expect(object["caller_package_id"] as? String == "com.example.consumer")
+        #expect(object["callee_package_id"] as? String == "com.example.provider")
+        #expect(object["caller_extension_id"] == nil)
+        #expect(object["callee_extension_id"] == nil)
         #expect(object["service"] as? String == "review.comments")
         #expect(object["method"] as? String == "summarize")
         #expect(object["schema_version"] as? String == "v1")
@@ -229,9 +233,9 @@ import Testing
               "capabilities": ["services.v1"]
             },
             "grant": {
-              "caller_extension_id": "com.example.consumer",
+              "caller_package_id": "com.example.consumer",
               "caller_version": "2.0.0",
-              "callee_extension_id": "com.example.provider",
+              "callee_package_id": "com.example.provider",
               "callee_version": "1.2.0",
               "service": "review.comments",
               "method": "summarize",
@@ -252,8 +256,8 @@ import Testing
     let response = try await client.callServiceResponse(
         for: AteliaSession(),
         request: AteliaServiceCallRequest(
-            callerExtensionId: "com.example.consumer",
-            calleeExtensionId: "com.example.provider",
+            callerPackageId: "com.example.consumer",
+            calleePackageId: "com.example.provider",
             service: "review.comments",
             method: "summarize",
             schemaVersion: "v1",
@@ -269,8 +273,8 @@ import Testing
     let result = try await client.callService(
         for: AteliaSession(),
         request: AteliaServiceCallRequest(
-            callerExtensionId: "com.example.consumer",
-            calleeExtensionId: "com.example.provider",
+            callerPackageId: "com.example.consumer",
+            calleePackageId: "com.example.provider",
             service: "review.comments",
             method: "summarize",
             schemaVersion: "v1",

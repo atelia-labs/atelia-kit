@@ -3,7 +3,11 @@ import Foundation
 /// Request used to authorize a package-to-package AEP service call.
 public struct AteliaAuthorizeServiceCallRequest: Sendable, Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
+        case callerPackageId = "caller_package_id"
+        case callerComponentId = "caller_component_id"
         case callerExtensionId = "caller_extension_id"
+        case calleePackageId = "callee_package_id"
+        case calleeComponentId = "callee_component_id"
         case calleeExtensionId = "callee_extension_id"
         case service
         case method
@@ -11,36 +15,74 @@ public struct AteliaAuthorizeServiceCallRequest: Sendable, Codable, Equatable {
         case requiredPermission = "required_permission"
     }
 
-    public var callerExtensionId: String
-    public var calleeExtensionId: String
+    public var callerPackageId: String
+    public var callerComponentId: String?
+    public var calleePackageId: String
+    public var calleeComponentId: String?
     public var service: String
     public var method: String
     public var schemaVersion: String
     public var requiredPermission: String?
 
     public init(
-        callerExtensionId: String,
-        calleeExtensionId: String,
+        callerPackageId: String,
+        callerComponentId: String? = nil,
+        calleePackageId: String,
+        calleeComponentId: String? = nil,
         service: String,
         method: String,
         schemaVersion: String,
         requiredPermission: String? = nil
     ) {
-        self.callerExtensionId = callerExtensionId
-        self.calleeExtensionId = calleeExtensionId
+        self.callerPackageId = callerPackageId
+        self.callerComponentId = callerComponentId
+        self.calleePackageId = calleePackageId
+        self.calleeComponentId = calleeComponentId
         self.service = service
         self.method = method
         self.schemaVersion = schemaVersion
         self.requiredPermission = requiredPermission
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.callerPackageId =
+            try container.decodeIfPresent(String.self, forKey: .callerPackageId)
+            ?? container.decode(String.self, forKey: .callerExtensionId)
+        self.callerComponentId = try container.decodeIfPresent(String.self, forKey: .callerComponentId)
+        self.calleePackageId =
+            try container.decodeIfPresent(String.self, forKey: .calleePackageId)
+            ?? container.decode(String.self, forKey: .calleeExtensionId)
+        self.calleeComponentId = try container.decodeIfPresent(String.self, forKey: .calleeComponentId)
+        self.service = try container.decode(String.self, forKey: .service)
+        self.method = try container.decode(String.self, forKey: .method)
+        self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
+        self.requiredPermission = try container.decodeIfPresent(String.self, forKey: .requiredPermission)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(callerPackageId, forKey: .callerPackageId)
+        try container.encodeIfPresent(callerComponentId, forKey: .callerComponentId)
+        try container.encode(calleePackageId, forKey: .calleePackageId)
+        try container.encodeIfPresent(calleeComponentId, forKey: .calleeComponentId)
+        try container.encode(service, forKey: .service)
+        try container.encode(method, forKey: .method)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encodeIfPresent(requiredPermission, forKey: .requiredPermission)
     }
 }
 
 /// Authorization grant returned by Secretary's AEP service broker control plane.
 public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
+        case callerPackageId = "caller_package_id"
+        case callerComponentId = "caller_component_id"
         case callerExtensionId = "caller_extension_id"
-        case callerVersion = "caller_version"
+        case calleePackageId = "callee_package_id"
+        case calleeComponentId = "callee_component_id"
         case calleeExtensionId = "callee_extension_id"
+        case callerVersion = "caller_version"
         case calleeVersion = "callee_version"
         case service
         case method
@@ -48,9 +90,11 @@ public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
         case requiredPermission = "required_permission"
     }
 
-    public var callerExtensionId: String
+    public var callerPackageId: String
+    public var callerComponentId: String?
     public var callerVersion: String
-    public var calleeExtensionId: String
+    public var calleePackageId: String
+    public var calleeComponentId: String?
     public var calleeVersion: String
     public var service: String
     public var method: String
@@ -58,23 +102,59 @@ public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
     public var requiredPermission: String
 
     public init(
-        callerExtensionId: String,
+        callerPackageId: String,
+        callerComponentId: String? = nil,
         callerVersion: String,
-        calleeExtensionId: String,
+        calleePackageId: String,
+        calleeComponentId: String? = nil,
         calleeVersion: String,
         service: String,
         method: String,
         schemaVersion: String,
         requiredPermission: String
     ) {
-        self.callerExtensionId = callerExtensionId
+        self.callerPackageId = callerPackageId
+        self.callerComponentId = callerComponentId
         self.callerVersion = callerVersion
-        self.calleeExtensionId = calleeExtensionId
+        self.calleePackageId = calleePackageId
+        self.calleeComponentId = calleeComponentId
         self.calleeVersion = calleeVersion
         self.service = service
         self.method = method
         self.schemaVersion = schemaVersion
         self.requiredPermission = requiredPermission
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.callerPackageId =
+            try container.decodeIfPresent(String.self, forKey: .callerPackageId)
+            ?? container.decode(String.self, forKey: .callerExtensionId)
+        self.callerComponentId = try container.decodeIfPresent(String.self, forKey: .callerComponentId)
+        self.callerVersion = try container.decode(String.self, forKey: .callerVersion)
+        self.calleePackageId =
+            try container.decodeIfPresent(String.self, forKey: .calleePackageId)
+            ?? container.decode(String.self, forKey: .calleeExtensionId)
+        self.calleeComponentId = try container.decodeIfPresent(String.self, forKey: .calleeComponentId)
+        self.calleeVersion = try container.decode(String.self, forKey: .calleeVersion)
+        self.service = try container.decode(String.self, forKey: .service)
+        self.method = try container.decode(String.self, forKey: .method)
+        self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
+        self.requiredPermission = try container.decode(String.self, forKey: .requiredPermission)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(callerPackageId, forKey: .callerPackageId)
+        try container.encodeIfPresent(callerComponentId, forKey: .callerComponentId)
+        try container.encode(callerVersion, forKey: .callerVersion)
+        try container.encode(calleePackageId, forKey: .calleePackageId)
+        try container.encodeIfPresent(calleeComponentId, forKey: .calleeComponentId)
+        try container.encode(calleeVersion, forKey: .calleeVersion)
+        try container.encode(service, forKey: .service)
+        try container.encode(method, forKey: .method)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(requiredPermission, forKey: .requiredPermission)
     }
 }
 
@@ -95,7 +175,11 @@ public struct AteliaAuthorizeServiceCallResponse: Sendable, Codable, Equatable {
 /// Request used to execute a live package-to-package AEP service call.
 public struct AteliaServiceCallRequest: Sendable, Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
+        case callerPackageId = "caller_package_id"
+        case callerComponentId = "caller_component_id"
         case callerExtensionId = "caller_extension_id"
+        case calleePackageId = "callee_package_id"
+        case calleeComponentId = "callee_component_id"
         case calleeExtensionId = "callee_extension_id"
         case service
         case method
@@ -103,27 +187,61 @@ public struct AteliaServiceCallRequest: Sendable, Codable, Equatable {
         case requiredPermission = "required_permission"
     }
 
-    public var callerExtensionId: String
-    public var calleeExtensionId: String
+    public var callerPackageId: String
+    public var callerComponentId: String?
+    public var calleePackageId: String
+    public var calleeComponentId: String?
     public var service: String
     public var method: String
     public var schemaVersion: String
     public var requiredPermission: String?
 
     public init(
-        callerExtensionId: String,
-        calleeExtensionId: String,
+        callerPackageId: String,
+        callerComponentId: String? = nil,
+        calleePackageId: String,
+        calleeComponentId: String? = nil,
         service: String,
         method: String,
         schemaVersion: String,
         requiredPermission: String? = nil
     ) {
-        self.callerExtensionId = callerExtensionId
-        self.calleeExtensionId = calleeExtensionId
+        self.callerPackageId = callerPackageId
+        self.callerComponentId = callerComponentId
+        self.calleePackageId = calleePackageId
+        self.calleeComponentId = calleeComponentId
         self.service = service
         self.method = method
         self.schemaVersion = schemaVersion
         self.requiredPermission = requiredPermission
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.callerPackageId =
+            try container.decodeIfPresent(String.self, forKey: .callerPackageId)
+            ?? container.decode(String.self, forKey: .callerExtensionId)
+        self.callerComponentId = try container.decodeIfPresent(String.self, forKey: .callerComponentId)
+        self.calleePackageId =
+            try container.decodeIfPresent(String.self, forKey: .calleePackageId)
+            ?? container.decode(String.self, forKey: .calleeExtensionId)
+        self.calleeComponentId = try container.decodeIfPresent(String.self, forKey: .calleeComponentId)
+        self.service = try container.decode(String.self, forKey: .service)
+        self.method = try container.decode(String.self, forKey: .method)
+        self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
+        self.requiredPermission = try container.decodeIfPresent(String.self, forKey: .requiredPermission)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(callerPackageId, forKey: .callerPackageId)
+        try container.encodeIfPresent(callerComponentId, forKey: .callerComponentId)
+        try container.encode(calleePackageId, forKey: .calleePackageId)
+        try container.encodeIfPresent(calleeComponentId, forKey: .calleeComponentId)
+        try container.encode(service, forKey: .service)
+        try container.encode(method, forKey: .method)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encodeIfPresent(requiredPermission, forKey: .requiredPermission)
     }
 }
 

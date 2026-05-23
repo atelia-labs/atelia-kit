@@ -247,7 +247,9 @@ public struct AteliaPackageServiceDefinition: Sendable, Codable, Equatable {
         case method
         /// Schema version for the service method.
         case schemaVersion = "schema_version"
-        /// Permission required by the service method.
+        /// Canonical array of permissions required by the service method.
+        case requiredPermissions = "required_permissions"
+        /// Compatibility field for legacy single-permission declarations.
         case requiredPermission = "required_permission"
     }
 
@@ -257,20 +259,45 @@ public struct AteliaPackageServiceDefinition: Sendable, Codable, Equatable {
     public var method: String
     /// Schema version for service contract compatibility.
     public var schemaVersion: String
-    /// Permission required to call this service.
-    public var requiredPermission: String
+    /// Canonical array of permissions required to call this service.
+    public var requiredPermissions: [String]
 
     /// Creates a provided service definition.
     public init(
         service: String,
         method: String,
         schemaVersion: String,
-        requiredPermission: String
+        requiredPermissions: [String]
     ) {
         self.service = service
         self.method = method
         self.schemaVersion = schemaVersion
-        self.requiredPermission = requiredPermission
+        self.requiredPermissions = requiredPermissions
+    }
+
+    /// Decodes canonical `required_permissions` with legacy `required_permission` compatibility.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.service = try container.decode(String.self, forKey: .service)
+        self.method = try container.decode(String.self, forKey: .method)
+        self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
+
+        let canonicalPermissions = try container.decodeIfPresent([String].self, forKey: .requiredPermissions) ?? []
+        if !canonicalPermissions.isEmpty {
+            self.requiredPermissions = canonicalPermissions
+            return
+        }
+
+        self.requiredPermissions = try container.decodeIfPresent(String.self, forKey: .requiredPermission).map { [$0] } ?? []
+    }
+
+    /// Encodes canonical `required_permissions` only.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(service, forKey: .service)
+        try container.encode(method, forKey: .method)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(requiredPermissions, forKey: .requiredPermissions)
     }
 }
 
