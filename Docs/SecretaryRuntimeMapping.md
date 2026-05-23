@@ -46,11 +46,12 @@ replaceable.
 | event cursor (routes) | `AteliaEventRouteCursor` | `kind` + `sequence_number` / `event_id` |
 | project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor: { sequence, event_id }`, `daemon_status`, `storage_status` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
+| service broker authorization | `AteliaAuthorizeServiceCallRequest`, `AteliaAuthorizeServiceCallResponse`, `AteliaServiceCallGrant` | `caller_extension_id`, `callee_extension_id`, `service`, `method`, `schema_version`, `required_permission`, `grant` |
 | package validation | `AteliaPackageValidationRequest`, `AteliaPackageValidationResponse` | `manifest`, `approve_local_unsigned`, `allow_local_process_runtime`, `approve_source_change`, `boundary` |
 | package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `id`, `record`, `extension_id`, `extension`, `extensions`, `previous_version` |
 | package authoring | `AteliaPackageAuthoringFlow`, `AteliaPackagePublicationPlan`, `AteliaPackageRegistrySubmissionState` | `package_id`, `source_class`, `source`, `steps`, `publication_plan`, `state` |
 | package rollback | `AteliaPackageRollbackResponse`, `AteliaPackageRollbackRecord` | `id`, `version`, `previous_version`, `status`, `rollback_snapshot` |
-| beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `supported_result_formats` |
+| beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `aep_package_id`, `aep_component_id`, `supported_result_formats` |
 | tool output rendering | `AteliaToolOutputRenderRequest`, `AteliaToolOutputRenderResponse` | `tool_result`, `format`, `rendered_output`, `rendered_output_metadata`, `truncation` |
 
 Project status uses a flat `latest_cursor` (`sequence`, `event_id`) from the RPC EventCursor path.
@@ -87,6 +88,7 @@ and iOS operating surfaces:
 - `POST /v1/jobs/{job_id}/events`
 - `POST /v1/events/replay`
 - `POST /v1/package-trust-index:list`
+- `POST /v1/services/authorize`
 - `POST /v1/packages/validate`
 - `POST /v1/packages/install`
 - `POST /v1/packages/update`

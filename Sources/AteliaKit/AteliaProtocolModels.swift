@@ -1088,6 +1088,9 @@ public struct AteliaToolRepertoireEntry: Sendable, Codable, Equatable, Identifia
         case description
         case providerKind = "provider_kind"
         case providerId = "provider_id"
+        case aepSourceClass = "aep_source_class"
+        case aepPackageId = "aep_package_id"
+        case aepComponentId = "aep_component_id"
         case riskTier = "risk_tier"
         case defaultResultFormat = "default_result_format"
         case supportedResultFormats = "supported_result_formats"
@@ -1102,6 +1105,9 @@ public struct AteliaToolRepertoireEntry: Sendable, Codable, Equatable, Identifia
     public var description: String
     public var providerKind: String
     public var providerId: String
+    public var aepSourceClass: String?
+    public var aepPackageId: String?
+    public var aepComponentId: String?
     public var riskTier: String
     public var defaultResultFormat: String
     public var supportedResultFormats: [String]
@@ -1118,6 +1124,9 @@ public struct AteliaToolRepertoireEntry: Sendable, Codable, Equatable, Identifia
         description: String,
         providerKind: String,
         providerId: String,
+        aepSourceClass: String? = nil,
+        aepPackageId: String? = nil,
+        aepComponentId: String? = nil,
         riskTier: String,
         defaultResultFormat: String,
         supportedResultFormats: [String],
@@ -1131,6 +1140,9 @@ public struct AteliaToolRepertoireEntry: Sendable, Codable, Equatable, Identifia
         self.description = description
         self.providerKind = providerKind
         self.providerId = providerId
+        self.aepSourceClass = aepSourceClass
+        self.aepPackageId = aepPackageId
+        self.aepComponentId = aepComponentId
         self.riskTier = riskTier
         self.defaultResultFormat = defaultResultFormat
         self.supportedResultFormats = supportedResultFormats

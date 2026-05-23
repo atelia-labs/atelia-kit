@@ -126,6 +126,9 @@ import Testing
                 "description": "Echo input.",
                 "provider_kind": "builtin",
                 "provider_id": "atelia-secretary",
+                "aep_source_class": "host-shipped-built-in",
+                "aep_package_id": "host.secretary",
+                "aep_component_id": "runtime",
                 "risk_tier": "R0",
                 "default_result_format": "toon",
                 "supported_result_formats": ["toon", "json"],
@@ -143,6 +146,62 @@ import Testing
     let entries = try await client.toolRepertoire(for: AteliaSession())
 
     #expect(entries.map(\.toolId) == ["secretary.echo"])
+    #expect(entries[0].aepPackageId == "host.secretary")
+    #expect(entries[0].aepComponentId == "runtime")
+}
+
+/// Verifies the HTTP client calls the service broker authorization endpoint.
+@Test func httpClientAuthorizesServiceCall() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/services/authorize")
+        #expect(request.httpMethod == "POST")
+        let body = try #require(request.httpBody)
+        let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(object["caller_extension_id"] as? String == "com.example.consumer")
+        #expect(object["callee_extension_id"] as? String == "com.example.provider")
+        #expect(object["schema_version"] as? String == "v1")
+        #expect(object["required_permission"] as? String == "service.review.comments")
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["services.v1"]
+            },
+            "grant": {
+              "caller_extension_id": "com.example.consumer",
+              "caller_version": "2.0.0",
+              "callee_extension_id": "com.example.provider",
+              "callee_version": "1.2.0",
+              "service": "review.comments",
+              "method": "summarize",
+              "schema_version": "v1",
+              "required_permission": "service.review.comments"
+            }
+          }
+        }
+        """#
+    })
+
+    let grant = try await client.authorizeServiceCall(
+        for: AteliaSession(),
+        request: AteliaAuthorizeServiceCallRequest(
+            callerExtensionId: "com.example.consumer",
+            calleeExtensionId: "com.example.provider",
+            service: "review.comments",
+            method: "summarize",
+            schemaVersion: "v1",
+            requiredPermission: "service.review.comments"
+        )
+    )
+
+    #expect(grant.callerVersion == "2.0.0")
+    #expect(grant.calleeVersion == "1.2.0")
+    #expect(grant.requiredPermission == "service.review.comments")
 }
 
 /// Verifies the HTTP client calls the package trust index endpoint with the beta transport shape.

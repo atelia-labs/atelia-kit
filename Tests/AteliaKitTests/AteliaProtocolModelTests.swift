@@ -1857,6 +1857,9 @@ import Testing
       "description": "Read a file from an allowed repository scope.",
       "provider_kind": "builtin",
       "provider_id": "atelia-secretary",
+      "aep_source_class": "host-shipped-built-in",
+      "aep_package_id": "host.filesystem",
+      "aep_component_id": "backend",
       "risk_tier": "R1",
       "default_result_format": "toon",
       "supported_result_formats": ["toon", "json"],
@@ -1870,5 +1873,56 @@ import Testing
     let decoded = try JSONDecoder().decode(AteliaToolRepertoireEntry.self, from: data)
 
     #expect(decoded.id == "fs.read")
+    #expect(decoded.aepSourceClass == "host-shipped-built-in")
+    #expect(decoded.aepPackageId == "host.filesystem")
+    #expect(decoded.aepComponentId == "backend")
     #expect(decoded.supportedResultFormats == ["toon", "json"])
+}
+
+/// Verifies service broker authorization models use Secretary protocol keys.
+@Test func serviceBrokerAuthorizationModelsRoundTrip() throws {
+    let request = AteliaAuthorizeServiceCallRequest(
+        callerExtensionId: "com.example.consumer",
+        calleeExtensionId: "com.example.provider",
+        service: "review.comments",
+        method: "summarize",
+        schemaVersion: "v1",
+        requiredPermission: "service.review.comments"
+    )
+
+    let requestData = try JSONEncoder().encode(request)
+    let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+    #expect(requestObject["caller_extension_id"] as? String == "com.example.consumer")
+    #expect(requestObject["callee_extension_id"] as? String == "com.example.provider")
+    #expect(requestObject["schema_version"] as? String == "v1")
+    #expect(requestObject["required_permission"] as? String == "service.review.comments")
+
+    let responseData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["services.v1"]
+      },
+      "grant": {
+        "caller_extension_id": "com.example.consumer",
+        "caller_version": "2.0.0",
+        "callee_extension_id": "com.example.provider",
+        "callee_version": "1.2.0",
+        "service": "review.comments",
+        "method": "summarize",
+        "schema_version": "v1",
+        "required_permission": "service.review.comments"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaAuthorizeServiceCallResponse.self, from: responseData)
+    #expect(decoded.metadata.capabilities == ["services.v1"])
+    #expect(decoded.grant.callerExtensionId == "com.example.consumer")
+    #expect(decoded.grant.callerVersion == "2.0.0")
+    #expect(decoded.grant.calleeExtensionId == "com.example.provider")
+    #expect(decoded.grant.calleeVersion == "1.2.0")
+    #expect(decoded.grant.requiredPermission == "service.review.comments")
 }

@@ -222,6 +222,19 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Returns the service broker authorization response for a package-to-package service call.
+    public func authorizeServiceCallResponse(
+        for session: AteliaSession,
+        request: AteliaAuthorizeServiceCallRequest
+    ) async throws -> AteliaAuthorizeServiceCallResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/services/authorize",
+            body: request
+        )
+    }
+
     /// Returns the rollback response envelope for a package.
     public func packageRollbackResponse(
         for session: AteliaSession,
