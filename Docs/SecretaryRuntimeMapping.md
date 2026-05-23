@@ -45,17 +45,27 @@ replaceable.
 | review queue item | `AteliaReviewQueueItem` | `id`, `kind`, `title`, `repository_id`, `job_id`, `policy_decision_id`, `priority` |
 | event cursor (routes) | `AteliaEventRouteCursor` | `kind` + `sequence_number` / `event_id` |
 | project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor: { sequence, event_id }`, `daemon_status`, `storage_status` |
+| package inspect | `AteliaPackageInspect`, `AteliaPackageServices`, `AteliaPackageServiceDependency` | `package_id`, `extension`, `manifest`, `permissions`, `services`, `services.provides[].required_permissions`, `services.consumes[].package`, `services.consumes[].component`, `services.consumes[].grants` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
+| service broker authorization | `AteliaAuthorizeServiceCallRequest`, `AteliaAuthorizeServiceCallResponse`, `AteliaServiceCallGrant` | `caller_package_id`, `caller_component_id`(optional), `callee_package_id`, `callee_component_id`(optional), `service`, `method`, `schema_version`, `required_permissions`, `grant` |
+| service broker live call | `AteliaServiceCallRequest`, `AteliaServiceCallResponse`, `AteliaServiceCallExecutionResult`, `AteliaServiceCallGrant` | `caller_package_id`, `caller_component_id`(optional), `callee_package_id`, `callee_component_id`(optional), `service`, `method`, `schema_version`, `required_permissions`, `metadata`, `grant`, `result`, (`status`, `outcome`, `reason`, `reason_code`) |
 | package validation | `AteliaPackageValidationRequest`, `AteliaPackageValidationResponse` | `manifest`, `approve_local_unsigned`, `allow_local_process_runtime`, `approve_source_change`, `boundary` |
 | package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `id`, `record`, `extension_id`, `extension`, `extensions`, `previous_version` |
 | package authoring | `AteliaPackageAuthoringFlow`, `AteliaPackagePublicationPlan`, `AteliaPackageRegistrySubmissionState` | `package_id`, `source_class`, `source`, `steps`, `publication_plan`, `state` |
 | package rollback | `AteliaPackageRollbackResponse`, `AteliaPackageRollbackRecord` | `id`, `version`, `previous_version`, `status`, `rollback_snapshot` |
-| beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `supported_result_formats` |
+| beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `aep_source_class`, `aep_package_id`, `aep_component_id`, `supported_result_formats` |
 | tool output rendering | `AteliaToolOutputRenderRequest`, `AteliaToolOutputRenderResponse` | `tool_result`, `format`, `rendered_output`, `rendered_output_metadata`, `truncation` |
 
 Project status uses a flat `latest_cursor` (`sequence`, `event_id`) from the RPC EventCursor path.
 Event listing / replay routes use tagged `cursor` envelopes through `AteliaEventRouteCursor`
 (`kind`, optional `sequence_number` / `event_id`) on list/replay models.
+
+`services.provides[].required_permissions` is the canonical shape for package service permissions in
+Kit, and decode compatibility accepts legacy `services.provides[].required_permission`.
+Service broker model keys are canonicalized to package/component IDs, while decoding
+keeps compatibility with legacy `*_extension_id` request and response keys.
+Package inspect consume entries also use canonical `services.consumes[].package` plus
+optional `services.consumes[].component` and decode legacy `services.consumes[].extension_id`.
 
 The third column is a representative drift guard, not an exhaustive schema
 listing. It includes envelope keys such as `metadata`, collection keys such as
@@ -87,6 +97,8 @@ and iOS operating surfaces:
 - `POST /v1/jobs/{job_id}/events`
 - `POST /v1/events/replay`
 - `POST /v1/package-trust-index:list`
+- `POST /v1/services/authorize`
+- `POST /v1/services/call`
 - `POST /v1/packages/validate`
 - `POST /v1/packages/install`
 - `POST /v1/packages/update`

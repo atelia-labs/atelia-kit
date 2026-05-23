@@ -1275,16 +1275,17 @@ import Testing
             "service": "review.comments",
             "method": "summarize",
             "schema_version": "v1",
-            "required_permission": "service.review.comments"
+            "required_permissions": ["service.review.comments"]
           }
         ],
         "consumes": [
           {
-            "extension_id": "com.example.provider",
+            "package": "com.example.provider",
+            "component": "backend",
             "service": "context.graph",
             "method": "query",
             "schema_version": "v1",
-            "required_permission": "service.context.graph"
+            "grants": ["service.context.graph"]
           }
         ]
       },
@@ -1315,8 +1316,11 @@ import Testing
     #expect(decoded.package.record?.version == "2.0.0")
     #expect(decoded.manifest["version"] == .string("2.0.0"))
     #expect(decoded.permissions == ["service.review.comments"])
+    #expect(decoded.services.provides[0].requiredPermissions == ["service.review.comments"])
     #expect(decoded.services.provides.map(\.service) == ["review.comments"])
-    #expect(decoded.services.consumes.map(\.extensionId) == ["com.example.provider"])
+    #expect(decoded.services.consumes.map(\.packageId) == ["com.example.provider"])
+    #expect(decoded.services.consumes.map(\.componentId) == ["backend"])
+    #expect(decoded.services.consumes.map(\.grants) == [["service.context.graph"]])
     #expect(decoded.rollbackAvailable)
     #expect(
         decoded.rollbackSnapshot?.manifestDigest
@@ -1324,7 +1328,74 @@ import Testing
     )
     #expect(decoded.source.repository == "atelia-labs/review-package")
     #expect(decoded.trust?.registrySubmission == .accepted)
+}
 
+/// Verifies package dependency service entries encode canonical package/component keys.
+@Test func packageDependencyServiceEncodesCanonicalPackageComponentKeys() throws {
+    let dependency = AteliaPackageServiceDependency(
+        packageId: "com.example.provider",
+        componentId: "backend",
+        service: "context.graph",
+        method: "query",
+        schemaVersion: "v1",
+        grants: ["service.context.graph"]
+    )
+
+    let data = try JSONEncoder().encode(dependency)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+    #expect(object["package"] as? String == "com.example.provider")
+    #expect(object["component"] as? String == "backend")
+    #expect(object["service"] as? String == "context.graph")
+    #expect(object["method"] as? String == "query")
+    #expect(object["schema_version"] as? String == "v1")
+    #expect(object["grants"] as? [String] == ["service.context.graph"])
+    #expect(object["extension_id"] == nil)
+    #expect(object["required_permission"] == nil)
+}
+
+/// Verifies canonical empty dependency grants override stale legacy single grants.
+@Test func packageDependencyGrantsDecodingPrefersCanonicalEmptyArrayOverLegacy() throws {
+    let dependencyData = #"""
+    {
+      "package": "com.example.provider",
+      "service": "context.graph",
+      "method": "query",
+      "schema_version": "v1",
+      "grants": [],
+      "required_permission": "service.context.graph"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageServiceDependency.self, from: dependencyData)
+
+    #expect(decoded.packageId == "com.example.provider")
+    #expect(decoded.service == "context.graph")
+    #expect(decoded.grants == [])
+}
+
+/// Verifies canonical null dependency grants fallback to an empty array and do not use legacy grants.
+@Test func packageDependencyGrantsDecodingNullCanonicalValuesTreatedAsEmpty() throws {
+    let dependencyData = #"""
+    {
+      "package": "com.example.provider",
+      "service": "context.graph",
+      "method": "query",
+      "schema_version": "v1",
+      "grants": null,
+      "required_permission": "service.context.graph"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageServiceDependency.self, from: dependencyData)
+
+    #expect(decoded.packageId == "com.example.provider")
+    #expect(decoded.service == "context.graph")
+    #expect(decoded.grants == [])
+}
+
+/// Verifies package inspect responses fall back package ID from legacy envelope keys.
+@Test func packageInspectResponseFallsBackPackageIdFromLegacyIdentifier() throws {
     let legacyData = #"""
     {
       "metadata": {
@@ -1353,6 +1424,136 @@ import Testing
     #expect(legacyDecoded.permissions.isEmpty)
     #expect(legacyDecoded.services.provides.isEmpty)
     #expect(legacyDecoded.rollbackAvailable == false)
+}
+
+/// Verifies legacy package dependency grants decode into canonical `grants`.
+@Test func packageInspectDecodesLegacyRequiredPermissionDependency() throws {
+    let legacyDependencyData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.legacy.dependent",
+        "record": null,
+        "block": null
+      },
+      "manifest": {
+        "id": "com.example.legacy.dependent"
+      },
+      "permissions": [],
+      "services": {
+        "provides": [],
+        "consumes": [
+          {
+            "extension_id": "com.example.provider",
+            "service": "context.graph",
+            "method": "query",
+            "schema_version": "v1",
+            "required_permission": "service.context.graph"
+          }
+        ]
+      },
+      "source": {
+        "source": "github"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: legacyDependencyData)
+
+    #expect(decoded.services.consumes.count == 1)
+    #expect(decoded.services.consumes[0].packageId == "com.example.provider")
+    #expect(decoded.services.consumes[0].componentId == nil)
+    #expect(decoded.services.consumes[0].grants == ["service.context.graph"])
+}
+
+/// Verifies legacy package provider permissions decode into canonical `requiredPermissions`.
+@Test func packageInspectDecodesLegacyRequiredPermissionDefinition() throws {
+    let legacyProvidesData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.legacy.provider",
+        "record": null,
+        "block": null
+      },
+      "manifest": {
+        "id": "com.example.legacy.provider"
+      },
+      "permissions": [],
+      "services": {
+        "provides": [
+          {
+            "service": "context.graph",
+            "method": "query",
+            "schema_version": "v1",
+            "required_permission": "service.context.graph"
+          }
+        ],
+        "consumes": []
+      },
+      "source": {
+        "source": "github"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: legacyProvidesData)
+
+    #expect(decoded.services.provides.count == 1)
+    #expect(decoded.services.provides[0].requiredPermissions == ["service.context.graph"])
+}
+
+/// Verifies canonical empty service definition permissions override stale legacy keys.
+@Test func packageInspectResponseCanonicalEmptyRequiredPermissionsTakePrecedence() throws {
+    let legacyProvidesData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "1.0.0",
+        "storage_version": "1.0.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.legacy.provider",
+        "record": null,
+        "block": null
+      },
+      "manifest": {
+        "id": "com.example.legacy.provider"
+      },
+      "permissions": [],
+      "services": {
+        "provides": [
+          {
+            "service": "context.graph",
+            "method": "query",
+            "schema_version": "v1",
+            "required_permissions": [],
+            "required_permission": "service.context.graph"
+          }
+        ],
+        "consumes": []
+      },
+      "source": {
+        "source": "github"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: legacyProvidesData)
+
+    #expect(decoded.services.provides.count == 1)
+    #expect(decoded.services.provides[0].requiredPermissions == [])
 }
 
 /// Verifies package blocklist models round-trip canonical keys and note field.
@@ -1857,6 +2058,9 @@ import Testing
       "description": "Read a file from an allowed repository scope.",
       "provider_kind": "builtin",
       "provider_id": "atelia-secretary",
+      "aep_source_class": "host-shipped-built-in",
+      "aep_package_id": "host.filesystem",
+      "aep_component_id": "backend",
       "risk_tier": "R1",
       "default_result_format": "toon",
       "supported_result_formats": ["toon", "json"],
@@ -1870,5 +2074,357 @@ import Testing
     let decoded = try JSONDecoder().decode(AteliaToolRepertoireEntry.self, from: data)
 
     #expect(decoded.id == "fs.read")
+    #expect(decoded.aepSourceClass == "host-shipped-built-in")
+    #expect(decoded.aepPackageId == "host.filesystem")
+    #expect(decoded.aepComponentId == "backend")
     #expect(decoded.supportedResultFormats == ["toon", "json"])
+}
+
+/// Verifies service broker authorization models use Secretary protocol keys.
+@Test func serviceBrokerAuthorizationModelsRoundTrip() throws {
+    let request = AteliaAuthorizeServiceCallRequest(
+        callerPackageId: "com.example.consumer",
+        calleePackageId: "com.example.provider",
+        service: "review.comments",
+        method: "summarize",
+        schemaVersion: "v1",
+        requiredPermissions: ["service.review.comments", "service.context.graph"]
+    )
+
+    let requestData = try JSONEncoder().encode(request)
+    let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+    #expect(requestObject["caller_package_id"] as? String == "com.example.consumer")
+    #expect(requestObject["callee_package_id"] as? String == "com.example.provider")
+    #expect(requestObject["caller_extension_id"] == nil)
+    #expect(requestObject["callee_extension_id"] == nil)
+    #expect(requestObject["schema_version"] as? String == "v1")
+    #expect(requestObject["required_permissions"] as? [String] == ["service.review.comments", "service.context.graph"])
+    #expect(requestObject["required_permission"] == nil)
+
+    let responseData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["services.v1"]
+      },
+      "grant": {
+        "caller_package_id": "com.example.consumer",
+        "caller_version": "2.0.0",
+        "callee_package_id": "com.example.provider",
+        "callee_version": "1.2.0",
+        "service": "review.comments",
+        "method": "summarize",
+        "schema_version": "v1",
+        "required_permissions": ["service.review.comments", "service.context.graph"]
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaAuthorizeServiceCallResponse.self, from: responseData)
+    #expect(decoded.metadata.capabilities == ["services.v1"])
+    #expect(decoded.grant.callerPackageId == "com.example.consumer")
+    #expect(decoded.grant.callerVersion == "2.0.0")
+    #expect(decoded.grant.calleePackageId == "com.example.provider")
+    #expect(decoded.grant.calleeVersion == "1.2.0")
+    #expect(decoded.grant.requiredPermissions == ["service.review.comments", "service.context.graph"])
+}
+
+/// Verifies service authorization models encode component ids on canonical keys.
+@Test func serviceBrokerAuthorizationModelsRoundTripWithComponentIds() throws {
+    let request = AteliaAuthorizeServiceCallRequest(
+        callerPackageId: "com.example.consumer",
+        callerComponentId: "frontend",
+        calleePackageId: "com.example.provider",
+        calleeComponentId: "backend",
+        service: "review.comments",
+        method: "summarize",
+        schemaVersion: "v1",
+        requiredPermissions: ["service.review.comments"]
+    )
+
+    let requestData = try JSONEncoder().encode(request)
+    let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+    #expect(requestObject["caller_package_id"] as? String == "com.example.consumer")
+    #expect(requestObject["caller_component_id"] as? String == "frontend")
+    #expect(requestObject["callee_package_id"] as? String == "com.example.provider")
+    #expect(requestObject["callee_component_id"] as? String == "backend")
+    #expect(requestObject["caller_extension_id"] == nil)
+    #expect(requestObject["callee_extension_id"] == nil)
+
+    let grantData = #"""
+    {
+      "caller_package_id": "com.example.consumer",
+      "caller_component_id": "frontend",
+      "caller_version": "2.0.0",
+      "callee_package_id": "com.example.provider",
+      "callee_component_id": "backend",
+      "callee_version": "1.2.0",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"]
+    }
+    """#.data(using: .utf8)!
+
+    let grant = try JSONDecoder().decode(AteliaServiceCallGrant.self, from: grantData)
+    #expect(grant.callerPackageId == "com.example.consumer")
+    #expect(grant.callerComponentId == "frontend")
+    #expect(grant.calleePackageId == "com.example.provider")
+    #expect(grant.calleeComponentId == "backend")
+    #expect(grant.requiredPermissions == ["service.review.comments"])
+}
+
+/// Verifies legacy service authorization JSON using extension ids decodes into package ids.
+@Test func serviceBrokerAuthorizationDecodesLegacyExtensionIds() throws {
+    let requestData = #"""
+    {
+      "caller_extension_id": "com.example.consumer",
+      "callee_extension_id": "com.example.provider",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"],
+      "required_permission": "legacy.permission"
+    }
+    """#.data(using: .utf8)!
+
+    let request = try JSONDecoder().decode(AteliaAuthorizeServiceCallRequest.self, from: requestData)
+    #expect(request.callerPackageId == "com.example.consumer")
+    #expect(request.calleePackageId == "com.example.provider")
+    #expect(request.requiredPermissions == ["service.review.comments"])
+
+    let grantData = #"""
+    {
+      "caller_extension_id": "com.example.consumer",
+      "caller_version": "2.0.0",
+      "callee_extension_id": "com.example.provider",
+      "callee_version": "1.2.0",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"],
+      "required_permission": "legacy.permission"
+    }
+    """#.data(using: .utf8)!
+
+    let grant = try JSONDecoder().decode(AteliaServiceCallGrant.self, from: grantData)
+    #expect(grant.callerPackageId == "com.example.consumer")
+    #expect(grant.calleePackageId == "com.example.provider")
+    #expect(grant.requiredPermissions == ["service.review.comments"])
+}
+
+/// Verifies canonical and legacy keys do not conflict during authorization decode.
+@Test func serviceBrokerAuthorizationCanonicalKeysTakePrecedence() throws {
+    let requestData = #"""
+    {
+      "caller_package_id": "com.example.consumer",
+      "caller_extension_id": "legacy.consumer",
+      "caller_component_id": "frontend",
+      "callee_package_id": "com.example.provider",
+      "callee_extension_id": "legacy.provider",
+      "callee_component_id": "backend",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"],
+      "required_permission": "service.review.comments"
+    }
+    """#.data(using: .utf8)!
+
+    let request = try JSONDecoder().decode(AteliaAuthorizeServiceCallRequest.self, from: requestData)
+    #expect(request.callerPackageId == "com.example.consumer")
+    #expect(request.calleePackageId == "com.example.provider")
+    #expect(request.requiredPermissions == ["service.review.comments"])
+
+    let grantData = #"""
+    {
+      "caller_package_id": "com.example.consumer",
+      "caller_extension_id": "legacy.consumer",
+      "caller_component_id": "frontend",
+      "caller_version": "2.0.0",
+      "callee_package_id": "com.example.provider",
+      "callee_extension_id": "legacy.provider",
+      "callee_component_id": "backend",
+      "callee_version": "1.2.0",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"],
+      "required_permission": "service.review.comments"
+    }
+    """#.data(using: .utf8)!
+
+    let grant = try JSONDecoder().decode(AteliaServiceCallGrant.self, from: grantData)
+    #expect(grant.callerPackageId == "com.example.consumer")
+    #expect(grant.calleePackageId == "com.example.provider")
+    #expect(grant.callerComponentId == "frontend")
+    #expect(grant.calleeComponentId == "backend")
+    #expect(grant.requiredPermissions == ["service.review.comments"])
+}
+
+/// Verifies service broker execution models use the new live call keys.
+@Test func serviceBrokerExecutionModelsRoundTrip() throws {
+    let request = AteliaServiceCallRequest(
+        callerPackageId: "com.example.consumer",
+        calleePackageId: "com.example.provider",
+        service: "review.comments",
+        method: "summarize",
+        schemaVersion: "v1",
+        requiredPermissions: ["service.review.comments", "service.context.graph"]
+    )
+
+    let requestData = try JSONEncoder().encode(request)
+    let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+    #expect(requestObject["caller_package_id"] as? String == "com.example.consumer")
+    #expect(requestObject["callee_package_id"] as? String == "com.example.provider")
+    #expect(requestObject["caller_extension_id"] == nil)
+    #expect(requestObject["callee_extension_id"] == nil)
+    #expect(requestObject["service"] as? String == "review.comments")
+    #expect(requestObject["method"] as? String == "summarize")
+    #expect(requestObject["schema_version"] as? String == "v1")
+    #expect(requestObject["required_permissions"] as? [String] == ["service.review.comments", "service.context.graph"])
+    #expect(requestObject["required_permission"] == nil)
+
+    let responseData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["services.v1"]
+      },
+      "grant": {
+        "caller_package_id": "com.example.consumer",
+        "caller_version": "2.0.0",
+        "callee_package_id": "com.example.provider",
+        "callee_version": "1.2.0",
+        "service": "review.comments",
+        "method": "summarize",
+        "schema_version": "v1",
+        "required_permissions": ["service.review.comments", "service.context.graph"]
+      },
+      "result": {
+        "status": "unavailable",
+        "outcome": "unavailable",
+        "reason": "no executor is configured for this service",
+        "reason_code": "no_executor"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaServiceCallResponse.self, from: responseData)
+    #expect(decoded.metadata.capabilities == ["services.v1"])
+    #expect(decoded.grant.callerPackageId == "com.example.consumer")
+    #expect(decoded.result.status == "unavailable")
+    #expect(decoded.result.outcome == "unavailable")
+    #expect(decoded.result.reason == "no executor is configured for this service")
+    #expect(decoded.result.reasonCode == "no_executor")
+}
+
+/// Verifies execution requests encode component ids on canonical keys.
+@Test func serviceBrokerExecutionModelsRoundTripWithComponentIds() throws {
+    let request = AteliaServiceCallRequest(
+        callerPackageId: "com.example.consumer",
+        callerComponentId: "frontend",
+        calleePackageId: "com.example.provider",
+        calleeComponentId: "backend",
+        service: "review.comments",
+        method: "summarize",
+        schemaVersion: "v1",
+        requiredPermissions: ["service.review.comments"]
+    )
+
+    let requestData = try JSONEncoder().encode(request)
+    let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+    #expect(requestObject["caller_package_id"] as? String == "com.example.consumer")
+    #expect(requestObject["caller_component_id"] as? String == "frontend")
+    #expect(requestObject["callee_package_id"] as? String == "com.example.provider")
+    #expect(requestObject["callee_component_id"] as? String == "backend")
+    #expect(requestObject["caller_extension_id"] == nil)
+    #expect(requestObject["callee_extension_id"] == nil)
+}
+
+/// Verifies legacy live call JSON using extension ids decodes into package ids.
+@Test func serviceBrokerExecutionDecodesLegacyExtensionIds() throws {
+    let requestData = #"""
+    {
+      "caller_extension_id": "com.example.consumer",
+      "callee_extension_id": "com.example.provider",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permission": "service.review.comments"
+    }
+    """#.data(using: .utf8)!
+
+    let request = try JSONDecoder().decode(AteliaServiceCallRequest.self, from: requestData)
+    #expect(request.callerPackageId == "com.example.consumer")
+    #expect(request.calleePackageId == "com.example.provider")
+    #expect(request.requiredPermissions == ["service.review.comments"])
+}
+
+/// Verifies empty required permissions round-trip as an explicit canonical array.
+@Test func serviceBrokerExecutionModelsRoundTripWithEmptyRequiredPermissions() throws {
+    let request = AteliaServiceCallRequest(
+        callerPackageId: "com.example.consumer",
+        calleePackageId: "com.example.provider",
+        service: "review.comments",
+        method: "summarize",
+        schemaVersion: "v1"
+    )
+
+    let requestData = try JSONEncoder().encode(request)
+    let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+    #expect(requestObject["required_permissions"] as? [String] == [])
+
+    let responseData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["services.v1"]
+      },
+      "grant": {
+        "caller_package_id": "com.example.consumer",
+        "caller_version": "2.0.0",
+        "callee_package_id": "com.example.provider",
+        "callee_version": "1.2.0",
+        "service": "review.comments",
+        "method": "summarize",
+        "schema_version": "v1",
+        "required_permissions": []
+      },
+      "result": {
+        "status": "unavailable",
+        "outcome": "unavailable",
+        "reason": "no executor is configured for this service",
+        "reason_code": "no_executor"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(AteliaServiceCallResponse.self, from: responseData)
+    #expect(response.grant.requiredPermissions == [])
+}
+
+/// Verifies live execution result round-trips through JSON keys.
+@Test func serviceCallExecutionResultRoundTrip() throws {
+    let result = AteliaServiceCallExecutionResult(
+        status: "unavailable",
+        outcome: "unavailable",
+        reason: "no executor is configured for this service",
+        reasonCode: "no_executor"
+    )
+
+    let data = try JSONEncoder().encode(result)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    #expect(object["status"] as? String == "unavailable")
+    #expect(object["outcome"] as? String == "unavailable")
+    #expect(object["reason"] as? String == "no executor is configured for this service")
+    #expect(object["reason_code"] as? String == "no_executor")
+    let decoded = try JSONDecoder().decode(AteliaServiceCallExecutionResult.self, from: data)
+    #expect(decoded == result)
 }
