@@ -354,10 +354,21 @@ public struct AteliaPackageServiceDependency: Sendable, Codable, Equatable {
     /// Decodes compatibility `required_permission` into canonical `grants` when needed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.packageId = try container.decodeIfPresent(String.self, forKey: .package) ?? container.decode(
-            String.self,
-            forKey: .extensionId
-        )
+        if container.contains(.package) {
+            guard let package = try container.decodeIfPresent(String.self, forKey: .package) else {
+                let debugPath = container.codingPath + [CodingKeys.package]
+                throw DecodingError.valueNotFound(
+                    String.self,
+                    DecodingError.Context(
+                        codingPath: debugPath,
+                        debugDescription: "Expected `package` to be a non-null string."
+                    )
+                )
+            }
+            self.packageId = package
+        } else {
+            self.packageId = try container.decode(String.self, forKey: .extensionId)
+        }
         self.componentId = try container.decodeIfPresent(String.self, forKey: .component)
         self.service = try container.decode(String.self, forKey: .service)
         self.method = try container.decode(String.self, forKey: .method)

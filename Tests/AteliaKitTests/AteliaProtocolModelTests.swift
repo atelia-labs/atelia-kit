@@ -1504,6 +1504,72 @@ import Testing
     #expect(decoded.grants == [])
 }
 
+/// Verifies canonical null dependency package IDs do not fallback to legacy extension IDs.
+@Test func packageDependencyCanonicalNullPackageDoesNotFallbackToLegacy() throws {
+    let dependencyData = #"""
+    {
+      "package": null,
+      "extension_id": "com.example.provider",
+      "service": "context.graph",
+      "method": "query",
+      "schema_version": "v1"
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaPackageServiceDependency.self, from: dependencyData)
+    }
+}
+
+/// Verifies package inspect payloads with dependency fallback for missing canonical package continue to work.
+@Test func packageInspectDependencyDecodingFallsBackToLegacyWhenPackageFieldIsAbsent() throws {
+    let inspectData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.2.0",
+        "storage_version": "0.2.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.consumer",
+        "record": null,
+        "block": null
+      },
+      "manifest": {
+        "id": "com.example.consumer"
+      },
+      "permissions": [],
+      "services": {
+        "provides": [],
+        "consumes": [
+          {
+            "extension_id": "com.example.provider",
+            "service": "context.graph",
+            "method": "query",
+            "schema_version": "v1"
+          }
+        ]
+      },
+      "source": {
+        "source": "github"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: inspectData)
+
+    #expect(decoded.services.consumes == [
+        AteliaPackageServiceDependency(
+            packageId: "com.example.provider",
+            service: "context.graph",
+            method: "query",
+            schemaVersion: "v1",
+            grants: []
+        )
+    ])
+}
+
 /// Verifies package inspect responses fall back package ID from legacy envelope keys.
 @Test func packageInspectResponseFallsBackPackageIdFromLegacyIdentifier() throws {
     let legacyData = #"""
