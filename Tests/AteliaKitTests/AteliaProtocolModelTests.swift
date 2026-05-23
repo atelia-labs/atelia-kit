@@ -1284,7 +1284,7 @@ import Testing
             "service": "context.graph",
             "method": "query",
             "schema_version": "v1",
-            "required_permission": "service.context.graph"
+            "grants": ["service.context.graph"]
           }
         ]
       },
@@ -1317,6 +1317,7 @@ import Testing
     #expect(decoded.permissions == ["service.review.comments"])
     #expect(decoded.services.provides.map(\.service) == ["review.comments"])
     #expect(decoded.services.consumes.map(\.extensionId) == ["com.example.provider"])
+    #expect(decoded.services.consumes.map(\.grants) == [["service.context.graph"]])
     #expect(decoded.rollbackAvailable)
     #expect(
         decoded.rollbackSnapshot?.manifestDigest
@@ -1353,6 +1354,49 @@ import Testing
     #expect(legacyDecoded.permissions.isEmpty)
     #expect(legacyDecoded.services.provides.isEmpty)
     #expect(legacyDecoded.rollbackAvailable == false)
+}
+
+/// Verifies legacy package dependency grants decode into canonical `grants`.
+@Test func packageInspectDecodesLegacyRequiredPermissionDependency() throws {
+    let legacyDependencyData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.legacy.dependent",
+        "record": null,
+        "block": null
+      },
+      "manifest": {
+        "id": "com.example.legacy.dependent"
+      },
+      "permissions": [],
+      "services": {
+        "provides": [],
+        "consumes": [
+          {
+            "extension_id": "com.example.provider",
+            "service": "context.graph",
+            "method": "query",
+            "schema_version": "v1",
+            "required_permission": "service.context.graph"
+          }
+        ]
+      },
+      "source": {
+        "source": "github"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: legacyDependencyData)
+
+    #expect(decoded.services.consumes.count == 1)
+    #expect(decoded.services.consumes[0].grants == ["service.context.graph"])
 }
 
 /// Verifies package blocklist models round-trip canonical keys and note field.

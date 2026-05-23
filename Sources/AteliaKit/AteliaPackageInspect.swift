@@ -286,7 +286,9 @@ public struct AteliaPackageServiceDependency: Sendable, Codable, Equatable {
         case method
         /// Schema version for the consumed service method.
         case schemaVersion = "schema_version"
-        /// Permission required by the dependency call.
+        /// Canonical set of grants required by the dependency call.
+        case grants
+        /// Compatibility field for legacy single permission declarations.
         case requiredPermission = "required_permission"
     }
 
@@ -298,8 +300,8 @@ public struct AteliaPackageServiceDependency: Sendable, Codable, Equatable {
     public var method: String
     /// Schema version for service contract compatibility.
     public var schemaVersion: String
-    /// Permission required by the dependency call.
-    public var requiredPermission: String
+    /// Grants required by the dependency call.
+    public var grants: [String]
 
     /// Creates a consumed service dependency.
     public init(
@@ -307,12 +309,39 @@ public struct AteliaPackageServiceDependency: Sendable, Codable, Equatable {
         service: String,
         method: String,
         schemaVersion: String,
-        requiredPermission: String
+        grants: [String]
     ) {
         self.extensionId = extensionId
         self.service = service
         self.method = method
         self.schemaVersion = schemaVersion
-        self.requiredPermission = requiredPermission
+        self.grants = grants
+    }
+
+    /// Decodes compatibility `required_permission` into canonical `grants` when needed.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.extensionId = try container.decode(String.self, forKey: .extensionId)
+        self.service = try container.decode(String.self, forKey: .service)
+        self.method = try container.decode(String.self, forKey: .method)
+        self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
+
+        let decodedGrants = try container.decodeIfPresent([String].self, forKey: .grants) ?? []
+        if !decodedGrants.isEmpty {
+            self.grants = decodedGrants
+            return
+        }
+
+        self.grants = try container.decodeIfPresent(String.self, forKey: .requiredPermission).map { [$0] } ?? []
+    }
+
+    /// Encodes canonical `grants` only.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(extensionId, forKey: .extensionId)
+        try container.encode(service, forKey: .service)
+        try container.encode(method, forKey: .method)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(grants, forKey: .grants)
     }
 }

@@ -138,14 +138,14 @@ public struct AteliaServiceCallExecutionResult: Sendable, Codable, Equatable {
 
     public var status: String
     public var outcome: String
-    public var reason: String?
-    public var reasonCode: String?
+    public var reason: String
+    public var reasonCode: String
 
     public init(
         status: String,
         outcome: String,
-        reason: String? = nil,
-        reasonCode: String? = nil
+        reason: String,
+        reasonCode: String
     ) {
         self.status = status
         self.outcome = outcome
