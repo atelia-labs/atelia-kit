@@ -1354,6 +1354,26 @@ import Testing
     #expect(object["required_permission"] == nil)
 }
 
+/// Verifies canonical empty dependency grants override stale legacy single grants.
+@Test func packageDependencyGrantsDecodingPrefersCanonicalEmptyArrayOverLegacy() throws {
+    let dependencyData = #"""
+    {
+      "package": "com.example.provider",
+      "service": "context.graph",
+      "method": "query",
+      "schema_version": "v1",
+      "grants": [],
+      "required_permission": "service.context.graph"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageServiceDependency.self, from: dependencyData)
+
+    #expect(decoded.packageId == "com.example.provider")
+    #expect(decoded.service == "context.graph")
+    #expect(decoded.grants == [])
+}
+
 /// Verifies package inspect responses fall back package ID from legacy envelope keys.
 @Test func packageInspectResponseFallsBackPackageIdFromLegacyIdentifier() throws {
     let legacyData = #"""
@@ -1471,6 +1491,49 @@ import Testing
 
     #expect(decoded.services.provides.count == 1)
     #expect(decoded.services.provides[0].requiredPermissions == ["service.context.graph"])
+}
+
+/// Verifies canonical empty service definition permissions override stale legacy keys.
+@Test func packageInspectResponseCanonicalEmptyRequiredPermissionsTakePrecedence() throws {
+    let legacyProvidesData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "1.0.0",
+        "storage_version": "1.0.0",
+        "capabilities": ["package_inspect.v1"]
+      },
+      "extension": {
+        "extension_id": "com.example.legacy.provider",
+        "record": null,
+        "block": null
+      },
+      "manifest": {
+        "id": "com.example.legacy.provider"
+      },
+      "permissions": [],
+      "services": {
+        "provides": [
+          {
+            "service": "context.graph",
+            "method": "query",
+            "schema_version": "v1",
+            "required_permissions": [],
+            "required_permission": "service.context.graph"
+          }
+        ],
+        "consumes": []
+      },
+      "source": {
+        "source": "github"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: legacyProvidesData)
+
+    #expect(decoded.services.provides.count == 1)
+    #expect(decoded.services.provides[0].requiredPermissions == [])
 }
 
 /// Verifies package blocklist models round-trip canonical keys and note field.

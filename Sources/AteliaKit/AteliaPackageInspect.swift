@@ -282,13 +282,11 @@ public struct AteliaPackageServiceDefinition: Sendable, Codable, Equatable {
         self.method = try container.decode(String.self, forKey: .method)
         self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
 
-        let canonicalPermissions = try container.decodeIfPresent([String].self, forKey: .requiredPermissions) ?? []
-        if !canonicalPermissions.isEmpty {
-            self.requiredPermissions = canonicalPermissions
-            return
+        if container.contains(.requiredPermissions) {
+            self.requiredPermissions = try container.decodeIfPresent([String].self, forKey: .requiredPermissions) ?? []
+        } else {
+            self.requiredPermissions = try container.decodeIfPresent(String.self, forKey: .requiredPermission).map { [$0] } ?? []
         }
-
-        self.requiredPermissions = try container.decodeIfPresent(String.self, forKey: .requiredPermission).map { [$0] } ?? []
     }
 
     /// Encodes canonical `required_permissions` only.
