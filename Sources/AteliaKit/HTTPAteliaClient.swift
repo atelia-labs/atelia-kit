@@ -235,6 +235,19 @@ public struct HTTPAteliaClient: AteliaClient, Sendable {
         )
     }
 
+    /// Returns the service call execution response for a package-to-package call.
+    public func callServiceResponse(
+        for session: AteliaSession,
+        request: AteliaServiceCallRequest
+    ) async throws -> AteliaServiceCallResponse {
+        try await send(
+            session: session,
+            method: "POST",
+            path: "/v1/services/call",
+            body: request
+        )
+    }
+
     /// Returns the rollback response envelope for a package.
     public func packageRollbackResponse(
         for session: AteliaSession,

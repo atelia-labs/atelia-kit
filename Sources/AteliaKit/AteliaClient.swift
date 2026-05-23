@@ -18,6 +18,8 @@ public enum AteliaClientError: Error, Sendable, Equatable {
     case packageTrustIndexUnavailable
     /// The conformer does not provide service broker authorization.
     case serviceAuthorizationUnavailable
+    /// The conformer does not provide service broker live execution.
+    case serviceCallUnavailable
     /// The conformer does not provide the package rollback operation.
     case packageRollbackUnavailable
     /// The conformer does not provide package inspection operations.
@@ -114,6 +116,16 @@ public protocol AteliaClient: Sendable {
         for session: AteliaSession,
         request: AteliaAuthorizeServiceCallRequest
     ) async throws -> AteliaServiceCallGrant
+    /// Returns the live service-call execution response.
+    func callServiceResponse(
+        for session: AteliaSession,
+        request: AteliaServiceCallRequest
+    ) async throws -> AteliaServiceCallResponse
+    /// Returns the live service-call execution result.
+    func callService(
+        for session: AteliaSession,
+        request: AteliaServiceCallRequest
+    ) async throws -> AteliaServiceCallExecutionResult
     /// Returns the rollback response envelope for a package.
     func packageRollbackResponse(
         for session: AteliaSession,
@@ -461,6 +473,24 @@ public extension AteliaClient {
         _ = session
         _ = request
         throw AteliaClientError.serviceAuthorizationUnavailable
+    }
+
+    /// Returns the service call execution result from the full execution envelope.
+    func callService(
+        for session: AteliaSession,
+        request: AteliaServiceCallRequest
+    ) async throws -> AteliaServiceCallExecutionResult {
+        try await callServiceResponse(for: session, request: request).result
+    }
+
+    /// Returns the full live service-call execution response.
+    func callServiceResponse(
+        for session: AteliaSession,
+        request: AteliaServiceCallRequest
+    ) async throws -> AteliaServiceCallResponse {
+        _ = session
+        _ = request
+        throw AteliaClientError.serviceCallUnavailable
     }
 
     /// Returns the rollback record from the full response envelope.

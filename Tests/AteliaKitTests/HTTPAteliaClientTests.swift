@@ -204,6 +204,82 @@ import Testing
     #expect(grant.requiredPermission == "service.review.comments")
 }
 
+/// Verifies the HTTP client calls the live service broker execution endpoint.
+@Test func httpClientCallsService() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/services/call")
+        #expect(request.httpMethod == "POST")
+        let body = try #require(request.httpBody)
+        let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(object["caller_extension_id"] as? String == "com.example.consumer")
+        #expect(object["callee_extension_id"] as? String == "com.example.provider")
+        #expect(object["service"] as? String == "review.comments")
+        #expect(object["method"] as? String == "summarize")
+        #expect(object["schema_version"] as? String == "v1")
+        #expect(object["required_permission"] as? String == "service.review.comments")
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["services.v1"]
+            },
+            "grant": {
+              "caller_extension_id": "com.example.consumer",
+              "caller_version": "2.0.0",
+              "callee_extension_id": "com.example.provider",
+              "callee_version": "1.2.0",
+              "service": "review.comments",
+              "method": "summarize",
+              "schema_version": "v1",
+              "required_permission": "service.review.comments"
+            },
+            "result": {
+              "status": "unavailable",
+              "outcome": "unavailable",
+              "reason": "no executor is configured for this service",
+              "reason_code": "no_executor"
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.callServiceResponse(
+        for: AteliaSession(),
+        request: AteliaServiceCallRequest(
+            callerExtensionId: "com.example.consumer",
+            calleeExtensionId: "com.example.provider",
+            service: "review.comments",
+            method: "summarize",
+            schemaVersion: "v1",
+            requiredPermission: "service.review.comments"
+        )
+    )
+
+    #expect(response.result.status == "unavailable")
+    #expect(response.result.outcome == "unavailable")
+    #expect(response.result.reason == "no executor is configured for this service")
+    #expect(response.result.reasonCode == "no_executor")
+
+    let result = try await client.callService(
+        for: AteliaSession(),
+        request: AteliaServiceCallRequest(
+            callerExtensionId: "com.example.consumer",
+            calleeExtensionId: "com.example.provider",
+            service: "review.comments",
+            method: "summarize",
+            schemaVersion: "v1",
+            requiredPermission: "service.review.comments"
+        )
+    )
+    #expect(result == response.result)
+}
+
 /// Verifies the HTTP client calls the package trust index endpoint with the beta transport shape.
 @Test func httpClientFetchesPackageTrustIndexEnvelope() async throws {
     let client = HTTPAteliaClient(bearerToken: "token-123", transport: .fixture { request in

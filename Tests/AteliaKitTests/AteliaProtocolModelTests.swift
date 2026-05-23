@@ -1926,3 +1926,78 @@ import Testing
     #expect(decoded.grant.calleeVersion == "1.2.0")
     #expect(decoded.grant.requiredPermission == "service.review.comments")
 }
+
+/// Verifies service broker execution models use the new live call keys.
+@Test func serviceBrokerExecutionModelsRoundTrip() throws {
+    let request = AteliaServiceCallRequest(
+        callerExtensionId: "com.example.consumer",
+        calleeExtensionId: "com.example.provider",
+        service: "review.comments",
+        method: "summarize",
+        schemaVersion: "v1",
+        requiredPermission: "service.review.comments"
+    )
+
+    let requestData = try JSONEncoder().encode(request)
+    let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+    #expect(requestObject["caller_extension_id"] as? String == "com.example.consumer")
+    #expect(requestObject["callee_extension_id"] as? String == "com.example.provider")
+    #expect(requestObject["service"] as? String == "review.comments")
+    #expect(requestObject["method"] as? String == "summarize")
+    #expect(requestObject["schema_version"] as? String == "v1")
+    #expect(requestObject["required_permission"] as? String == "service.review.comments")
+
+    let responseData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["services.v1"]
+      },
+      "grant": {
+        "caller_extension_id": "com.example.consumer",
+        "caller_version": "2.0.0",
+        "callee_extension_id": "com.example.provider",
+        "callee_version": "1.2.0",
+        "service": "review.comments",
+        "method": "summarize",
+        "schema_version": "v1",
+        "required_permission": "service.review.comments"
+      },
+      "result": {
+        "status": "unavailable",
+        "outcome": "unavailable",
+        "reason": "no executor is configured for this service",
+        "reason_code": "no_executor"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaServiceCallResponse.self, from: responseData)
+    #expect(decoded.metadata.capabilities == ["services.v1"])
+    #expect(decoded.grant.callerExtensionId == "com.example.consumer")
+    #expect(decoded.result.status == "unavailable")
+    #expect(decoded.result.outcome == "unavailable")
+    #expect(decoded.result.reason == "no executor is configured for this service")
+    #expect(decoded.result.reasonCode == "no_executor")
+}
+
+/// Verifies live execution result round-trips through JSON keys.
+@Test func serviceCallExecutionResultRoundTrip() throws {
+    let result = AteliaServiceCallExecutionResult(
+        status: "unavailable",
+        outcome: "unavailable",
+        reason: "no executor is configured for this service",
+        reasonCode: "no_executor"
+    )
+
+    let data = try JSONEncoder().encode(result)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    #expect(object["status"] as? String == "unavailable")
+    #expect(object["outcome"] as? String == "unavailable")
+    #expect(object["reason"] as? String == "no executor is configured for this service")
+    #expect(object["reason_code"] as? String == "no_executor")
+    let decoded = try JSONDecoder().decode(AteliaServiceCallExecutionResult.self, from: data)
+    #expect(decoded == result)
+}

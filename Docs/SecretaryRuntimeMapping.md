@@ -47,6 +47,7 @@ replaceable.
 | project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor: { sequence, event_id }`, `daemon_status`, `storage_status` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
 | service broker authorization | `AteliaAuthorizeServiceCallRequest`, `AteliaAuthorizeServiceCallResponse`, `AteliaServiceCallGrant` | `caller_extension_id`, `callee_extension_id`, `service`, `method`, `schema_version`, `required_permission`, `grant` |
+| service broker live call | `AteliaServiceCallRequest`, `AteliaServiceCallResponse`, `AteliaServiceCallExecutionResult`, `AteliaServiceCallGrant` | `caller_extension_id`, `callee_extension_id`, `service`, `method`, `schema_version`, `required_permission`, `metadata`, `grant`, `result`, (`status`, `outcome`, `reason`, `reason_code`) |
 | package validation | `AteliaPackageValidationRequest`, `AteliaPackageValidationResponse` | `manifest`, `approve_local_unsigned`, `allow_local_process_runtime`, `approve_source_change`, `boundary` |
 | package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `id`, `record`, `extension_id`, `extension`, `extensions`, `previous_version` |
 | package authoring | `AteliaPackageAuthoringFlow`, `AteliaPackagePublicationPlan`, `AteliaPackageRegistrySubmissionState` | `package_id`, `source_class`, `source`, `steps`, `publication_plan`, `state` |
@@ -89,6 +90,7 @@ and iOS operating surfaces:
 - `POST /v1/events/replay`
 - `POST /v1/package-trust-index:list`
 - `POST /v1/services/authorize`
+- `POST /v1/services/call`
 - `POST /v1/packages/validate`
 - `POST /v1/packages/install`
 - `POST /v1/packages/update`
