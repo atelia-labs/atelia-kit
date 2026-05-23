@@ -2374,6 +2374,49 @@ import Testing
     #expect(grant.requiredPermissions == ["service.review.comments"])
 }
 
+/// Verifies explicit canonical null values do not fallback to legacy extension ids.
+@Test func serviceBrokerAuthorizationCanonicalNullPackageIdsDoNotFallbackToLegacyExtensionIds() throws {
+    let requestData = #"""
+    {
+      "caller_package_id": null,
+      "caller_extension_id": "legacy.consumer",
+      "caller_component_id": "frontend",
+      "callee_package_id": null,
+      "callee_extension_id": "legacy.provider",
+      "callee_component_id": "backend",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"]
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaAuthorizeServiceCallRequest.self, from: requestData)
+    }
+
+    let grantData = #"""
+    {
+      "caller_package_id": null,
+      "caller_extension_id": "legacy.consumer",
+      "caller_version": "2.0.0",
+      "caller_component_id": "frontend",
+      "callee_package_id": null,
+      "callee_extension_id": "legacy.provider",
+      "callee_version": "1.2.0",
+      "callee_component_id": "backend",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"]
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaServiceCallGrant.self, from: grantData)
+    }
+}
+
 /// Verifies service broker execution models use the new live call keys.
 @Test func serviceBrokerExecutionModelsRoundTrip() throws {
     let request = AteliaServiceCallRequest(
@@ -2431,6 +2474,28 @@ import Testing
     #expect(decoded.result.outcome == "unavailable")
     #expect(decoded.result.reason == "no executor is configured for this service")
     #expect(decoded.result.reasonCode == "no_executor")
+}
+
+/// Verifies explicit canonical null values do not fallback to legacy extension ids for execution requests.
+@Test func serviceBrokerExecutionCanonicalNullPackageIdsDoNotFallbackToLegacyExtensionIds() throws {
+    let requestData = #"""
+    {
+      "caller_package_id": null,
+      "caller_extension_id": "legacy.consumer",
+      "caller_component_id": "frontend",
+      "callee_package_id": null,
+      "callee_extension_id": "legacy.provider",
+      "callee_component_id": "backend",
+      "service": "review.comments",
+      "method": "summarize",
+      "schema_version": "v1",
+      "required_permissions": ["service.review.comments"]
+    }
+    """#.data(using: .utf8)!
+
+    #expect(throws: DecodingError.self) {
+        _ = try JSONDecoder().decode(AteliaServiceCallRequest.self, from: requestData)
+    }
 }
 
 /// Verifies execution requests encode component ids on canonical keys.
