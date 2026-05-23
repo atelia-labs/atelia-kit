@@ -564,6 +564,10 @@ public struct AteliaSubmitJobToolArgs: Sendable, Codable, Equatable {
         case comparisonPath = "comparison_path"
         case maxBytes = "max_bytes"
         case maxChars = "max_chars"
+        case content
+        case destinationPath = "destination_path"
+        case allowOverwrite = "allow_overwrite"
+        case replacementText = "replacement_text"
     }
 
     /// Search pattern for `filesystem.search` / `fs.search`.
@@ -576,6 +580,14 @@ public struct AteliaSubmitJobToolArgs: Sendable, Codable, Equatable {
     public var maxBytes: UInt64?
     /// Maximum UTF-8 characters for diff output.
     public var maxChars: UInt64?
+    /// UTF-8 content for filesystem write.
+    public var content: String?
+    /// Destination path for filesystem move.
+    public var destinationPath: String?
+    /// Overwrite guard for filesystem write and move.
+    public var allowOverwrite: Bool?
+    /// Replacement text for filesystem patch.
+    public var replacementText: String?
 
     /// Creates tool-specific submit-job arguments.
     public init(
@@ -583,13 +595,21 @@ public struct AteliaSubmitJobToolArgs: Sendable, Codable, Equatable {
         max: UInt64? = nil,
         comparisonPath: String? = nil,
         maxBytes: UInt64? = nil,
-        maxChars: UInt64? = nil
+        maxChars: UInt64? = nil,
+        content: String? = nil,
+        destinationPath: String? = nil,
+        allowOverwrite: Bool? = nil,
+        replacementText: String? = nil
     ) {
         self.pattern = pattern
         self.max = max
         self.comparisonPath = comparisonPath
         self.maxBytes = maxBytes
         self.maxChars = maxChars
+        self.content = content
+        self.destinationPath = destinationPath
+        self.allowOverwrite = allowOverwrite
+        self.replacementText = replacementText
     }
 }
 

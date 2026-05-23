@@ -600,7 +600,11 @@ import Testing
       "max": 10,
       "comparison_path": "right.txt",
       "max_bytes": 4096,
-      "max_chars": 120
+      "max_chars": 120,
+      "content": "hello\nworld\n",
+      "destination_path": "archive/note.txt",
+      "allow_overwrite": true,
+      "replacement_text": "delta"
     }
     """#.data(using: .utf8)!
 
@@ -611,6 +615,10 @@ import Testing
     #expect(decoded.comparisonPath == "right.txt")
     #expect(decoded.maxBytes == 4096)
     #expect(decoded.maxChars == 120)
+    #expect(decoded.content == "hello\nworld\n")
+    #expect(decoded.destinationPath == "archive/note.txt")
+    #expect(decoded.allowOverwrite == true)
+    #expect(decoded.replacementText == "delta")
 
     let encoded = try JSONEncoder().encode(decoded)
     let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
@@ -620,6 +628,10 @@ import Testing
     #expect(object["comparison_path"] as? String == "right.txt")
     #expect(object["max_bytes"] as? Int == 4096)
     #expect(object["max_chars"] as? Int == 120)
+    #expect(object["content"] as? String == "hello\nworld\n")
+    #expect(object["destination_path"] as? String == "archive/note.txt")
+    #expect(object["allow_overwrite"] as? Bool == true)
+    #expect(object["replacement_text"] as? String == "delta")
     #expect(try JSONDecoder().decode(AteliaSubmitJobToolArgs.self, from: encoded) == decoded)
 }
 
@@ -647,6 +659,104 @@ import Testing
     #expect(toolArgs["comparison_path"] as? String == "right.txt")
     #expect(toolArgs["max_bytes"] as? Int == 4096)
     #expect(toolArgs["max_chars"] as? Int == 120)
+    #expect(toolArgs["content"] == nil)
+    #expect(toolArgs["destination_path"] == nil)
+    #expect(toolArgs["allow_overwrite"] == nil)
+    #expect(toolArgs["replacement_text"] == nil)
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
+}
+
+/// Verifies submit-job write tool arguments encode and decode canonical protocol keys.
+@Test func submitJobWriteToolArgsRoundTripCanonicalProtocolJSON() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "tool",
+        pathScope: AteliaPathScope(kind: .explicitPaths, roots: ["notes.md"]),
+        requestedCapabilities: ["filesystem.write"],
+        toolArgs: AteliaSubmitJobToolArgs(
+            maxBytes: 8192,
+            content: "hello\nworld\n",
+            allowOverwrite: false
+        )
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let toolArgs = try #require(object["tool_args"] as? [String: Any])
+
+    #expect(toolArgs["content"] as? String == "hello\nworld\n")
+    #expect(toolArgs["allow_overwrite"] as? Bool == false)
+    #expect(toolArgs["max_bytes"] as? Int == 8192)
+    #expect(toolArgs["pattern"] == nil)
+    #expect(toolArgs["max"] == nil)
+    #expect(toolArgs["comparison_path"] == nil)
+    #expect(toolArgs["max_chars"] == nil)
+    #expect(toolArgs["destination_path"] == nil)
+    #expect(toolArgs["replacement_text"] == nil)
+
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
+}
+
+/// Verifies submit-job patch tool arguments encode and decode canonical protocol keys.
+@Test func submitJobPatchToolArgsRoundTripCanonicalProtocolJSON() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "tool",
+        pathScope: AteliaPathScope(kind: .explicitPaths, roots: ["notes.md"]),
+        requestedCapabilities: ["filesystem.patch"],
+        toolArgs: AteliaSubmitJobToolArgs(
+            pattern: "needle",
+            maxBytes: 1024,
+            replacementText: "delta"
+        )
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let toolArgs = try #require(object["tool_args"] as? [String: Any])
+
+    #expect(toolArgs["pattern"] as? String == "needle")
+    #expect(toolArgs["replacement_text"] as? String == "delta")
+    #expect(toolArgs["max_bytes"] as? Int == 1024)
+    #expect(toolArgs["content"] == nil)
+    #expect(toolArgs["comparison_path"] == nil)
+    #expect(toolArgs["max_chars"] == nil)
+    #expect(toolArgs["destination_path"] == nil)
+    #expect(toolArgs["allow_overwrite"] == nil)
+
+    #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
+}
+
+/// Verifies submit-job move tool arguments encode and decode canonical protocol keys.
+@Test func submitJobMoveToolArgsRoundTripCanonicalProtocolJSON() throws {
+    let request = AteliaSubmitJobRequest(
+        repositoryId: "repo_123",
+        requester: .user(id: "user_123", displayName: "Ada"),
+        kind: "tool",
+        pathScope: AteliaPathScope(kind: .explicitPaths, roots: ["notes.md"]),
+        requestedCapabilities: ["filesystem.move"],
+        toolArgs: AteliaSubmitJobToolArgs(
+            destinationPath: "archive/note.txt",
+            allowOverwrite: true
+        )
+    )
+
+    let data = try JSONEncoder().encode(request)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let toolArgs = try #require(object["tool_args"] as? [String: Any])
+
+    #expect(toolArgs["destination_path"] as? String == "archive/note.txt")
+    #expect(toolArgs["allow_overwrite"] as? Bool == true)
+    #expect(toolArgs["pattern"] == nil)
+    #expect(toolArgs["max"] == nil)
+    #expect(toolArgs["comparison_path"] == nil)
+    #expect(toolArgs["max_bytes"] == nil)
+    #expect(toolArgs["max_chars"] == nil)
+    #expect(toolArgs["content"] == nil)
+    #expect(toolArgs["replacement_text"] == nil)
+
     #expect(try JSONDecoder().decode(AteliaSubmitJobRequest.self, from: data) == request)
 }
 
