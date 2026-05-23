@@ -53,7 +53,7 @@ replaceable.
 | package lifecycle | `AteliaPackageLifecycleRequest`, `AteliaPackageLifecycleResponse`, `AteliaPackageStatus` | `manifest`, `id`, `record`, `extension_id`, `extension`, `extensions`, `previous_version` |
 | package authoring | `AteliaPackageAuthoringFlow`, `AteliaPackagePublicationPlan`, `AteliaPackageRegistrySubmissionState` | `package_id`, `source_class`, `source`, `steps`, `publication_plan`, `state` |
 | package rollback | `AteliaPackageRollbackResponse`, `AteliaPackageRollbackRecord` | `id`, `version`, `previous_version`, `status`, `rollback_snapshot` |
-| beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `aep_package_id`, `aep_component_id`, `supported_result_formats` |
+| beta repertoire projection | `AteliaToolRepertoireEntry` | `tool_id`, `name`, `provider_kind`, `aep_source_class`, `aep_package_id`, `aep_component_id`, `supported_result_formats` |
 | tool output rendering | `AteliaToolOutputRenderRequest`, `AteliaToolOutputRenderResponse` | `tool_result`, `format`, `rendered_output`, `rendered_output_metadata`, `truncation` |
 
 Project status uses a flat `latest_cursor` (`sequence`, `event_id`) from the RPC EventCursor path.
