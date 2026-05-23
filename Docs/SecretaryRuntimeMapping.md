@@ -45,7 +45,7 @@ replaceable.
 | review queue item | `AteliaReviewQueueItem` | `id`, `kind`, `title`, `repository_id`, `job_id`, `policy_decision_id`, `priority` |
 | event cursor (routes) | `AteliaEventRouteCursor` | `kind` + `sequence_number` / `event_id` |
 | project status | `AteliaProjectStatus` | `metadata`, `repository`, `recent_jobs`, `recent_policy_decisions`, `latest_cursor: { sequence, event_id }`, `daemon_status`, `storage_status` |
-| package inspect | `AteliaPackageInspect`, `AteliaPackageServices`, `AteliaPackageServiceDependency` | `package_id`, `extension`, `manifest`, `permissions`, `services`, `services.provides[].required_permissions`, `services.consumes[].grants` |
+| package inspect | `AteliaPackageInspect`, `AteliaPackageServices`, `AteliaPackageServiceDependency` | `package_id`, `extension`, `manifest`, `permissions`, `services`, `services.provides[].required_permissions`, `services.consumes[].package`, `services.consumes[].component`, `services.consumes[].grants` |
 | package trust index | `AteliaPackageTrustIndexResponse`, `AteliaPackageTrustIndexEntry` | `metadata`, `packages`, `package_id`, `status`, `boundary` |
 | service broker authorization | `AteliaAuthorizeServiceCallRequest`, `AteliaAuthorizeServiceCallResponse`, `AteliaServiceCallGrant` | `caller_package_id`, `caller_component_id`(optional), `callee_package_id`, `callee_component_id`(optional), `service`, `method`, `schema_version`, `required_permissions`, `grant` |
 | service broker live call | `AteliaServiceCallRequest`, `AteliaServiceCallResponse`, `AteliaServiceCallExecutionResult`, `AteliaServiceCallGrant` | `caller_package_id`, `caller_component_id`(optional), `callee_package_id`, `callee_component_id`(optional), `service`, `method`, `schema_version`, `required_permissions`, `metadata`, `grant`, `result`, (`status`, `outcome`, `reason`, `reason_code`) |
@@ -64,6 +64,8 @@ Event listing / replay routes use tagged `cursor` envelopes through `AteliaEvent
 Kit, and decode compatibility accepts legacy `services.provides[].required_permission`.
 Service broker model keys are canonicalized to package/component IDs, while decoding
 keeps compatibility with legacy `*_extension_id` request and response keys.
+Package inspect consume entries also use canonical `services.consumes[].package` plus
+optional `services.consumes[].component` and decode legacy `services.consumes[].extension_id`.
 
 The third column is a representative drift guard, not an exhaustive schema
 listing. It includes envelope keys such as `metadata`, collection keys such as

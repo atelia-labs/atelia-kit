@@ -1280,7 +1280,8 @@ import Testing
         ],
         "consumes": [
           {
-            "extension_id": "com.example.provider",
+            "package": "com.example.provider",
+            "component": "backend",
             "service": "context.graph",
             "method": "query",
             "schema_version": "v1",
@@ -1317,7 +1318,8 @@ import Testing
     #expect(decoded.permissions == ["service.review.comments"])
     #expect(decoded.services.provides[0].requiredPermissions == ["service.review.comments"])
     #expect(decoded.services.provides.map(\.service) == ["review.comments"])
-    #expect(decoded.services.consumes.map(\.extensionId) == ["com.example.provider"])
+    #expect(decoded.services.consumes.map(\.packageId) == ["com.example.provider"])
+    #expect(decoded.services.consumes.map(\.componentId) == ["backend"])
     #expect(decoded.services.consumes.map(\.grants) == [["service.context.graph"]])
     #expect(decoded.rollbackAvailable)
     #expect(
@@ -1326,7 +1328,34 @@ import Testing
     )
     #expect(decoded.source.repository == "atelia-labs/review-package")
     #expect(decoded.trust?.registrySubmission == .accepted)
+}
 
+/// Verifies package dependency service entries encode canonical package/component keys.
+@Test func packageDependencyServiceEncodesCanonicalPackageComponentKeys() throws {
+    let dependency = AteliaPackageServiceDependency(
+        packageId: "com.example.provider",
+        componentId: "backend",
+        service: "context.graph",
+        method: "query",
+        schemaVersion: "v1",
+        grants: ["service.context.graph"]
+    )
+
+    let data = try JSONEncoder().encode(dependency)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+    #expect(object["package"] as? String == "com.example.provider")
+    #expect(object["component"] as? String == "backend")
+    #expect(object["service"] as? String == "context.graph")
+    #expect(object["method"] as? String == "query")
+    #expect(object["schema_version"] as? String == "v1")
+    #expect(object["grants"] as? [String] == ["service.context.graph"])
+    #expect(object["extension_id"] == nil)
+    #expect(object["required_permission"] == nil)
+}
+
+/// Verifies package inspect responses fall back package ID from legacy envelope keys.
+@Test func packageInspectResponseFallsBackPackageIdFromLegacyIdentifier() throws {
     let legacyData = #"""
     {
       "metadata": {
@@ -1397,6 +1426,8 @@ import Testing
     let decoded = try JSONDecoder().decode(AteliaPackageInspectResponse.self, from: legacyDependencyData)
 
     #expect(decoded.services.consumes.count == 1)
+    #expect(decoded.services.consumes[0].packageId == "com.example.provider")
+    #expect(decoded.services.consumes[0].componentId == nil)
     #expect(decoded.services.consumes[0].grants == ["service.context.graph"])
 }
 
