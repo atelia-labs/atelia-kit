@@ -206,6 +206,64 @@ import Testing
     #expect(grant.requiredPermission == "service.review.comments")
 }
 
+/// Verifies component ids are sent on canonical keys for authorization requests.
+@Test func httpClientAuthorizesServiceCallWithComponentIds() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/services/authorize")
+        #expect(request.httpMethod == "POST")
+        let body = try #require(request.httpBody)
+        let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(object["caller_package_id"] as? String == "com.example.consumer")
+        #expect(object["caller_component_id"] as? String == "frontend")
+        #expect(object["callee_package_id"] as? String == "com.example.provider")
+        #expect(object["callee_component_id"] as? String == "backend")
+        #expect(object["caller_extension_id"] == nil)
+        #expect(object["callee_extension_id"] == nil)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["services.v1"]
+            },
+            "grant": {
+              "caller_package_id": "com.example.consumer",
+              "caller_version": "2.0.0",
+              "callee_package_id": "com.example.provider",
+              "callee_version": "1.2.0",
+              "service": "review.comments",
+              "method": "summarize",
+              "schema_version": "v1",
+              "required_permission": "service.review.comments"
+            }
+          }
+        }
+        """#
+    })
+
+    let grant = try await client.authorizeServiceCall(
+        for: AteliaSession(),
+        request: AteliaAuthorizeServiceCallRequest(
+            callerPackageId: "com.example.consumer",
+            callerComponentId: "frontend",
+            calleePackageId: "com.example.provider",
+            calleeComponentId: "backend",
+            service: "review.comments",
+            method: "summarize",
+            schemaVersion: "v1",
+            requiredPermission: "service.review.comments"
+        )
+    )
+
+    #expect(grant.callerVersion == "2.0.0")
+    #expect(grant.calleeVersion == "1.2.0")
+    #expect(grant.requiredPermission == "service.review.comments")
+}
+
 /// Verifies the HTTP client calls the live service broker execution endpoint.
 @Test func httpClientCallsService() async throws {
     let client = HTTPAteliaClient(transport: .fixture { request in
@@ -282,6 +340,71 @@ import Testing
         )
     )
     #expect(result == response.result)
+}
+
+/// Verifies component ids are sent on canonical keys for live service calls.
+@Test func httpClientCallsServiceWithComponentIds() async throws {
+    let client = HTTPAteliaClient(transport: .fixture { request in
+        #expect(request.url?.path == "/v1/services/call")
+        #expect(request.httpMethod == "POST")
+        let body = try #require(request.httpBody)
+        let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(object["caller_package_id"] as? String == "com.example.consumer")
+        #expect(object["caller_component_id"] as? String == "frontend")
+        #expect(object["callee_package_id"] as? String == "com.example.provider")
+        #expect(object["callee_component_id"] as? String == "backend")
+        #expect(object["caller_extension_id"] == nil)
+        #expect(object["callee_extension_id"] == nil)
+
+        return #"""
+        {
+          "status": "ok",
+          "data": {
+            "metadata": {
+              "protocol_version": "1.0.0",
+              "daemon_version": "0.1.0",
+              "storage_version": "0.1.0",
+              "capabilities": ["services.v1"]
+            },
+            "grant": {
+              "caller_package_id": "com.example.consumer",
+              "caller_version": "2.0.0",
+              "callee_package_id": "com.example.provider",
+              "callee_version": "1.2.0",
+              "service": "review.comments",
+              "method": "summarize",
+              "schema_version": "v1",
+              "required_permission": "service.review.comments"
+            },
+            "result": {
+              "status": "unavailable",
+              "outcome": "unavailable",
+              "reason": "no executor is configured for this service",
+              "reason_code": "no_executor"
+            }
+          }
+        }
+        """#
+    })
+
+    let response = try await client.callServiceResponse(
+        for: AteliaSession(),
+        request: AteliaServiceCallRequest(
+            callerPackageId: "com.example.consumer",
+            callerComponentId: "frontend",
+            calleePackageId: "com.example.provider",
+            calleeComponentId: "backend",
+            service: "review.comments",
+            method: "summarize",
+            schemaVersion: "v1",
+            requiredPermission: "service.review.comments"
+        )
+    )
+
+    #expect(response.result.status == "unavailable")
+    #expect(response.result.outcome == "unavailable")
+    #expect(response.result.reason == "no executor is configured for this service")
+    #expect(response.result.reasonCode == "no_executor")
 }
 
 /// Verifies the HTTP client calls the package trust index endpoint with the beta transport shape.
