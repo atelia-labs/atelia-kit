@@ -364,7 +364,7 @@ public struct AteliaPackageServiceDependency: Sendable, Codable, Equatable {
         self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
 
         if container.contains(.grants) {
-            self.grants = try container.decode([String].self, forKey: .grants)
+            self.grants = try container.decodeIfPresent([String].self, forKey: .grants) ?? []
         } else {
             self.grants = try container.decodeIfPresent(String.self, forKey: .requiredPermission).map { [$0] } ?? []
         }

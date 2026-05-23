@@ -1374,6 +1374,26 @@ import Testing
     #expect(decoded.grants == [])
 }
 
+/// Verifies canonical null dependency grants fallback to an empty array and do not use legacy grants.
+@Test func packageDependencyGrantsDecodingNullCanonicalValuesTreatedAsEmpty() throws {
+    let dependencyData = #"""
+    {
+      "package": "com.example.provider",
+      "service": "context.graph",
+      "method": "query",
+      "schema_version": "v1",
+      "grants": null,
+      "required_permission": "service.context.graph"
+    }
+    """#.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode(AteliaPackageServiceDependency.self, from: dependencyData)
+
+    #expect(decoded.packageId == "com.example.provider")
+    #expect(decoded.service == "context.graph")
+    #expect(decoded.grants == [])
+}
+
 /// Verifies package inspect responses fall back package ID from legacy envelope keys.
 @Test func packageInspectResponseFallsBackPackageIdFromLegacyIdentifier() throws {
     let legacyData = #"""
