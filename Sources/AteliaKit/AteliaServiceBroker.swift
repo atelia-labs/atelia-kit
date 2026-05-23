@@ -12,6 +12,7 @@ public struct AteliaAuthorizeServiceCallRequest: Sendable, Codable, Equatable {
         case service
         case method
         case schemaVersion = "schema_version"
+        case requiredPermissions = "required_permissions"
         case requiredPermission = "required_permission"
     }
 
@@ -22,7 +23,9 @@ public struct AteliaAuthorizeServiceCallRequest: Sendable, Codable, Equatable {
     public var service: String
     public var method: String
     public var schemaVersion: String
-    public var requiredPermission: String?
+    /// Canonical wire key is `required_permissions` (array). A singular
+    /// `required_permission` is accepted for backward compatibility.
+    public var requiredPermissions: [String]
 
     public init(
         callerPackageId: String,
@@ -32,7 +35,7 @@ public struct AteliaAuthorizeServiceCallRequest: Sendable, Codable, Equatable {
         service: String,
         method: String,
         schemaVersion: String,
-        requiredPermission: String? = nil
+        requiredPermissions: [String] = []
     ) {
         self.callerPackageId = callerPackageId
         self.callerComponentId = callerComponentId
@@ -41,7 +44,7 @@ public struct AteliaAuthorizeServiceCallRequest: Sendable, Codable, Equatable {
         self.service = service
         self.method = method
         self.schemaVersion = schemaVersion
-        self.requiredPermission = requiredPermission
+        self.requiredPermissions = requiredPermissions
     }
 
     public init(from decoder: Decoder) throws {
@@ -57,7 +60,12 @@ public struct AteliaAuthorizeServiceCallRequest: Sendable, Codable, Equatable {
         self.service = try container.decode(String.self, forKey: .service)
         self.method = try container.decode(String.self, forKey: .method)
         self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
-        self.requiredPermission = try container.decodeIfPresent(String.self, forKey: .requiredPermission)
+        if container.contains(.requiredPermissions) {
+            self.requiredPermissions = try container.decode([String].self, forKey: .requiredPermissions)
+        } else {
+            self.requiredPermissions = try container.decodeIfPresent(String.self, forKey: .requiredPermission)
+                .map { [$0] } ?? []
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -69,7 +77,7 @@ public struct AteliaAuthorizeServiceCallRequest: Sendable, Codable, Equatable {
         try container.encode(service, forKey: .service)
         try container.encode(method, forKey: .method)
         try container.encode(schemaVersion, forKey: .schemaVersion)
-        try container.encodeIfPresent(requiredPermission, forKey: .requiredPermission)
+        try container.encode(requiredPermissions, forKey: .requiredPermissions)
     }
 }
 
@@ -87,6 +95,7 @@ public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
         case service
         case method
         case schemaVersion = "schema_version"
+        case requiredPermissions = "required_permissions"
         case requiredPermission = "required_permission"
     }
 
@@ -99,7 +108,9 @@ public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
     public var service: String
     public var method: String
     public var schemaVersion: String
-    public var requiredPermission: String
+    /// Canonical wire key is `required_permissions` (array). A singular
+    /// `required_permission` is accepted for backward compatibility.
+    public var requiredPermissions: [String]
 
     public init(
         callerPackageId: String,
@@ -111,7 +122,7 @@ public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
         service: String,
         method: String,
         schemaVersion: String,
-        requiredPermission: String
+        requiredPermissions: [String] = []
     ) {
         self.callerPackageId = callerPackageId
         self.callerComponentId = callerComponentId
@@ -122,7 +133,7 @@ public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
         self.service = service
         self.method = method
         self.schemaVersion = schemaVersion
-        self.requiredPermission = requiredPermission
+        self.requiredPermissions = requiredPermissions
     }
 
     public init(from decoder: Decoder) throws {
@@ -140,7 +151,12 @@ public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
         self.service = try container.decode(String.self, forKey: .service)
         self.method = try container.decode(String.self, forKey: .method)
         self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
-        self.requiredPermission = try container.decode(String.self, forKey: .requiredPermission)
+        if container.contains(.requiredPermissions) {
+            self.requiredPermissions = try container.decode([String].self, forKey: .requiredPermissions)
+        } else {
+            self.requiredPermissions = try container.decodeIfPresent(String.self, forKey: .requiredPermission)
+                .map { [$0] } ?? []
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -154,7 +170,7 @@ public struct AteliaServiceCallGrant: Sendable, Codable, Equatable {
         try container.encode(service, forKey: .service)
         try container.encode(method, forKey: .method)
         try container.encode(schemaVersion, forKey: .schemaVersion)
-        try container.encode(requiredPermission, forKey: .requiredPermission)
+        try container.encode(requiredPermissions, forKey: .requiredPermissions)
     }
 }
 
@@ -184,6 +200,7 @@ public struct AteliaServiceCallRequest: Sendable, Codable, Equatable {
         case service
         case method
         case schemaVersion = "schema_version"
+        case requiredPermissions = "required_permissions"
         case requiredPermission = "required_permission"
     }
 
@@ -194,7 +211,9 @@ public struct AteliaServiceCallRequest: Sendable, Codable, Equatable {
     public var service: String
     public var method: String
     public var schemaVersion: String
-    public var requiredPermission: String?
+    /// Canonical wire key is `required_permissions` (array). A singular
+    /// `required_permission` is accepted for backward compatibility.
+    public var requiredPermissions: [String]
 
     public init(
         callerPackageId: String,
@@ -204,7 +223,7 @@ public struct AteliaServiceCallRequest: Sendable, Codable, Equatable {
         service: String,
         method: String,
         schemaVersion: String,
-        requiredPermission: String? = nil
+        requiredPermissions: [String] = []
     ) {
         self.callerPackageId = callerPackageId
         self.callerComponentId = callerComponentId
@@ -213,7 +232,7 @@ public struct AteliaServiceCallRequest: Sendable, Codable, Equatable {
         self.service = service
         self.method = method
         self.schemaVersion = schemaVersion
-        self.requiredPermission = requiredPermission
+        self.requiredPermissions = requiredPermissions
     }
 
     public init(from decoder: Decoder) throws {
@@ -229,7 +248,12 @@ public struct AteliaServiceCallRequest: Sendable, Codable, Equatable {
         self.service = try container.decode(String.self, forKey: .service)
         self.method = try container.decode(String.self, forKey: .method)
         self.schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
-        self.requiredPermission = try container.decodeIfPresent(String.self, forKey: .requiredPermission)
+        if container.contains(.requiredPermissions) {
+            self.requiredPermissions = try container.decode([String].self, forKey: .requiredPermissions)
+        } else {
+            self.requiredPermissions = try container.decodeIfPresent(String.self, forKey: .requiredPermission)
+                .map { [$0] } ?? []
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -241,7 +265,7 @@ public struct AteliaServiceCallRequest: Sendable, Codable, Equatable {
         try container.encode(service, forKey: .service)
         try container.encode(method, forKey: .method)
         try container.encode(schemaVersion, forKey: .schemaVersion)
-        try container.encodeIfPresent(requiredPermission, forKey: .requiredPermission)
+        try container.encode(requiredPermissions, forKey: .requiredPermissions)
     }
 }
 

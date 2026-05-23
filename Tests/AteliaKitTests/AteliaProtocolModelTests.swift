@@ -1974,7 +1974,7 @@ import Testing
         service: "review.comments",
         method: "summarize",
         schemaVersion: "v1",
-        requiredPermission: "service.review.comments"
+        requiredPermissions: ["service.review.comments", "service.context.graph"]
     )
 
     let requestData = try JSONEncoder().encode(request)
@@ -1984,7 +1984,8 @@ import Testing
     #expect(requestObject["caller_extension_id"] == nil)
     #expect(requestObject["callee_extension_id"] == nil)
     #expect(requestObject["schema_version"] as? String == "v1")
-    #expect(requestObject["required_permission"] as? String == "service.review.comments")
+    #expect(requestObject["required_permissions"] as? [String] == ["service.review.comments", "service.context.graph"])
+    #expect(requestObject["required_permission"] == nil)
 
     let responseData = #"""
     {
@@ -2002,7 +2003,7 @@ import Testing
         "service": "review.comments",
         "method": "summarize",
         "schema_version": "v1",
-        "required_permission": "service.review.comments"
+        "required_permissions": ["service.review.comments", "service.context.graph"]
       }
     }
     """#.data(using: .utf8)!
@@ -2013,7 +2014,7 @@ import Testing
     #expect(decoded.grant.callerVersion == "2.0.0")
     #expect(decoded.grant.calleePackageId == "com.example.provider")
     #expect(decoded.grant.calleeVersion == "1.2.0")
-    #expect(decoded.grant.requiredPermission == "service.review.comments")
+    #expect(decoded.grant.requiredPermissions == ["service.review.comments", "service.context.graph"])
 }
 
 /// Verifies service authorization models encode component ids on canonical keys.
@@ -2026,7 +2027,7 @@ import Testing
         service: "review.comments",
         method: "summarize",
         schemaVersion: "v1",
-        requiredPermission: "service.review.comments"
+        requiredPermissions: ["service.review.comments"]
     )
 
     let requestData = try JSONEncoder().encode(request)
@@ -2049,7 +2050,7 @@ import Testing
       "service": "review.comments",
       "method": "summarize",
       "schema_version": "v1",
-      "required_permission": "service.review.comments"
+      "required_permissions": ["service.review.comments"]
     }
     """#.data(using: .utf8)!
 
@@ -2058,6 +2059,7 @@ import Testing
     #expect(grant.callerComponentId == "frontend")
     #expect(grant.calleePackageId == "com.example.provider")
     #expect(grant.calleeComponentId == "backend")
+    #expect(grant.requiredPermissions == ["service.review.comments"])
 }
 
 /// Verifies legacy service authorization JSON using extension ids decodes into package ids.
@@ -2069,13 +2071,15 @@ import Testing
       "service": "review.comments",
       "method": "summarize",
       "schema_version": "v1",
-      "required_permission": "service.review.comments"
+      "required_permissions": ["service.review.comments"],
+      "required_permission": "legacy.permission"
     }
     """#.data(using: .utf8)!
 
     let request = try JSONDecoder().decode(AteliaAuthorizeServiceCallRequest.self, from: requestData)
     #expect(request.callerPackageId == "com.example.consumer")
     #expect(request.calleePackageId == "com.example.provider")
+    #expect(request.requiredPermissions == ["service.review.comments"])
 
     let grantData = #"""
     {
@@ -2086,13 +2090,15 @@ import Testing
       "service": "review.comments",
       "method": "summarize",
       "schema_version": "v1",
-      "required_permission": "service.review.comments"
+      "required_permissions": ["service.review.comments"],
+      "required_permission": "legacy.permission"
     }
     """#.data(using: .utf8)!
 
     let grant = try JSONDecoder().decode(AteliaServiceCallGrant.self, from: grantData)
     #expect(grant.callerPackageId == "com.example.consumer")
     #expect(grant.calleePackageId == "com.example.provider")
+    #expect(grant.requiredPermissions == ["service.review.comments"])
 }
 
 /// Verifies canonical and legacy keys do not conflict during authorization decode.
@@ -2108,6 +2114,7 @@ import Testing
       "service": "review.comments",
       "method": "summarize",
       "schema_version": "v1",
+      "required_permissions": ["service.review.comments"],
       "required_permission": "service.review.comments"
     }
     """#.data(using: .utf8)!
@@ -2115,6 +2122,7 @@ import Testing
     let request = try JSONDecoder().decode(AteliaAuthorizeServiceCallRequest.self, from: requestData)
     #expect(request.callerPackageId == "com.example.consumer")
     #expect(request.calleePackageId == "com.example.provider")
+    #expect(request.requiredPermissions == ["service.review.comments"])
 
     let grantData = #"""
     {
@@ -2129,6 +2137,7 @@ import Testing
       "service": "review.comments",
       "method": "summarize",
       "schema_version": "v1",
+      "required_permissions": ["service.review.comments"],
       "required_permission": "service.review.comments"
     }
     """#.data(using: .utf8)!
@@ -2138,6 +2147,7 @@ import Testing
     #expect(grant.calleePackageId == "com.example.provider")
     #expect(grant.callerComponentId == "frontend")
     #expect(grant.calleeComponentId == "backend")
+    #expect(grant.requiredPermissions == ["service.review.comments"])
 }
 
 /// Verifies service broker execution models use the new live call keys.
@@ -2148,7 +2158,7 @@ import Testing
         service: "review.comments",
         method: "summarize",
         schemaVersion: "v1",
-        requiredPermission: "service.review.comments"
+        requiredPermissions: ["service.review.comments", "service.context.graph"]
     )
 
     let requestData = try JSONEncoder().encode(request)
@@ -2160,7 +2170,8 @@ import Testing
     #expect(requestObject["service"] as? String == "review.comments")
     #expect(requestObject["method"] as? String == "summarize")
     #expect(requestObject["schema_version"] as? String == "v1")
-    #expect(requestObject["required_permission"] as? String == "service.review.comments")
+    #expect(requestObject["required_permissions"] as? [String] == ["service.review.comments", "service.context.graph"])
+    #expect(requestObject["required_permission"] == nil)
 
     let responseData = #"""
     {
@@ -2178,7 +2189,7 @@ import Testing
         "service": "review.comments",
         "method": "summarize",
         "schema_version": "v1",
-        "required_permission": "service.review.comments"
+        "required_permissions": ["service.review.comments", "service.context.graph"]
       },
       "result": {
         "status": "unavailable",
@@ -2208,7 +2219,7 @@ import Testing
         service: "review.comments",
         method: "summarize",
         schemaVersion: "v1",
-        requiredPermission: "service.review.comments"
+        requiredPermissions: ["service.review.comments"]
     )
 
     let requestData = try JSONEncoder().encode(request)
@@ -2237,6 +2248,52 @@ import Testing
     let request = try JSONDecoder().decode(AteliaServiceCallRequest.self, from: requestData)
     #expect(request.callerPackageId == "com.example.consumer")
     #expect(request.calleePackageId == "com.example.provider")
+    #expect(request.requiredPermissions == ["service.review.comments"])
+}
+
+/// Verifies empty required permissions round-trip as an explicit canonical array.
+@Test func serviceBrokerExecutionModelsRoundTripWithEmptyRequiredPermissions() throws {
+    let request = AteliaServiceCallRequest(
+        callerPackageId: "com.example.consumer",
+        calleePackageId: "com.example.provider",
+        service: "review.comments",
+        method: "summarize",
+        schemaVersion: "v1"
+    )
+
+    let requestData = try JSONEncoder().encode(request)
+    let requestObject = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+    #expect(requestObject["required_permissions"] as? [String] == [])
+
+    let responseData = #"""
+    {
+      "metadata": {
+        "protocol_version": "1.0.0",
+        "daemon_version": "0.1.0",
+        "storage_version": "0.1.0",
+        "capabilities": ["services.v1"]
+      },
+      "grant": {
+        "caller_package_id": "com.example.consumer",
+        "caller_version": "2.0.0",
+        "callee_package_id": "com.example.provider",
+        "callee_version": "1.2.0",
+        "service": "review.comments",
+        "method": "summarize",
+        "schema_version": "v1",
+        "required_permissions": []
+      },
+      "result": {
+        "status": "unavailable",
+        "outcome": "unavailable",
+        "reason": "no executor is configured for this service",
+        "reason_code": "no_executor"
+      }
+    }
+    """#.data(using: .utf8)!
+
+    let response = try JSONDecoder().decode(AteliaServiceCallResponse.self, from: responseData)
+    #expect(response.grant.requiredPermissions == [])
 }
 
 /// Verifies live execution result round-trips through JSON keys.
